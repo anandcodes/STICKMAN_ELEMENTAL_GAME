@@ -68,6 +68,9 @@ export interface Stickman {
   health: number; maxHealth: number;
   mana: number; maxMana: number;
   invincibleTimer: number;
+  dashCooldown: number;
+  dashTimer: number;
+  isDashing: boolean;
 }
 
 export interface LevelDef {
@@ -182,4 +185,5 @@ export interface GameState {
   onIce: boolean; // IMP-10: currently standing on ice
   tutorialHints: TutorialHint[];
   redFlash: number; // frames for damage flash
+  pauseSelection: number; // 0=Resume, 1=Restart, 2=Quit
 }

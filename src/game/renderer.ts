@@ -201,24 +201,57 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     drawLevelIntro(ctx, state, W, H);
   }
 
-  // IMP-1: Pause overlay
+  // IMP-1: Pause overlay with full menu
   if (state.paused) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, W, H);
 
+    // Title
+    ctx.save();
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 48px monospace';
+    ctx.font = 'bold 44px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⏸ PAUSED', W / 2, H / 2 - 20);
+    ctx.fillText('⏸ PAUSED', W / 2, H / 2 - 110);
+    ctx.restore();
 
-    ctx.fillStyle = '#aaaaaa';
-    ctx.font = '14px monospace';
-    ctx.fillText('Press ESC or tap to resume', W / 2, H / 2 + 30);
+    // Menu options
+    const options = ['▶ Resume', '🔄 Restart Level', '🏠 Quit to Menu'];
+    const optionColors = ['#44ff44', '#ffcc00', '#ff4444'];
+    for (let i = 0; i < options.length; i++) {
+      const y = H / 2 - 30 + i * 55;
+      const selected = state.pauseSelection === i;
 
-    ctx.fillStyle = '#666666';
+      // Background
+      ctx.fillStyle = selected ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.3)';
+      roundRect(ctx, W / 2 - 160, y - 18, 320, 42, 10);
+      ctx.fill();
+
+      if (selected) {
+        ctx.save();
+        ctx.strokeStyle = optionColors[i]; ctx.lineWidth = 2;
+        ctx.shadowColor = optionColors[i]; ctx.shadowBlur = 10;
+        roundRect(ctx, W / 2 - 160, y - 18, 320, 42, 10);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.fillStyle = selected ? optionColors[i] : '#888';
+      ctx.font = selected ? 'bold 20px monospace' : '18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(options[i], W / 2, y + 8);
+    }
+
+    // Stats footer
+    ctx.fillStyle = '#555';
     ctx.font = '11px monospace';
-    ctx.fillText(`Score: ${state.score}  |  Level ${state.currentLevel + 1}  |  High Score: ${state.highScore}`, W / 2, H / 2 + 60);
+    ctx.fillText(`Score: ${state.score}  |  Level ${state.currentLevel + 1}  |  Best: ${state.highScore}  |  Kills: ${state.enemiesDefeated}`, W / 2, H / 2 + 155);
+
+    // Controls hint
+    ctx.fillStyle = '#444';
+    ctx.font = '10px monospace';
+    ctx.fillText(isMobile ? 'Tap options to select' : 'W/S or ↑/↓: Navigate  |  Enter: Select  |  ESC: Resume', W / 2, H / 2 + 180);
   }
 
   ctx.restore();
@@ -757,6 +790,25 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
+  // DASH AFTERIMAGE TRAIL
+  if (s.isDashing) {
+    for (let i = 3; i > 0; i--) {
+      const alpha = 0.15 * (4 - i);
+      const trailX = cx - s.facing * i * 12;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = ELEMENT_COLORS[state.selectedElement];
+      ctx.lineWidth = 2;
+      // Ghost body
+      ctx.beginPath(); ctx.arc(trailX, headY, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(trailX, bodyTop); ctx.lineTo(trailX, bodyBot); ctx.stroke();
+      // Ghost legs
+      ctx.beginPath(); ctx.moveTo(trailX, bodyBot); ctx.lineTo(trailX - 8, s.y + s.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(trailX, bodyBot); ctx.lineTo(trailX + 8, s.y + s.height); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+  }
+
   // Head
   ctx.fillStyle = '#ffffff';
   ctx.beginPath(); ctx.arc(cx, headY, 8, 0, Math.PI * 2); ctx.fill();
@@ -952,6 +1004,67 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.font = '10px monospace'; ctx.textAlign = 'center';
   ctx.fillText(`${ELEMENT_NAMES[state.selectedElement]} selected  |  ${state.elementHint}`, W / 2, _H - 15);
+
+  // DASH COOLDOWN INDICATOR
+  const dashReady = s.dashCooldown <= 0;
+  const dashX = W / 2 + 180;
+  const dashY = _H - 40;
+  const dashRadius = 14;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius + 3, 0, Math.PI * 2); ctx.fill();
+
+  if (dashReady) {
+    ctx.fillStyle = '#44ff44';
+    ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('DASH', dashX, dashY + 3);
+  } else {
+    const pct = 1 - (s.dashCooldown / 90);
+    ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#666';
+    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('DASH', dashX, dashY + 3);
+  }
+
+  // Label
+  ctx.fillStyle = '#888'; ctx.font = '7px monospace';
+  ctx.fillText('[SHIFT]', dashX, dashY + dashRadius + 10);
+
+  // LEVEL PROGRESS BAR (Campaign only)
+  if (state.endlessWave === undefined) {
+    const barW = W - 40;
+    const barH = 4;
+    const barX = 20;
+    const barY = _H - 6;
+
+    // Find portal position
+    let portalX = state.worldWidth;
+    for (const obj of state.envObjects) {
+      if (obj.type === 'portal') { portalX = obj.x; break; }
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(barX, barY, barW, barH);
+
+    // Fill to player position
+    const playerPct = Math.min(1, (s.x / state.worldWidth));
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(barX, barY, barW * playerPct, barH);
+
+    // Portal marker
+    const portalPct = portalX / state.worldWidth;
+    const portalMarkerX = barX + barW * portalPct;
+    ctx.fillStyle = state.portalOpen ? '#aa44ff' : '#553377';
+    ctx.fillRect(portalMarkerX - 2, barY - 2, 4, barH + 4);
+
+    // Player dot
+    const playerMarkerX = barX + barW * playerPct;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(playerMarkerX, barY + barH / 2, 3, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {

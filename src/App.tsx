@@ -115,10 +115,40 @@ function App() {
         return;
       }
 
-      // If paused, only allow unpause
+      // If paused, handle pause menu navigation
       if (s.paused) {
-        if (key === 'Enter' || key === ' ') {
-          s.paused = false;
+        if (keyLower === 'w' || key === 'ArrowUp') {
+          s.pauseSelection = Math.max(0, s.pauseSelection - 1);
+          Audio.playMenuSelect();
+          e.preventDefault();
+        } else if (keyLower === 's' || key === 'ArrowDown') {
+          s.pauseSelection = Math.min(2, s.pauseSelection + 1);
+          Audio.playMenuSelect();
+          e.preventDefault();
+        } else if (key === 'Enter' || key === ' ') {
+          if (s.pauseSelection === 0) {
+            // Resume
+            s.paused = false;
+            Audio.playUnpause();
+          } else if (s.pauseSelection === 1) {
+            // Restart Level
+            const saved = loadSave();
+            const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
+            newState.screen = 'playing';
+            newState.showLevelIntro = true;
+            newState.levelIntroTimer = 180;
+            stateRef.current = newState;
+            Audio.playMenuSelect();
+            Audio.startMusic(s.currentLevel);
+          } else if (s.pauseSelection === 2) {
+            // Quit to Menu
+            const saved = loadSave();
+            const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
+            newState.screen = 'menu';
+            stateRef.current = newState;
+            Audio.playMenuSelect();
+            Audio.stopMusic();
+          }
           e.preventDefault();
         }
         return;
@@ -401,10 +431,46 @@ function App() {
         return;
       }
 
-      // Tap to unpause on mobile
+      // Mobile pause menu touch handling
       if (s.paused) {
-        s.paused = false;
-        return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_W / rect.width;
+        const scaleY = CANVAS_H / rect.height;
+        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
+        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+
+        // Check each pause menu option (matches renderer layout: y = H/2 - 30 + i * 55)
+        for (let i = 0; i < 3; i++) {
+          const optionY = CANVAS_H / 2 - 30 + i * 55;
+          if (tx > CANVAS_W / 2 - 160 && tx < CANVAS_W / 2 + 160 &&
+            ty > optionY - 18 && ty < optionY + 24) {
+            if (i === 0) {
+              // Resume
+              s.paused = false;
+              Audio.playUnpause();
+            } else if (i === 1) {
+              // Restart Level
+              const saved = loadSave();
+              const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
+              newState.screen = 'playing';
+              newState.showLevelIntro = true;
+              newState.levelIntroTimer = 180;
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.startMusic(s.currentLevel);
+            } else if (i === 2) {
+              // Quit to Menu
+              const saved = loadSave();
+              const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
+              newState.screen = 'menu';
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.stopMusic();
+            }
+            return;
+          }
+        }
+        return; // Tapped outside buttons, do nothing
       }
 
       // Skip intro on tap

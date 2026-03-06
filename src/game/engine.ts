@@ -51,6 +51,9 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     mana: ds.playerMana + upg.manaLevel * 25,
     maxMana: ds.playerMana + upg.manaLevel * 25,
     invincibleTimer: 60,
+    dashCooldown: 0,
+    dashTimer: 0,
+    isDashing: false,
   };
 
   const bgStars = Array.from({ length: 80 }, () => ({
@@ -111,6 +114,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     onIce: false,
     tutorialHints: createTutorialHints(level),
     redFlash: 0,
+    pauseSelection: 0,
     endlessWave: level === 15 ? 1 : undefined,
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
@@ -595,6 +599,24 @@ export function update(state: GameState): void {
     s.jumping = true;
     Audio.playJump();
   }
+
+  // DASH ABILITY - press shift to dash
+  if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= 5) {
+    s.isDashing = true;
+    s.dashTimer = 8;
+    s.dashCooldown = 90;
+    s.mana -= 5;
+    s.vx = s.facing * 12;
+    s.invincibleTimer = Math.max(s.invincibleTimer, 8);
+    spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 12);
+    state.screenShake = 3;
+    Audio.playJump();
+  }
+  if (s.dashTimer > 0) {
+    s.dashTimer--;
+    if (s.dashTimer <= 0) s.isDashing = false;
+  }
+  if (s.dashCooldown > 0) s.dashCooldown--;
 
   // Shooting
   if (state.mouseDown && state.castCooldown <= 0) {

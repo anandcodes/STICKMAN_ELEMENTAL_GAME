@@ -24,6 +24,8 @@ export interface TouchControlsState {
   elementButtons: TouchControl[];
   jumpButton: TouchControl;
   castButton: TouchControl;
+  dashButton: TouchControl;
+  dashActive: boolean;
 }
 
 const DPAD_RADIUS = 55;
@@ -55,6 +57,11 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
       id: 'cast', x: canvasW - 90, y: canvasH - 200,
       radius: 40, label: 'CAST', icon: '✨', color: '#ffcc00', active: false,
     },
+    dashButton: {
+      id: 'dash', x: canvasW - 90, y: canvasH - 300,
+      radius: 30, label: 'DASH', icon: '💨', color: '#44ffaa', active: false,
+    },
+    dashActive: false,
   };
 }
 
@@ -102,6 +109,14 @@ export function handleTouchStart(
       controls.jumpActive = true;
       controls.jumpButton.active = true;
       state.keys.add(' ');
+      continue;
+    }
+
+    // Check dash button
+    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.5) {
+      controls.dashActive = true;
+      controls.dashButton.active = true;
+      state.keys.add('shift');
       continue;
     }
 
@@ -204,6 +219,13 @@ export function handleTouchEnd(
     controls.jumpActive = false;
     controls.jumpButton.active = false;
     state.keys.delete(' ');
+  }
+
+  // Dash release (any ended touch)
+  if (controls.dashActive) {
+    controls.dashActive = false;
+    controls.dashButton.active = false;
+    state.keys.delete('shift');
   }
 }
 
@@ -313,6 +335,33 @@ export function renderTouchControls(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('CAST', cb.x, cb.y);
+
+  // ===== DASH BUTTON =====
+  const db = controls.dashButton;
+  const dashReady = state.stickman.dashCooldown <= 0;
+
+  ctx.globalAlpha = db.active ? 0.6 : (dashReady ? 0.35 : 0.15);
+  ctx.fillStyle = dashReady ? '#44ffaa' : '#555555';
+  ctx.beginPath();
+  ctx.arc(db.x, db.y, db.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (!dashReady) {
+    // Cooldown arc
+    const pct = 1 - (state.stickman.dashCooldown / 90);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#44ffaa'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(db.x, db.y, db.radius, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = dashReady ? 1 : 0.5;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('DASH', db.x, db.y);
 
   // ===== ELEMENT BUTTONS (on mobile these replace the HUD element selector) =====
   // These are drawn near the top-right
