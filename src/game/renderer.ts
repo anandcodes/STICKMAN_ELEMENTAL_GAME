@@ -11,15 +11,30 @@ const ELEMENT_NAMES: Record<Element, string> = {
   fire: '🔥 Fire', water: '💧 Water', earth: '🌿 Earth', wind: '🌪️ Wind',
 };
 
-export function render(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number): void {
+const boss1Img = new Image();
+boss1Img.src = '/bosses/boss1.png';
+
+const boss2Img = new Image();
+boss2Img.src = '/bosses/boss2.png';
+
+export function render(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false): void {
   ctx.save();
 
-  if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H); ctx.restore(); return; }
-  if (state.screen === 'levelComplete') { drawLevelCompleteScreen(ctx, state, W, H); ctx.restore(); return; }
-  if (state.screen === 'gameOver') { drawGameOverScreen(ctx, state, W, H); ctx.restore(); return; }
-  if (state.screen === 'victory') { drawVictoryScreen(ctx, state, W, H); ctx.restore(); return; }
+  if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'shop') { drawShopScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'levelComplete') { drawLevelCompleteScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'gameOver') { drawGameOverScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'victory') { drawVictoryScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
 
   const cam = state.camera;
+
+  // IMP-4: Screen shake offset
+  let shakeX = 0, shakeY = 0;
+  if (state.screenShake > 0) {
+    const intensity = state.screenShake * 0.8;
+    shakeX = (Math.random() - 0.5) * intensity;
+    shakeY = (Math.random() - 0.5) * intensity;
+  }
 
   // Sky
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
@@ -52,7 +67,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   drawMountains(ctx, cam.x, W, H, state);
 
   ctx.save();
-  ctx.translate(-cam.x, -cam.y);
+  ctx.translate(-cam.x + shakeX, -cam.y + shakeY);
 
   // Platforms
   for (const p of state.platforms) {
@@ -146,37 +161,88 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   // HUD
   drawHUD(ctx, state, W, H);
 
+  // IMP-7: Minimap (for levels wider than 1.5x the canvas)
+  if (state.worldWidth > W * 1.5) {
+    drawMinimap(ctx, state, W, H);
+  }
+
+  // Floating texts (screen-space but offset from world)
+  for (const ft of state.floatingTexts) {
+    const alpha = Math.max(0, ft.life / ft.maxLife);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = ft.color;
+    ctx.font = `bold ${ft.size}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(ft.text, ft.x - cam.x + shakeX, ft.y - cam.y + shakeY);
+    ctx.restore();
+  }
+
   // Level intro overlay
   if (state.showLevelIntro) {
     drawLevelIntro(ctx, state, W, H);
   }
 
+  // IMP-1: Pause overlay
+  if (state.paused) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏸ PAUSED', W / 2, H / 2 - 20);
+
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '14px monospace';
+    ctx.fillText('Press ESC or tap to resume', W / 2, H / 2 + 30);
+
+    ctx.fillStyle = '#666666';
+    ctx.font = '11px monospace';
+    ctx.fillText(`Score: ${state.score}  |  Level ${state.currentLevel + 1}  |  High Score: ${state.highScore}`, W / 2, H / 2 + 60);
+  }
+
   ctx.restore();
 }
 
-function drawMountains(ctx: CanvasRenderingContext2D, camX: number, W: number, H: number, _state: GameState) {
-  ctx.fillStyle = '#1a1a3e';
+function drawMountains(ctx: CanvasRenderingContext2D, camX: number, W: number, H: number, state: GameState) {
+  // Parallax Clouds
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+  for (let x = 0; x <= W + 200; x += 200) {
+    const wx = x + camX * 0.02;
+    const y = 100 + Math.sin(wx * 0.005) * 50;
+    ctx.beginPath(); ctx.ellipse(x % W, y, 80, 25, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse((x % W) + 30, y - 15, 50, 25, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Furthest Mountains
+  ctx.fillStyle = state.bgColors[1] || '#1a1a3e';
   ctx.beginPath(); ctx.moveTo(0, H);
   for (let x = 0; x <= W + 50; x += 50) {
     const wx = x + camX * 0.05;
-    ctx.lineTo(x, H - 200 - Math.sin(wx * 0.003) * 80 - Math.sin(wx * 0.007) * 40);
+    ctx.lineTo(x, H - 250 - Math.sin(wx * 0.002) * 120 - Math.sin(wx * 0.005) * 60);
   }
   ctx.lineTo(W, H); ctx.fill();
 
-  ctx.fillStyle = '#252545';
+  // Mid Mountains
+  ctx.fillStyle = state.bgColors[2] || '#252545';
   ctx.beginPath(); ctx.moveTo(0, H);
   for (let x = 0; x <= W + 50; x += 40) {
-    const wx = x + camX * 0.15;
-    ctx.lineTo(x, H - 150 - Math.sin(wx * 0.005) * 60 - Math.cos(wx * 0.01) * 30);
+    const wx = x + camX * 0.12;
+    ctx.lineTo(x, H - 150 - Math.sin(wx * 0.004) * 80 - Math.cos(wx * 0.009) * 40);
   }
   ctx.lineTo(W, H); ctx.fill();
 
-  ctx.fillStyle = '#1a2a1a';
+  // Foreground Trees/Hills
+  ctx.fillStyle = state.bgColors[3] || '#1a2a1a';
   for (let x = 0; x < W + 100; x += 25) {
     const wx = x + camX * 0.2;
-    const treeH = 30 + Math.sin(wx * 0.05) * 15 + Math.sin(wx * 0.13) * 10;
-    const baseY = H - 100 - Math.sin(wx * 0.008) * 20;
-    ctx.beginPath(); ctx.moveTo(x - 8, baseY); ctx.lineTo(x, baseY - treeH); ctx.lineTo(x + 8, baseY); ctx.fill();
+    const treeH = 40 + Math.sin(wx * 0.05) * 20 + Math.sin(wx * 0.13) * 15;
+    const baseY = H - 80 - Math.sin(wx * 0.008) * 30;
+    ctx.beginPath(); ctx.moveTo(x - 12, baseY); ctx.lineTo(x, baseY - treeH); ctx.lineTo(x + 12, baseY); ctx.fill();
   }
 }
 
@@ -292,6 +358,16 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
     }
     case 'health_potion': {
       const bob = Math.sin(t * 2 + obj.x) * 2;
+      // IMP-9: Pulsing glow circle underneath
+      const glowAlpha = 0.3 + Math.sin(t * 3) * 0.2;
+      ctx.save();
+      ctx.globalAlpha = glowAlpha;
+      ctx.fillStyle = '#ff4444';
+      ctx.beginPath();
+      ctx.arc(obj.x + 8, obj.y + 18 + bob, 12 + Math.sin(t * 4) * 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
       ctx.save();
       ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 8;
       // Bottle
@@ -311,6 +387,16 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
     }
     case 'mana_crystal': {
       const bob = Math.sin(t * 2 + obj.x) * 2;
+      // IMP-9: Pulsing glow circle underneath
+      const glowAlpha2 = 0.3 + Math.sin(t * 3 + 1) * 0.2;
+      ctx.save();
+      ctx.globalAlpha = glowAlpha2;
+      ctx.fillStyle = '#4488ff';
+      ctx.beginPath();
+      ctx.arc(obj.x + 8, obj.y + 18 + bob, 12 + Math.sin(t * 4 + 1) * 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
       ctx.save();
       ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 10;
       ctx.fillStyle = '#4488ff';
@@ -403,6 +489,72 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       }
       break;
     }
+    case 'synergy_zone': {
+      ctx.save();
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      if (obj.state === 'burning') { // Firestorm
+        ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 30;
+        ctx.strokeStyle = 'rgba(255,100,0,0.4)'; ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) {
+          const r = (obj.width / 2) * (0.5 + 0.5 * Math.sin(t * 2 + i));
+          ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+      } else if (obj.state === 'lightning') { // Lightning Storm
+        ctx.shadowColor = '#44ffff'; ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#44ffff'; ctx.lineWidth = 2;
+        if (Math.random() > 0.8) {
+          ctx.beginPath(); ctx.moveTo(cx, cy - 30);
+          ctx.lineTo(cx + (Math.random() - 0.5) * 40, cy + (Math.random() - 0.5) * 40);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      break;
+    }
+    case 'mud_trap': {
+      ctx.fillStyle = '#5a4a3a';
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 4);
+      ctx.fill();
+      ctx.fillStyle = '#3a2a1a';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.arc(obj.x + Math.random() * obj.width, obj.y + Math.random() * obj.height, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'magma_pool': {
+      const grad = ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height);
+      grad.addColorStop(0, '#ff4400'); grad.addColorStop(1, '#aa2200');
+      ctx.fillStyle = grad;
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 5);
+      ctx.fill();
+      ctx.fillStyle = '#ffff00';
+      if (Math.random() > 0.7) ctx.fillRect(obj.x + Math.random() * obj.width, obj.y, 4, 2);
+      break;
+    }
+    case 'steam_cloud': {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 6; i++) {
+        const sx = obj.x + Math.sin(t + i) * 20 + obj.width / 2;
+        const sy = obj.y + Math.cos(t + i) * 20 + obj.height / 2;
+        ctx.beginPath(); ctx.arc(sx, sy, 30 + Math.sin(t * 2 + i) * 10, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'dust_devil': {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(200,180,150,0.6)'; ctx.lineWidth = 4;
+      const cx = obj.x + obj.width / 2;
+      for (let i = 0; i < 5; i++) {
+        const r = 20 + i * 15;
+        const off = Math.sin(t * 4 + i) * 10;
+        ctx.beginPath(); ctx.ellipse(cx + off, obj.y + obj.height - i * 20, r, r / 3, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
   }
 }
 
@@ -413,6 +565,16 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
 
   if (enemy.state === 'hurt') {
     ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.02) * 0.4;
+  }
+
+  // BUG-5 / IMP-5: Dead enemy fade-out and shrink animation
+  if (enemy.state === 'dead') {
+    const fadeProgress = Math.max(0, enemy.hurtTimer / 60);
+    ctx.globalAlpha = fadeProgress * 0.7;
+    const scale = 0.5 + fadeProgress * 0.5;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
   }
 
   ctx.save();
@@ -515,6 +677,38 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
       ctx.beginPath(); ctx.arc(cx - 4, cy - 2, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(cx + 4, cy - 2, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+      break;
+    }
+    case 'boss1': {
+      if (boss1Img.complete && boss1Img.naturalWidth > 0) {
+        ctx.save();
+        if (enemy.facing === -1) {
+          ctx.scale(-1, 1);
+          ctx.drawImage(boss1Img, -enemy.x - enemy.width, enemy.y, enemy.width, enemy.height);
+        } else {
+          ctx.drawImage(boss1Img, enemy.x, enemy.y, enemy.width, enemy.height);
+        }
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#443322';
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      }
+      break;
+    }
+    case 'boss2': {
+      if (boss2Img.complete && boss2Img.naturalWidth > 0) {
+        ctx.save();
+        if (enemy.facing === -1) {
+          ctx.scale(-1, 1);
+          ctx.drawImage(boss2Img, -enemy.x - enemy.width, enemy.y, enemy.width, enemy.height);
+        } else {
+          ctx.drawImage(boss2Img, enemy.x, enemy.y, enemy.width, enemy.height);
+        }
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#221144';
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      }
       break;
     }
   }
@@ -638,23 +832,35 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
   ctx.fillStyle = '#fff';
   ctx.fillText(`MP ${Math.ceil(s.mana)}/${s.maxMana}`, 116, 59);
 
-  // Lives
+  // Lives and Difficulty
   ctx.textAlign = 'left';
   ctx.font = '12px serif';
   let livesStr = '';
   for (let i = 0; i < state.lives; i++) livesStr += '❤️ ';
   ctx.fillText(livesStr, 18, 78);
 
-  // Gem counter
+  const ds = { easy: '#44cc44', normal: '#ffcc00', hard: '#ff4444' };
+  ctx.fillStyle = ds[state.difficulty] || '#aaaaaa';
+  ctx.font = 'bold 9px monospace';
+  ctx.fillText(`Difficulty: ${state.difficulty.toUpperCase()}`, 110, 78);
+
+  // Gem counter or Wave counter
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  roundRect(ctx, 10, 96, 150, 24, 6);
+  roundRect(ctx, 10, 96, 170, 24, 6);
   ctx.fill();
-  ctx.fillStyle = state.gemsCollected >= state.gemsRequired ? '#44ff44' : '#ffcc00';
-  ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
-  ctx.fillText(`💎 ${state.gemsCollected} / ${state.gemsRequired}`, 18, 113);
-  if (state.portalOpen) {
-    ctx.fillStyle = '#aa66ff';
-    ctx.fillText('Portal Open!', 90, 113);
+
+  if (state.endlessWave !== undefined) {
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`🌊 WAVE: ${state.endlessWave} | Kills: ${state.endlessKills}`, 18, 113);
+  } else {
+    ctx.fillStyle = state.gemsCollected >= state.gemsRequired ? '#44ff44' : '#ffcc00';
+    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`💎 ${state.gemsCollected} / ${state.gemsRequired}`, 18, 113);
+    if (state.portalOpen) {
+      ctx.fillStyle = '#aa66ff';
+      ctx.fillText('Portal Open!', 90, 113);
+    }
   }
 
   // Element selector (center top)
@@ -732,6 +938,104 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
   ctx.fillText(`${ELEMENT_NAMES[state.selectedElement]} selected  |  ${state.elementHint}`, W / 2, _H - 15);
 }
 
+function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  const mapW = 160;
+  const mapH = 50;
+  const mx = W - mapW - 10;
+  const my = H - mapH - 30;
+  const scaleX = mapW / state.worldWidth;
+  const scaleY = mapH / state.worldHeight;
+
+  ctx.save();
+
+  // Background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  roundRect(ctx, mx - 4, my - 4, mapW + 8, mapH + 8, 6);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, mx - 4, my - 4, mapW + 8, mapH + 8, 6);
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.font = '7px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('MAP', mx, my - 6);
+
+  // Platforms
+  ctx.fillStyle = 'rgba(120, 120, 120, 0.6)';
+  for (const p of state.platforms) {
+    const px = mx + p.x * scaleX;
+    const py = my + p.y * scaleY;
+    const pw = Math.max(2, p.width * scaleX);
+    const ph = Math.max(1, p.height * scaleY);
+    ctx.fillRect(px, py, pw, ph);
+  }
+
+  // Gems
+  for (const obj of state.envObjects) {
+    if (obj.type === 'gem') {
+      const gx = mx + obj.x * scaleX;
+      const gy = my + obj.y * scaleY;
+      ctx.fillStyle = obj.state === 'collected' ? 'rgba(0, 255, 0, 0.3)' : '#ffcc00';
+      ctx.fillRect(gx - 1, gy - 1, 3, 3);
+    }
+    if (obj.type === 'portal') {
+      const px = mx + obj.x * scaleX;
+      const py = my + obj.y * scaleY;
+      ctx.fillStyle = state.portalOpen ? '#aa44ff' : 'rgba(100, 50, 150, 0.4)';
+      ctx.fillRect(px - 2, py - 3, 4, 6);
+    }
+    if (obj.type === 'health_potion' && obj.state !== 'collected') {
+      const px = mx + obj.x * scaleX;
+      const py = my + obj.y * scaleY;
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(px - 1, py - 1, 2, 2);
+    }
+    if (obj.type === 'mana_crystal' && obj.state !== 'collected') {
+      const px = mx + obj.x * scaleX;
+      const py = my + obj.y * scaleY;
+      ctx.fillStyle = '#4488ff';
+      ctx.fillRect(px - 1, py - 1, 2, 2);
+    }
+  }
+
+  // Enemies
+  for (const e of state.enemies) {
+    if (e.state === 'dead') continue;
+    const ex = mx + e.x * scaleX;
+    const ey = my + e.y * scaleY;
+    ctx.fillStyle = '#ff3333';
+    ctx.beginPath();
+    ctx.arc(ex, ey, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Viewport rectangle
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = 1;
+  const vx = mx + state.camera.x * scaleX;
+  const vy = my + Math.max(0, state.camera.y) * scaleY;
+  const vw = 1200 * scaleX; // CANVAS_W
+  const vh = 700 * scaleY;  // CANVAS_H
+  ctx.strokeRect(vx, vy, vw, vh);
+
+  // Player dot (pulsing)
+  const s = state.stickman;
+  const playerX = mx + s.x * scaleX;
+  const playerY = my + s.y * scaleY;
+  const pulse = 2 + Math.sin(Date.now() * 0.008) * 0.8;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(playerX, playerY, pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   const progress = 1 - state.levelIntroTimer / 180;
   const alpha = progress < 0.1 ? progress / 0.1 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
@@ -771,7 +1075,7 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.restore();
 }
 
-function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   // Background
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
   skyGrad.addColorStop(0, '#0a0a2e'); skyGrad.addColorStop(0.5, '#1a1a4e');
@@ -801,7 +1105,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Subtitle
   ctx.fillStyle = '#aaa';
   ctx.font = '14px monospace';
-  ctx.fillText('Master the elements to conquer 5 levels', W / 2, H / 2 - 10);
+  ctx.fillText('Master the elements to conquer 10 levels', W / 2, H / 2 - 10);
 
   // Elements showcase
   const elems = ['🔥 Fire', '💧 Water', '🌿 Earth', '🌪️ Wind'];
@@ -817,17 +1121,30 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#ffcc00';
   ctx.font = 'bold 20px monospace';
-  ctx.fillText('Click or Press ENTER to Start', W / 2, H / 2 + 90);
+  ctx.fillText(isMobile ? 'Tap to Start' : 'Click or Press ENTER to Start', W / 2, H / 2 + 70);
   ctx.globalAlpha = 1;
+
+  // IMP-14: Difficulty selector hint
+  ctx.fillStyle = '#ff4444';
+  ctx.font = 'bold 12px monospace';
+  ctx.fillText(`Current Difficulty: ${state.difficulty.toUpperCase()}`, W / 2, H / 2 + 105);
+  ctx.fillStyle = '#666';
+  ctx.font = '10px monospace';
+  ctx.fillText(`[D] Cycle Difficulty    |    [U] Upgrade Shop    |    [E] Endless Arena`, W / 2, H / 2 + 125);
 
   // Controls
   ctx.fillStyle = '#666';
   ctx.font = '11px monospace';
-  ctx.fillText('WASD / Arrows: Move & Jump  |  1-4: Switch Elements  |  Click: Cast Spell', W / 2, H / 2 + 140);
-  ctx.fillText('Collect gems to unlock the portal and advance to the next level!', W / 2, H / 2 + 160);
+  if (isMobile) {
+    ctx.fillText('D-Pad: Move  |  Tap element icons to switch  |  CAST: Shoot', W / 2, H / 2 + 140);
+    ctx.fillText('Collect gems to unlock the portal and advance!', W / 2, H / 2 + 160);
+  } else {
+    ctx.fillText('WASD / Arrows: Move & Jump  |  1-4: Switch Elements  |  Click: Cast Spell', W / 2, H / 2 + 140);
+    ctx.fillText('Collect gems to unlock the portal and advance to the next level!', W / 2, H / 2 + 160);
+  }
 }
 
-function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   ctx.fillStyle = 'rgba(0,0,20,0.85)';
   ctx.fillRect(0, 0, W, H);
 
@@ -861,14 +1178,14 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
   ctx.fillStyle = '#44aaff';
   ctx.font = 'bold 18px monospace';
   if (state.currentLevel + 1 >= state.totalLevels) {
-    ctx.fillText('Click or Press ENTER for Victory!', W / 2, H / 2 + 110);
+    ctx.fillText(isMobile ? 'Tap for Victory!' : 'Click or Press ENTER for Victory!', W / 2, H / 2 + 110);
   } else {
-    ctx.fillText('Click or Press ENTER for Next Level', W / 2, H / 2 + 110);
+    ctx.fillText(isMobile ? 'Tap for Next Level' : 'Click or Press ENTER for Next Level', W / 2, H / 2 + 110);
   }
   ctx.globalAlpha = 1;
 }
 
-function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   ctx.fillStyle = 'rgba(20,0,0,0.9)';
   ctx.fillRect(0, 0, W, H);
 
@@ -885,17 +1202,24 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   ctx.fillStyle = '#aaa'; ctx.font = '16px monospace';
   ctx.fillText(`Final Score: ${state.score}`, W / 2, H / 2 - 10);
   ctx.fillText(`Best Score: ${state.highScore}`, W / 2, H / 2 + 15);
-  ctx.fillText(`Reached Level ${state.currentLevel + 1}: ${state.levelName}`, W / 2, H / 2 + 40);
+
+  if (state.endlessWave !== undefined) {
+    ctx.fillStyle = '#44aaff';
+    ctx.fillText(`Survived to Wave: ${state.endlessWave}`, W / 2, H / 2 + 40);
+    ctx.fillText(`Total Kills: ${state.endlessKills}`, W / 2, H / 2 + 65);
+  } else {
+    ctx.fillText(`Reached Level ${state.currentLevel + 1}: ${state.levelName}`, W / 2, H / 2 + 40);
+  }
 
   const blinkAlpha = 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#ffcc00';
   ctx.font = 'bold 18px monospace';
-  ctx.fillText('Click or Press ENTER to Try Again', W / 2, H / 2 + 90);
+  ctx.fillText(isMobile ? 'Tap to Try Again' : 'Click or Press ENTER to Try Again', W / 2, H / 2 + 90);
   ctx.globalAlpha = 1;
 }
 
-function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   // Rainbow gradient background
   const grad = ctx.createLinearGradient(0, 0, W, H);
   grad.addColorStop(0, '#1a0a2e'); grad.addColorStop(0.3, '#0a2a4e');
@@ -933,7 +1257,7 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#44aaff';
   ctx.font = 'bold 16px monospace';
-  ctx.fillText('Click or Press ENTER to Play Again', W / 2, H / 2 + 100);
+  ctx.fillText(isMobile ? 'Tap to Play Again' : 'Click or Press ENTER to Play Again', W / 2, H / 2 + 100);
   ctx.globalAlpha = 1;
 }
 
@@ -949,4 +1273,73 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
+}
+
+function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  // Deep gradient background
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#0a0a1a');
+  skyGrad.addColorStop(1, '#1b1b2d');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+
+  // Floating shop items background
+  for (let i = 0; i < 20; i++) {
+    const x = (i * 100 + state.screenTimer) % W;
+    const y = H / 2 + Math.sin(state.screenTimer * 0.01 + i) * 100;
+    ctx.fillStyle = `rgba(100, 200, 255, 0.05)`;
+    ctx.beginPath(); ctx.arc(x, y, 40, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 36px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('🛒 UPGRADE SHOP', W / 2, 80);
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '24px monospace';
+  ctx.fillText(`Currency: ${state.gemsCurrency} 💎`, W / 2, 130);
+
+  // Draw Upgrades Options
+  const upg = state.upgrades;
+  const costH = (upg.healthLevel + 1) * 30;
+  const costM = (upg.manaLevel + 1) * 30;
+  const costR = (upg.regenLevel + 1) * 50;
+  const costD = (upg.damageLevel + 1) * 60;
+
+  const spacing = 100;
+  const startY = 220;
+
+  ctx.font = 'bold 20px monospace';
+  ctx.textAlign = 'left';
+
+  const drawRow = (idx: number, y: number, name: string, lvl: number, cost: number, max: boolean) => {
+    ctx.fillStyle = max ? '#66aa33' : (state.gemsCurrency >= cost ? '#ffffff' : '#aa5555');
+    ctx.fillText(`[${idx}] ${name}`, W / 2 - 250, y);
+
+    // Level Box graphics
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = i < lvl ? '#00bbff' : '#222';
+      ctx.fillRect(W / 2 + i * 35 - 30, y - 18, 25, 20);
+      ctx.strokeStyle = '#555'; ctx.strokeRect(W / 2 + i * 35 - 30, y - 18, 25, 20);
+    }
+
+    ctx.fillStyle = max ? '#66aa33' : '#ffcc00';
+    ctx.fillText(max ? 'MAXED' : `${cost} 💎`, W / 2 + 180, y);
+  };
+
+  drawRow(1, startY, 'Max Health (+25)', upg.healthLevel, costH, upg.healthLevel >= 5);
+  drawRow(2, startY + spacing, 'Max Mana (+25)', upg.manaLevel, costM, upg.manaLevel >= 5);
+  drawRow(3, startY + spacing * 2, 'Mana Regen (+20%)', upg.regenLevel, costR, upg.regenLevel >= 5);
+  drawRow(4, startY + spacing * 3, 'Spell Damage (+25%)', upg.damageLevel, costD, upg.damageLevel >= 5);
+
+  ctx.fillStyle = '#aaa';
+  ctx.textAlign = 'center';
+  ctx.font = '16px monospace';
+
+  if (isMobile) {
+    ctx.fillText('Tap directly on an upgrade to buy it! (Tap Back to exit)', W / 2, H - 60);
+  } else {
+    ctx.fillText('Press 1, 2, 3, or 4 to buy upgrades.', W / 2, H - 80);
+    ctx.fillText('Press [ESC] or [B] to return to Menu.', W / 2, H - 50);
+  }
 }

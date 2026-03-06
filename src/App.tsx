@@ -1,8 +1,18 @@
-import { useEffect, useRef } from 'react';
-import { createInitialState, update } from './game/engine';
+import { useEffect, useRef, useState } from 'react';
+import { createInitialState, update, loadSave, DIFFICULTY_SETTINGS, saveProgress } from './game/engine';
 import { render } from './game/renderer';
 import type { Element, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
+import * as Audio from './game/audio';
+import {
+  createTouchControlsState,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+  renderTouchControls,
+  isMobileDevice,
+  type TouchControlsState,
+} from './game/touchControls';
 
 const CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -10,7 +20,35 @@ const CANVAS_H = 700;
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef<GameState>(createInitialState());
+  const initialSave = loadSave();
+  const stateRef = useRef<GameState>(createInitialState(0, 0, 3, initialSave.highScore, initialSave.difficulty || 'normal'));
+  const touchControlsRef = useRef<TouchControlsState>(createTouchControlsState(CANVAS_W, CANVAS_H));
+  const [isMobile, setIsMobile] = useState(false);
+  const isMobileRef = useRef(false);
+
+  useEffect(() => {
+    const mobile = isMobileDevice();
+    setIsMobile(mobile);
+    isMobileRef.current = mobile;
+    touchControlsRef.current.visible = mobile;
+
+    // Fallback: if touch event fires but we didn't detect mobile, enable touch controls
+    const enableTouchOnFirst = () => {
+      if (!isMobileRef.current) {
+        isMobileRef.current = true;
+        setIsMobile(true);
+        touchControlsRef.current.visible = true;
+      }
+      window.removeEventListener('touchstart', enableTouchOnFirst);
+    };
+    if (!mobile) {
+      window.addEventListener('touchstart', enableTouchOnFirst, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener('touchstart', enableTouchOnFirst);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,39 +62,43 @@ function App() {
       const s = stateRef.current;
 
       if (s.screen === 'menu') {
-        // Start game
+        Audio.initAudio();
+        Audio.playMenuSelect();
         s.screen = 'playing';
         s.showLevelIntro = true;
         s.levelIntroTimer = 180;
+        Audio.startMusic(s.currentLevel);
         return;
       }
 
       if (s.screen === 'levelComplete') {
         const nextLevel = s.currentLevel + 1;
         if (nextLevel >= TOTAL_LEVELS) {
-          // Victory!
           s.screen = 'victory';
           s.screenTimer = 0;
         } else {
-          // Next level - carry over score, lives, highScore
-          const newState = createInitialState(nextLevel, s.score, s.lives, s.highScore);
+          const saved = loadSave();
+          const newState = createInitialState(nextLevel, s.score, s.lives, saved.highScore, saved.difficulty);
           newState.screen = 'playing';
           newState.showLevelIntro = true;
           newState.levelIntroTimer = 180;
           newState.totalGemsEver = s.totalGemsEver;
           newState.enemiesDefeated = s.enemiesDefeated;
           stateRef.current = newState;
+          Audio.startMusic(nextLevel);
         }
         return;
       }
 
       if (s.screen === 'gameOver' || s.screen === 'victory') {
-        // Restart from beginning
-        const newState = createInitialState(0, 0, 3, s.highScore);
+        const saved = loadSave();
+        const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
         newState.screen = 'playing';
         newState.showLevelIntro = true;
         newState.levelIntroTimer = 180;
         stateRef.current = newState;
+        Audio.playMenuSelect();
+        Audio.startMusic(0);
         return;
       }
     };
@@ -66,14 +108,100 @@ function App() {
       const key = e.key;
       const keyLower = key.toLowerCase();
 
-      // Screen transitions
-      if (s.screen !== 'playing' && (key === 'Enter' || key === ' ')) {
+      // IMP-1: Pause toggle
+      if (key === 'Escape' && s.screen === 'playing' && !s.showLevelIntro) {
+        s.paused = !s.paused;
+        if (s.paused) Audio.playPause(); else Audio.playUnpause();
         e.preventDefault();
-        handleScreenTransition();
         return;
       }
 
-      // Skip intro
+      // If paused, only allow unpause
+      if (s.paused) {
+        if (key === 'Enter' || key === ' ') {
+          s.paused = false;
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (s.screen !== 'playing') {
+        // IMP-14: Change difficulty on Menu
+        if (s.screen === 'menu' && keyLower === 'd') {
+          const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
+          s.difficulty = (dict[s.difficulty] || 'normal') as any;
+          Audio.playMenuSelect();
+          return;
+        }
+
+        // Endless Arena Trigger
+        if (s.screen === 'menu' && keyLower === 'e') {
+          const saved = loadSave();
+          const newState = createInitialState(10, 0, 3, saved.highScore, saved.difficulty || 'normal');
+          newState.screen = 'playing';
+          newState.showLevelIntro = true;
+          newState.levelIntroTimer = 180;
+          stateRef.current = newState;
+          Audio.initAudio();
+          Audio.playMenuSelect();
+          Audio.startMusic(10);
+          return;
+        }
+
+        // Shop Screen Trigger
+        if (s.screen === 'menu' && keyLower === 'u') {
+          s.screen = 'shop';
+          Audio.playMenuSelect();
+          return;
+        }
+
+        // Shop Screen Interactions
+        if (s.screen === 'shop') {
+          if (key === 'Escape' || keyLower === 'b') {
+            s.screen = 'menu';
+            Audio.playMenuSelect();
+            return;
+          }
+
+          let bought = false;
+          // Upgrade Costs Logic
+          const costHealth = (s.upgrades.healthLevel + 1) * 30;
+          const costMana = (s.upgrades.manaLevel + 1) * 30;
+          const costRegen = (s.upgrades.regenLevel + 1) * 50;
+          const costDamage = (s.upgrades.damageLevel + 1) * 60;
+
+          if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
+            s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
+          }
+          if (key === '2' && s.gemsCurrency >= costMana && s.upgrades.manaLevel < 5) {
+            s.gemsCurrency -= costMana; s.upgrades.manaLevel++; bought = true;
+          }
+          if (key === '3' && s.gemsCurrency >= costRegen && s.upgrades.regenLevel < 5) {
+            s.gemsCurrency -= costRegen; s.upgrades.regenLevel++; bought = true;
+          }
+          if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
+            s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
+          }
+
+          if (bought) {
+            Audio.playGemCollect();
+            saveProgress(s);
+            const ds = DIFFICULTY_SETTINGS[s.difficulty];
+            s.stickman.maxHealth = ds.playerHealth + s.upgrades.healthLevel * 25;
+            s.stickman.maxMana = ds.playerMana + s.upgrades.manaLevel * 25;
+            s.stickman.health = s.stickman.maxHealth;
+            s.stickman.mana = s.stickman.maxMana;
+          }
+          return;
+        }
+
+        if (key === 'Enter' || key === ' ') {
+          e.preventDefault();
+          handleScreenTransition();
+        }
+        return;
+      }
+
       if (s.showLevelIntro && (key === 'Enter' || key === ' ')) {
         s.showLevelIntro = false;
         s.levelIntroTimer = 0;
@@ -83,12 +211,12 @@ function App() {
 
       s.keys.add(keyLower);
 
-      // Element switching
       const elementMap: Record<string, Element> = {
         '1': 'fire', '2': 'water', '3': 'earth', '4': 'wind',
       };
       if (elementMap[key] && s.unlockedElements.includes(elementMap[key])) {
         s.selectedElement = elementMap[key];
+        Audio.playElementSwitch();
       }
 
       const gameKeys = ['w', 'a', 's', 'd', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
@@ -129,44 +257,52 @@ function App() {
     const onBlur = () => {
       stateRef.current.keys.clear();
       stateRef.current.mouseDown = false;
+      // Auto-pause when losing focus
+      if (stateRef.current.screen === 'playing' && !stateRef.current.showLevelIntro) {
+        stateRef.current.paused = true;
+      }
     };
 
-    // Touch support
+    // Touch support - full mobile controls
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const s = stateRef.current;
+      const controls = touchControlsRef.current;
 
       if (s.screen !== 'playing') {
         handleScreenTransition();
         return;
       }
 
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = CANVAS_W / rect.width;
-      const scaleY = CANVAS_H / rect.height;
-      s.mousePos = {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      };
-      s.mouseDown = true;
+      // Tap to unpause on mobile
+      if (s.paused) {
+        s.paused = false;
+        return;
+      }
+
+      // Skip intro on tap
+      if (s.showLevelIntro) {
+        s.showLevelIntro = false;
+        s.levelIntroTimer = 0;
+        return;
+      }
+
+      const newTouches = Array.from(e.changedTouches);
+      handleTouchStart(newTouches, controls, s, canvas, CANVAS_W, CANVAS_H);
     };
 
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = CANVAS_W / rect.width;
-      const scaleY = CANVAS_H / rect.height;
-      stateRef.current.mousePos = {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      };
+      const controls = touchControlsRef.current;
+      const changedTouches = Array.from(e.changedTouches);
+      handleTouchMove(changedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H);
     };
 
     const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
-      stateRef.current.mouseDown = false;
+      const controls = touchControlsRef.current;
+      const endedTouches = Array.from(e.changedTouches);
+      handleTouchEnd(endedTouches, controls, stateRef.current);
     };
 
     document.addEventListener('keydown', onKeyDown);
@@ -183,7 +319,13 @@ function App() {
     const gameLoop = () => {
       const currentState = stateRef.current;
       update(currentState);
-      render(ctx, currentState, CANVAS_W, CANVAS_H);
+      render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current);
+
+      // Render touch controls on top
+      if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
+        renderTouchControls(ctx, touchControlsRef.current, currentState, CANVAS_W, CANVAS_H);
+      }
+
       animId = requestAnimationFrame(gameLoop);
     };
     animId = requestAnimationFrame(gameLoop);
@@ -206,31 +348,92 @@ function App() {
     <div
       ref={containerRef}
       tabIndex={0}
-      className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-2 select-none outline-none"
+      id="game-container"
+      style={{
+        minHeight: '100dvh',
+        width: '100%',
+        backgroundColor: '#050510',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '0' : '8px',
+        userSelect: 'none',
+        outline: 'none',
+        overflow: 'hidden',
+        touchAction: 'none',
+      }}
     >
-      <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-purple-900/30 border border-gray-800">
+      <div
+        style={{
+          position: 'relative',
+          borderRadius: isMobile ? '0' : '8px',
+          overflow: 'hidden',
+          boxShadow: isMobile ? 'none' : '0 0 40px rgba(100, 50, 200, 0.3)',
+          border: isMobile ? 'none' : '1px solid #333',
+          width: isMobile ? '100%' : 'auto',
+          maxWidth: '100%',
+          maxHeight: isMobile ? '100dvh' : 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
           height={CANVAS_H}
-          className="block cursor-crosshair"
-          style={{ maxWidth: '100%', height: 'auto' }}
+          id="game-canvas"
+          style={{
+            display: 'block',
+            cursor: isMobile ? 'default' : 'crosshair',
+            width: isMobile ? '100vw' : 'min(100%, 1200px)',
+            height: isMobile ? 'auto' : 'auto',
+            maxWidth: '100%',
+            maxHeight: isMobile ? '100dvh' : '85vh',
+            objectFit: 'contain',
+            touchAction: 'none',
+          }}
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 justify-center items-center">
-        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-900 px-3 py-2 rounded-lg border border-gray-800">
-          <span className="text-yellow-500">💡</span>
-          <span>
-            <strong className="text-gray-300">WASD/Arrows:</strong> Move |{' '}
-            <strong className="text-red-400">1:🔥</strong>{' '}
-            <strong className="text-blue-400">2:💧</strong>{' '}
-            <strong className="text-green-400">3:🌿</strong>{' '}
-            <strong className="text-cyan-300">4:🌪️</strong> |{' '}
-            <strong className="text-gray-300">Click:</strong> Cast
-          </span>
+      {/* Desktop controls hint - hidden on mobile */}
+      {!isMobile && (
+        <div
+          style={{
+            marginTop: '12px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              color: '#666',
+              backgroundColor: '#111',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid #222',
+            }}
+          >
+            <span style={{ color: '#eab308' }}>💡</span>
+            <span>
+              <strong style={{ color: '#d1d5db' }}>WASD/Arrows:</strong> Move |{' '}
+              <strong style={{ color: '#ef4444' }}>1:🔥</strong>{' '}
+              <strong style={{ color: '#3b82f6' }}>2:💧</strong>{' '}
+              <strong style={{ color: '#22c55e' }}>3:🌿</strong>{' '}
+              <strong style={{ color: '#67e8f9' }}>4:🌪️</strong> |{' '}
+              <strong style={{ color: '#d1d5db' }}>Click:</strong> Cast
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
