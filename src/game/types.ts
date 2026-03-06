@@ -181,4 +181,5 @@ export interface GameState {
   upgrades: Upgrades;
   onIce: boolean; // IMP-10: currently standing on ice
   tutorialHints: TutorialHint[];
+  redFlash: number; // frames for damage flash
 }

@@ -45,6 +45,12 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
+  // Damage flash
+  if (state.redFlash > 0) {
+    ctx.fillStyle = `rgba(255, 0, 0, ${state.redFlash * 0.02})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   // Stars
   for (const star of state.backgroundStars) {
     const sx = star.x * 0.3 - cam.x * 0.1;
@@ -1337,7 +1343,14 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.font = '16px monospace';
 
   if (isMobile) {
-    ctx.fillText('Tap directly on an upgrade to buy it! (Tap Back to exit)', W / 2, H - 60);
+    ctx.fillText('Tap directly on an upgrade to buy it!', W / 2, H - 90);
+    // Visual Back Button for Mobile
+    ctx.fillStyle = '#333';
+    roundRect(ctx, W / 2 - 60, H - 70, 120, 40, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#666'; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('BACK', W / 2, H - 43);
   } else {
     ctx.fillText('Press 1, 2, 3, or 4 to buy upgrades.', W / 2, H - 80);
     ctx.fillText('Press [ESC] or [B] to return to Menu.', W / 2, H - 50);

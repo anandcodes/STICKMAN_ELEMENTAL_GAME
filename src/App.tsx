@@ -101,6 +101,12 @@ function App() {
         Audio.startMusic(0);
         return;
       }
+
+      if (s.screen === 'shop') {
+        s.screen = 'menu';
+        Audio.playMenuSelect();
+        return;
+      }
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -269,7 +275,85 @@ function App() {
       const s = stateRef.current;
       const controls = touchControlsRef.current;
 
+      if (s.screen === 'shop') {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_W / rect.width;
+        const scaleY = CANVAS_H / rect.height;
+        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
+        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+
+        // Check Back Button (roughly W/2 - 60, H - 70, 120x40)
+        if (tx > CANVAS_W / 2 - 80 && tx < CANVAS_W / 2 + 80 && ty > CANVAS_H - 90 && ty < CANVAS_H - 10) {
+          s.screen = 'menu';
+          Audio.playMenuSelect();
+          return;
+        }
+
+        // Check Upgrade Rows (startY = 220, spacing = 100)
+        const startY = 220;
+        const spacing = 100;
+        for (let i = 0; i < 4; i++) {
+          const rowY = startY + i * spacing;
+          if (ty > rowY - 30 && ty < rowY + 30) {
+            // Replicate shop buy logic
+            const key = (i + 1).toString();
+            let bought = false;
+            const costHealth = (s.upgrades.healthLevel + 1) * 30;
+            const costMana = (s.upgrades.manaLevel + 1) * 30;
+            const costRegen = (s.upgrades.regenLevel + 1) * 50;
+            const costDamage = (s.upgrades.damageLevel + 1) * 60;
+
+            if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
+              s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
+            } else if (key === '2' && s.gemsCurrency >= costMana && s.upgrades.manaLevel < 5) {
+              s.gemsCurrency -= costMana; s.upgrades.manaLevel++; bought = true;
+            } else if (key === '3' && s.gemsCurrency >= costRegen && s.upgrades.regenLevel < 5) {
+              s.gemsCurrency -= costRegen; s.upgrades.regenLevel++; bought = true;
+            } else if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
+              s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
+            }
+
+            if (bought) {
+              Audio.playGemCollect();
+              saveProgress(s);
+              const ds = DIFFICULTY_SETTINGS[s.difficulty];
+              s.stickman.maxHealth = ds.playerHealth + s.upgrades.healthLevel * 25;
+              s.stickman.maxMana = ds.playerMana + s.upgrades.manaLevel * 25;
+              s.stickman.health = s.stickman.maxHealth;
+              s.stickman.mana = s.stickman.maxMana;
+            }
+            return;
+          }
+        }
+        return;
+      }
+
       if (s.screen !== 'playing') {
+        // Special case: Menu taps
+        if (s.screen === 'menu') {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = CANVAS_W / rect.width;
+          const scaleY = CANVAS_H / rect.height;
+          const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
+          const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+
+          // Tap right side for Endless, Left for Level 1, or just trigger transition
+          if (ty > 450) {
+            if (tx > CANVAS_W / 2 + 50) {
+              // Manual Trigger for Endless on Tap
+              const saved = loadSave();
+              const newState = createInitialState(10, 0, 3, saved.highScore, saved.difficulty || 'normal');
+              newState.screen = 'playing';
+              newState.endlessWave = 1; newState.endlessKills = 0; newState.endlessTimer = 0;
+              stateRef.current = newState;
+              Audio.playMenuSelect(); Audio.startMusic(10);
+              return;
+            }
+            if (tx < CANVAS_W / 2 - 150) {
+              s.screen = 'shop'; Audio.playMenuSelect(); return;
+            }
+          }
+        }
         handleScreenTransition();
         return;
       }

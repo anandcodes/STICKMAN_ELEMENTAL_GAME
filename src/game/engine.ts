@@ -110,6 +110,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     upgrades: upg,
     onIce: false,
     tutorialHints: createTutorialHints(level),
+    redFlash: 0,
     endlessWave: level === 10 ? 1 : undefined,
     endlessKills: level === 10 ? 0 : undefined,
     endlessTimer: level === 10 ? 0 : undefined,
@@ -535,6 +536,7 @@ function updateEnemies(state: GameState) {
       const ds = DIFFICULTY_SETTINGS[state.difficulty];
       const damage = Math.floor(enemy.damage * ds.enemyDamageMult);
       s.health -= damage;
+      state.redFlash = 15; // Set red flash
       s.invincibleTimer = 60;
       s.vy = -8;
       s.vx = dx < 0 ? 5 : -5;
@@ -777,6 +779,7 @@ export function update(state: GameState): void {
       const ds = DIFFICULTY_SETTINGS[state.difficulty];
       const damage = Math.floor(20 * ds.enemyDamageMult);
       s.health -= damage;
+      state.redFlash = 15;
       s.invincibleTimer = 60;
       s.vy = -10;
       spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'fire', 8);
@@ -801,6 +804,7 @@ export function update(state: GameState): void {
       const d = Math.abs((s.x + s.width / 2) - (obj.x + obj.width / 2));
       if (d < 40 && s.y + s.height > obj.y - 10) {
         s.health -= 0.3;
+        if (Math.random() > 0.9) state.redFlash = 10;
       }
     }
   }
@@ -836,6 +840,7 @@ export function update(state: GameState): void {
         const ds = DIFFICULTY_SETTINGS[state.difficulty];
         const damage = Math.floor(20 * ds.enemyDamageMult);
         s.health -= damage; s.invincibleTimer = 60; s.vy = -6; s.vx = p.vx > 0 ? 4 : -4;
+        state.redFlash = 15;
         spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, p.element, 15);
         state.screenShake = 15; spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);
         Audio.playDamage(); hit = true;
@@ -994,6 +999,7 @@ export function update(state: GameState): void {
   // Effects & HUD updates
   updateFloatingTexts(state);
   if (state.screenShake > 0) state.screenShake--;
+  if (state.redFlash > 0) state.redFlash--;
   if (state.levelTimer > 0) {
     state.levelTimer--;
     if (state.levelTimer <= 0) s.health = 0;
