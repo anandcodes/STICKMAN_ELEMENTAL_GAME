@@ -62,12 +62,7 @@ function App() {
       const s = stateRef.current;
 
       if (s.screen === 'menu') {
-        Audio.initAudio();
-        Audio.playMenuSelect();
-        s.screen = 'playing';
-        s.showLevelIntro = true;
-        s.levelIntroTimer = 180;
-        Audio.startMusic(s.currentLevel);
+        // Menu interactions are handled by key/touch handlers directly
         return;
       }
 
@@ -93,12 +88,10 @@ function App() {
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
         const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-        newState.screen = 'playing';
-        newState.showLevelIntro = true;
-        newState.levelIntroTimer = 180;
+        newState.screen = 'menu'; // Return to menu for mode select
         stateRef.current = newState;
         Audio.playMenuSelect();
-        Audio.startMusic(0);
+        Audio.stopMusic();
         return;
       }
 
@@ -132,33 +125,50 @@ function App() {
       }
 
       if (s.screen !== 'playing') {
-        // IMP-14: Change difficulty on Menu
-        if (s.screen === 'menu' && keyLower === 'd') {
-          const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
-          s.difficulty = (dict[s.difficulty] || 'normal') as any;
-          Audio.playMenuSelect();
-          return;
-        }
+        // Menu-specific keys
+        if (s.screen === 'menu') {
+          // [D] Cycle Difficulty
+          if (keyLower === 'd') {
+            const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
+            s.difficulty = (dict[s.difficulty] || 'normal') as any;
+            Audio.playMenuSelect();
+            return;
+          }
 
-        // Endless Arena Trigger
-        if (s.screen === 'menu' && keyLower === 'e') {
-          const saved = loadSave();
-          const newState = createInitialState(10, 0, 3, saved.highScore, saved.difficulty || 'normal');
-          newState.screen = 'playing';
-          newState.showLevelIntro = true;
-          newState.levelIntroTimer = 180;
-          stateRef.current = newState;
-          Audio.initAudio();
-          Audio.playMenuSelect();
-          Audio.startMusic(10);
-          return;
-        }
+          // [1] Start Campaign
+          if (key === '1' || key === 'Enter' || key === ' ') {
+            Audio.initAudio();
+            Audio.playMenuSelect();
+            s.screen = 'playing';
+            s.showLevelIntro = true;
+            s.levelIntroTimer = 180;
+            Audio.startMusic(s.currentLevel);
+            e.preventDefault();
+            return;
+          }
 
-        // Shop Screen Trigger
-        if (s.screen === 'menu' && keyLower === 'u') {
-          s.screen = 'shop';
-          Audio.playMenuSelect();
-          return;
+          // [2] or [E] Start Wave Survival
+          if (key === '2' || keyLower === 'e') {
+            const saved = loadSave();
+            const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
+            newState.screen = 'playing';
+            newState.showLevelIntro = true;
+            newState.levelIntroTimer = 180;
+            stateRef.current = newState;
+            Audio.initAudio();
+            Audio.playMenuSelect();
+            Audio.startMusic(15);
+            e.preventDefault();
+            return;
+          }
+
+          // [U] Upgrade Shop
+          if (keyLower === 'u') {
+            s.screen = 'shop';
+            Audio.playMenuSelect();
+            return;
+          }
+          return; // If on menu but no key matched, do nothing
         }
 
         // Shop Screen Interactions
@@ -170,7 +180,6 @@ function App() {
           }
 
           let bought = false;
-          // Upgrade Costs Logic
           const costHealth = (s.upgrades.healthLevel + 1) * 30;
           const costMana = (s.upgrades.manaLevel + 1) * 30;
           const costRegen = (s.upgrades.regenLevel + 1) * 50;
@@ -201,6 +210,7 @@ function App() {
           return;
         }
 
+        // Other non-playing screens (levelComplete, gameOver, victory)
         if (key === 'Enter' || key === ' ') {
           e.preventDefault();
           handleScreenTransition();
@@ -329,7 +339,7 @@ function App() {
       }
 
       if (s.screen !== 'playing') {
-        // Special case: Menu taps
+        // Menu touch handling with proper button hit-testing
         if (s.screen === 'menu') {
           const rect = canvas.getBoundingClientRect();
           const scaleX = CANVAS_W / rect.width;
@@ -337,23 +347,56 @@ function App() {
           const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
           const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
 
-          // Tap right side for Endless, Left for Level 1, or just trigger transition
-          if (ty > 450) {
-            if (tx > CANVAS_W / 2 + 50) {
-              // Manual Trigger for Endless on Tap
-              const saved = loadSave();
-              const newState = createInitialState(10, 0, 3, saved.highScore, saved.difficulty || 'normal');
-              newState.screen = 'playing';
-              newState.endlessWave = 1; newState.endlessKills = 0; newState.endlessTimer = 0;
-              stateRef.current = newState;
-              Audio.playMenuSelect(); Audio.startMusic(10);
-              return;
-            }
-            if (tx < CANVAS_W / 2 - 150) {
-              s.screen = 'shop'; Audio.playMenuSelect(); return;
-            }
+          // Button layout matches renderer: btnW=280, btnH=80, gap=40, baseY=320
+          const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
+          const campX = CANVAS_W / 2 - btnW - gap / 2;
+          const waveX = CANVAS_W / 2 + gap / 2;
+
+          // Campaign Button
+          if (tx >= campX && tx <= campX + btnW && ty >= baseY && ty <= baseY + btnH) {
+            Audio.initAudio();
+            Audio.playMenuSelect();
+            s.screen = 'playing';
+            s.showLevelIntro = true;
+            s.levelIntroTimer = 180;
+            Audio.startMusic(s.currentLevel);
+            return;
           }
+
+          // Wave Survival Button
+          if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
+            const saved = loadSave();
+            const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
+            newState.screen = 'playing';
+            newState.showLevelIntro = true;
+            newState.levelIntroTimer = 180;
+            stateRef.current = newState;
+            Audio.initAudio();
+            Audio.playMenuSelect();
+            Audio.startMusic(15);
+            return;
+          }
+
+          // Difficulty cycle (bottom-left area)
+          const barY = baseY + btnH + 40;
+          if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
+            const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
+            s.difficulty = (dict[s.difficulty] || 'normal') as any;
+            Audio.playMenuSelect();
+            return;
+          }
+
+          // Shop button (bottom-right area)
+          if (tx > CANVAS_W / 2 + 20 && tx < CANVAS_W / 2 + 220 && ty >= barY - 18 && ty <= barY + 22) {
+            s.screen = 'shop';
+            Audio.playMenuSelect();
+            return;
+          }
+
+          return; // On menu but no button hit
         }
+
+        // Other non-playing screens
         handleScreenTransition();
         return;
       }

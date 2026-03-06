@@ -17,6 +17,16 @@ boss1Img.src = '/bosses/boss1.png';
 const boss2Img = new Image();
 boss2Img.src = '/bosses/boss2.png';
 
+// Local helper to read save data for rendering stats on the menu
+function loadSaveForRender(): { highScore: number; gemsCurrency: number; furthestLevel: number } | null {
+  try {
+    const raw = localStorage.getItem('elemental_stickman_save');
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return { highScore: d.highScore || 0, gemsCurrency: d.gemsCurrency || 0, furthestLevel: d.furthestLevel || 0 };
+  } catch { return null; }
+}
+
 export function render(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false): void {
   ctx.save();
 
@@ -1102,16 +1112,17 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.fillStyle = '#ff4400';
   ctx.font = 'bold 48px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('⚡ ELEMENTAL', W / 2, H / 2 - 100 + Math.sin(t) * 5);
+  ctx.fillText('⚡ ELEMENTAL', W / 2, 140 + Math.sin(t) * 5);
   ctx.shadowColor = '#44aaff';
   ctx.fillStyle = '#44aaff';
-  ctx.fillText('STICKMAN ⚡', W / 2, H / 2 - 50 + Math.sin(t + 1) * 5);
+  ctx.fillText('STICKMAN ⚡', W / 2, 195 + Math.sin(t + 1) * 5);
   ctx.restore();
 
   // Subtitle
   ctx.fillStyle = '#aaa';
   ctx.font = '14px monospace';
-  ctx.fillText('Master the elements to conquer 10 levels', W / 2, H / 2 - 10);
+  ctx.textAlign = 'center';
+  ctx.fillText('Master the elements across two epic game modes', W / 2, 235);
 
   // Elements showcase
   const elems = ['🔥 Fire', '💧 Water', '🌿 Earth', '🌪️ Wind'];
@@ -1119,34 +1130,85 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   for (let i = 0; i < 4; i++) {
     ctx.fillStyle = colors[i];
     ctx.font = '16px monospace';
-    ctx.fillText(elems[i], W / 2 - 150 + i * 100, H / 2 + 30);
+    ctx.fillText(elems[i], W / 2 - 150 + i * 100, 270);
   }
 
-  // Start prompt
-  const blinkAlpha = 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
-  ctx.globalAlpha = blinkAlpha;
-  ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 20px monospace';
-  ctx.fillText(isMobile ? 'Tap to Start' : 'Click or Press ENTER to Start', W / 2, H / 2 + 70);
-  ctx.globalAlpha = 1;
+  // ===== MODE BUTTONS =====
+  const btnW = 280; const btnH = 80;
+  const gap = 40;
+  const baseY = 320;
 
-  // IMP-14: Difficulty selector hint
-  ctx.fillStyle = '#ff4444';
-  ctx.font = 'bold 12px monospace';
-  ctx.fillText(`Current Difficulty: ${state.difficulty.toUpperCase()}`, W / 2, H / 2 + 105);
-  ctx.fillStyle = '#666';
-  ctx.font = '10px monospace';
-  ctx.fillText(`[D] Cycle Difficulty    |    [U] Upgrade Shop    |    [E] Endless Arena`, W / 2, H / 2 + 125);
+  // --- Campaign Button ---
+  const campX = W / 2 - btnW - gap / 2;
+  ctx.save();
+  const campGrad = ctx.createLinearGradient(campX, baseY, campX, baseY + btnH);
+  campGrad.addColorStop(0, '#1a3a1a'); campGrad.addColorStop(1, '#0a2a0a');
+  ctx.fillStyle = campGrad;
+  roundRect(ctx, campX, baseY, btnW, btnH, 12); ctx.fill();
+  ctx.strokeStyle = '#44cc44'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.shadowColor = '#44cc44'; ctx.shadowBlur = 15;
+  ctx.fillStyle = '#44ff44';
+  ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('⚔️  CAMPAIGN', campX + btnW / 2, baseY + 32);
+  ctx.restore();
+  ctx.fillStyle = '#88cc88'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('15 Levels · Story · Boss Fights', campX + btnW / 2, baseY + 55);
+  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
+  ctx.fillText(isMobile ? 'Tap to Play' : 'Press [1] or Click', campX + btnW / 2, baseY + 72);
 
-  // Controls
-  ctx.fillStyle = '#666';
-  ctx.font = '11px monospace';
+  // --- Wave Survival Button ---
+  const waveX = W / 2 + gap / 2;
+  ctx.save();
+  const waveGrad = ctx.createLinearGradient(waveX, baseY, waveX, baseY + btnH);
+  waveGrad.addColorStop(0, '#3a1a1a'); waveGrad.addColorStop(1, '#2a0a0a');
+  ctx.fillStyle = waveGrad;
+  roundRect(ctx, waveX, baseY, btnW, btnH, 12); ctx.fill();
+  ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 15;
+  ctx.fillStyle = '#ff6644';
+  ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('🌊  WAVE SURVIVAL', waveX + btnW / 2, baseY + 32);
+  ctx.restore();
+  ctx.fillStyle = '#cc8888'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('Endless Waves · Leaderboard · Chaos', waveX + btnW / 2, baseY + 55);
+  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
+  ctx.fillText(isMobile ? 'Tap to Play' : 'Press [2] or Click', waveX + btnW / 2, baseY + 72);
+
+  // ===== BOTTOM BAR: Difficulty + Shop =====
+  const barY = baseY + btnH + 40;
+
+  // Difficulty
+  const diffColors: Record<string, string> = { easy: '#44cc44', normal: '#ffcc00', hard: '#ff4444' };
+  ctx.fillStyle = diffColors[state.difficulty] || '#ffcc00';
+  ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(`Difficulty: ${state.difficulty.toUpperCase()}`, W / 2 - 120, barY);
+  ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+  ctx.fillText(isMobile ? 'Tap to Cycle' : '[D] Cycle', W / 2 - 120, barY + 16);
+
+  // Shop Button
+  ctx.save();
+  ctx.fillStyle = '#1a1a3a';
+  roundRect(ctx, W / 2 + 20, barY - 18, 200, 40, 8); ctx.fill();
+  ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#88bbff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('🛒 UPGRADE SHOP', W / 2 + 120, barY + 5);
+  ctx.restore();
+  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
+  ctx.fillText(isMobile ? 'Tap to Open' : '[U] Open', W / 2 + 120, barY + 22);
+
+  // Stats
+  const saved = loadSaveForRender();
+  if (saved) {
+    ctx.fillStyle = '#555'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(`Best: ${saved.highScore} pts  ·  💎 ${saved.gemsCurrency}  ·  Furthest: Lv.${saved.furthestLevel + 1}`, W / 2, barY + 55);
+  }
+
+  // Controls footer
+  ctx.fillStyle = '#444'; ctx.font = '10px monospace';
   if (isMobile) {
-    ctx.fillText('D-Pad: Move  |  Tap element icons to switch  |  CAST: Shoot', W / 2, H / 2 + 140);
-    ctx.fillText('Collect gems to unlock the portal and advance!', W / 2, H / 2 + 160);
+    ctx.fillText('D-Pad: Move  |  Tap icons: Switch  |  CAST: Shoot', W / 2, H - 20);
   } else {
-    ctx.fillText('WASD / Arrows: Move & Jump  |  1-4: Switch Elements  |  Click: Cast Spell', W / 2, H / 2 + 140);
-    ctx.fillText('Collect gems to unlock the portal and advance to the next level!', W / 2, H / 2 + 160);
+    ctx.fillText('WASD: Move & Jump  |  1-4: Elements  |  Click: Cast  |  ESC: Pause', W / 2, H - 20);
   }
 }
 
@@ -1202,7 +1264,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   ctx.fillStyle = '#ff2222';
   ctx.font = 'bold 48px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('GAME OVER', W / 2, H / 2 - 60 + Math.sin(t) * 3);
+  ctx.fillText(state.endlessWave !== undefined ? 'WAVE OVER' : 'GAME OVER', W / 2, H / 2 - 60 + Math.sin(t) * 3);
   ctx.restore();
 
   ctx.fillStyle = '#aaa'; ctx.font = '16px monospace';
@@ -1221,7 +1283,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#ffcc00';
   ctx.font = 'bold 18px monospace';
-  ctx.fillText(isMobile ? 'Tap to Try Again' : 'Click or Press ENTER to Try Again', W / 2, H / 2 + 90);
+  ctx.fillText(isMobile ? 'Tap to Return to Menu' : 'Press ENTER to Return to Menu', W / 2, H / 2 + 90);
   ctx.globalAlpha = 1;
 }
 

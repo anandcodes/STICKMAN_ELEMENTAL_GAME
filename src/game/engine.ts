@@ -111,9 +111,9 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     onIce: false,
     tutorialHints: createTutorialHints(level),
     redFlash: 0,
-    endlessWave: level === 10 ? 1 : undefined,
-    endlessKills: level === 10 ? 0 : undefined,
-    endlessTimer: level === 10 ? 0 : undefined,
+    endlessWave: level === 15 ? 1 : undefined,
+    endlessKills: level === 15 ? 0 : undefined,
+    endlessTimer: level === 15 ? 0 : undefined,
   };
 }
 

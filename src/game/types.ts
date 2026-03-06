@@ -1,5 +1,5 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop';
+export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export interface Vec2 { x: number; y: number; }
