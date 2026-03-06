@@ -27,22 +27,18 @@ export interface TouchControlsState {
 }
 
 const DPAD_RADIUS = 55;
-const BUTTON_RADIUS = 30;
 
 export function createTouchControlsState(canvasW: number, canvasH: number): TouchControlsState {
-  const dpadCenterX = 90;
-  const dpadCenterY = canvasH - 100;
-
   const elementButtons: TouchControl[] = [
-    { id: 'fire', x: canvasW - 160, y: 30, radius: 22, label: '1', icon: '🔥', color: '#ff4400', active: false },
-    { id: 'water', x: canvasW - 110, y: 30, radius: 22, label: '2', icon: '💧', color: '#0088ff', active: false },
-    { id: 'earth', x: canvasW - 60, y: 30, radius: 22, label: '3', icon: '🌿', color: '#66aa33', active: false },
-    { id: 'wind', x: canvasW - 10, y: 30, radius: 22, label: '4', icon: '🌪', color: '#aabbee', active: false },
+    { id: 'fire', x: 50, y: 50, radius: 24, label: '1', icon: '🔥', color: '#ff4400', active: false },
+    { id: 'water', x: 105, y: 50, radius: 24, label: '2', icon: '💧', color: '#0088ff', active: false },
+    { id: 'earth', x: 160, y: 50, radius: 24, label: '3', icon: '🌿', color: '#66aa33', active: false },
+    { id: 'wind', x: 215, y: 50, radius: 24, label: '4', icon: '🌪', color: '#aabbee', active: false },
   ];
 
   return {
     visible: false,
-    dpadCenter: { x: dpadCenterX, y: dpadCenterY },
+    dpadCenter: { x: 120, y: canvasH - 120 },
     dpadRadius: DPAD_RADIUS,
     dpadTouchId: null,
     dpadDirection: { x: 0, y: 0 },
@@ -52,12 +48,12 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
     castPosition: { x: canvasW / 2, y: canvasH / 2 },
     elementButtons,
     jumpButton: {
-      id: 'jump', x: canvasW - 80, y: canvasH - 90,
-      radius: BUTTON_RADIUS, label: 'JUMP', icon: '⬆', color: '#ffffff', active: false,
+      id: 'jump', x: canvasW - 90, y: canvasH - 100,
+      radius: 40, label: 'JUMP', icon: '⬆', color: '#ffffff', active: false,
     },
     castButton: {
-      id: 'cast', x: canvasW - 80, y: canvasH - 160,
-      radius: BUTTON_RADIUS, label: 'CAST', icon: '✨', color: '#ffcc00', active: false,
+      id: 'cast', x: canvasW - 90, y: canvasH - 200,
+      radius: 40, label: 'CAST', icon: '✨', color: '#ffcc00', active: false,
     },
   };
 }
@@ -91,7 +87,7 @@ export function handleTouchStart(
 
     // Check element buttons
     for (const btn of controls.elementButtons) {
-      if (dist(tx, ty, btn.x, btn.y) < btn.radius + 10) {
+      if (dist(tx, ty, btn.x, btn.y) < btn.radius * 1.5) {
         const elemMap: Record<string, Element> = { fire: 'fire', water: 'water', earth: 'earth', wind: 'wind' };
         const elem = elemMap[btn.id];
         if (elem && state.unlockedElements.includes(elem)) {
@@ -102,15 +98,26 @@ export function handleTouchStart(
     }
 
     // Check jump button
-    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius + 15) {
+    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.5) {
       controls.jumpActive = true;
       controls.jumpButton.active = true;
       state.keys.add(' ');
-      return;
+      continue;
+    }
+
+    // Check d-pad area (left side of screen for dynamic centering, or near existing center)
+    if (tx < canvasW * 0.4 && controls.dpadTouchId === null) {
+      controls.dpadTouchId = touch.identifier;
+      // Recenter d-pad where user touched if it's far from current center
+      if (dist(tx, ty, controls.dpadCenter.x, controls.dpadCenter.y) > controls.dpadRadius) {
+        controls.dpadCenter = { x: tx, y: ty };
+      }
+      controls.dpadDirection = { x: 0, y: 0 };
+      continue;
     }
 
     // Check cast button
-    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius + 15) {
+    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 1.5) {
       controls.castActive = true;
       controls.castButton.active = true;
       controls.castTouchId = touch.identifier;
@@ -118,25 +125,14 @@ export function handleTouchStart(
       const s = state.stickman;
       state.mousePos = {
         x: s.x + s.facing * 200 - state.camera.x,
-        y: s.y - 20 - state.camera.y,
+        y: s.y - 40 - state.camera.y,
       };
       state.mouseDown = true;
-      return;
-    }
-
-    // Check d-pad area
-    if (dist(tx, ty, controls.dpadCenter.x, controls.dpadCenter.y) < controls.dpadRadius + 25) {
-      controls.dpadTouchId = touch.identifier;
-      const dx = tx - controls.dpadCenter.x;
-      const dy = ty - controls.dpadCenter.y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      controls.dpadDirection = { x: dx / d, y: dy / d };
-      updateDpadKeys(controls, state);
-      return;
+      continue;
     }
 
     // If touching elsewhere on screen during gameplay, use as aim + cast
-    if (state.screen === 'playing' && !state.showLevelIntro) {
+    if (state.screen === 'playing' && !state.showLevelIntro && controls.castTouchId === null) {
       controls.castTouchId = touch.identifier;
       controls.castActive = true;
       state.mousePos = { x: tx, y: ty };

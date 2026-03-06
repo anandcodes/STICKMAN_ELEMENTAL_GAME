@@ -351,32 +351,31 @@ function App() {
       id="game-container"
       style={{
         minHeight: '100dvh',
-        width: '100%',
+        width: '100vw',
         backgroundColor: '#050510',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: isMobile ? '0' : '8px',
+        padding: '0',
         userSelect: 'none',
         outline: 'none',
         overflow: 'hidden',
         touchAction: 'none',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       }}
     >
       <div
         style={{
           position: 'relative',
-          borderRadius: isMobile ? '0' : '8px',
-          overflow: 'hidden',
-          boxShadow: isMobile ? 'none' : '0 0 40px rgba(100, 50, 200, 0.3)',
-          border: isMobile ? 'none' : '1px solid #333',
-          width: isMobile ? '100%' : 'auto',
-          maxWidth: '100%',
-          maxHeight: isMobile ? '100dvh' : 'auto',
+          width: '100vw',
+          height: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
         <canvas
@@ -387,12 +386,14 @@ function App() {
           style={{
             display: 'block',
             cursor: isMobile ? 'default' : 'crosshair',
-            width: isMobile ? '100vw' : 'min(100%, 1200px)',
-            height: isMobile ? 'auto' : 'auto',
             maxWidth: '100%',
-            maxHeight: isMobile ? '100dvh' : '85vh',
+            maxHeight: '100%',
+            width: 'auto',
+            height: 'auto',
+            aspectRatio: `${CANVAS_W} / ${CANVAS_H}`,
             objectFit: 'contain',
             touchAction: 'none',
+            boxShadow: isMobile ? 'none' : '0 0 50px rgba(0,0,0,0.5)',
           }}
         />
       </div>
