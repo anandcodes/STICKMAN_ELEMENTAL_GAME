@@ -58,7 +58,7 @@ function App() {
 
     containerRef.current?.focus();
 
-    const handleScreenTransition = () => {
+    const handleScreenTransition = (tx?: number, ty?: number) => {
       const s = stateRef.current;
 
       if (s.screen === 'menu') {
@@ -95,12 +95,40 @@ function App() {
         return;
       }
 
-      if (s.screen === 'shop') {
-        s.screen = 'menu';
-        Audio.playMenuSelect();
+      if (s.screen === 'levelSelect') {
+        if (tx === undefined || ty === undefined) return;
+        const cardW = 180; const cardH = 120; const gap = 20; const cols = 5;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+        const startY = 150;
+
+        const col = Math.floor((tx - startX) / (cardW + gap));
+        const row = Math.floor((ty - startY) / (cardH + gap));
+        if (col >= 0 && col < cols && row >= 0) {
+          const index = row * cols + col;
+          if (index >= 0 && index < s.totalLevels) {
+            if (s.levelSelectionIndex === index && index <= s.furthestLevel) {
+              // Secondary click starts the level
+              const saved = loadSave();
+              const newState = createInitialState(index, 0, 3, saved.highScore, saved.difficulty);
+              newState.screen = 'playing';
+              newState.showLevelIntro = true;
+              newState.levelIntroTimer = 180;
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.startMusic(index);
+              return;
+            }
+            s.levelSelectionIndex = index;
+            Audio.playMenuSelect();
+          }
+        }
         return;
       }
-    };
+
+      s.screen = 'menu';
+      Audio.playMenuSelect();
+      return;
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       const s = stateRef.current;
@@ -165,14 +193,11 @@ function App() {
             return;
           }
 
-          // [1] Start Campaign
+          // [1] Go to Level Select
           if (key === '1' || key === 'Enter' || key === ' ') {
             Audio.initAudio();
             Audio.playMenuSelect();
-            s.screen = 'playing';
-            s.showLevelIntro = true;
-            s.levelIntroTimer = 180;
-            Audio.startMusic(s.currentLevel);
+            s.screen = 'levelSelect';
             e.preventDefault();
             return;
           }
@@ -198,7 +223,43 @@ function App() {
             Audio.playMenuSelect();
             return;
           }
-          return; // If on menu but no key matched, do nothing
+          return;
+        }
+
+        // Level Select Screen Interactions
+        if (s.screen === 'levelSelect') {
+          if (key === 'Escape' || keyLower === 'b') {
+            s.screen = 'menu';
+            Audio.playMenuSelect();
+            return;
+          }
+
+          const cols = 5;
+          if (key === 'ArrowRight' || keyLower === 'd') {
+            s.levelSelectionIndex = Math.min(s.totalLevels - 1, s.levelSelectionIndex + 1);
+            Audio.playMenuSelect();
+          } else if (key === 'ArrowLeft' || keyLower === 'a') {
+            s.levelSelectionIndex = Math.max(0, s.levelSelectionIndex - 1);
+            Audio.playMenuSelect();
+          } else if (key === 'ArrowDown' || keyLower === 's') {
+            s.levelSelectionIndex = Math.min(s.totalLevels - 1, s.levelSelectionIndex + cols);
+            Audio.playMenuSelect();
+          } else if (key === 'ArrowUp' || keyLower === 'w') {
+            s.levelSelectionIndex = Math.max(0, s.levelSelectionIndex - cols);
+            Audio.playMenuSelect();
+          } else if (key === 'Enter' || key === ' ') {
+            if (s.levelSelectionIndex <= s.furthestLevel) {
+              const saved = loadSave();
+              const newState = createInitialState(s.levelSelectionIndex, 0, 3, saved.highScore, saved.difficulty);
+              newState.screen = 'playing';
+              newState.showLevelIntro = true;
+              newState.levelIntroTimer = 180;
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.startMusic(s.levelSelectionIndex);
+            }
+          }
+          return;
         }
 
         // Shop Screen Interactions
@@ -288,7 +349,7 @@ function App() {
       const s = stateRef.current;
 
       if (s.screen !== 'playing') {
-        handleScreenTransition();
+        handleScreenTransition(s.mousePos.x, s.mousePos.y);
         return;
       }
 
@@ -382,14 +443,11 @@ function App() {
           const campX = CANVAS_W / 2 - btnW - gap / 2;
           const waveX = CANVAS_W / 2 + gap / 2;
 
-          // Campaign Button
+          // Campaign Button -> GO TO LEVEL SELECT
           if (tx >= campX && tx <= campX + btnW && ty >= baseY && ty <= baseY + btnH) {
             Audio.initAudio();
             Audio.playMenuSelect();
-            s.screen = 'playing';
-            s.showLevelIntro = true;
-            s.levelIntroTimer = 180;
-            Audio.startMusic(s.currentLevel);
+            s.screen = 'levelSelect';
             return;
           }
 
@@ -427,7 +485,7 @@ function App() {
         }
 
         // Other non-playing screens
-        handleScreenTransition();
+        handleScreenTransition(tx, ty);
         return;
       }
 

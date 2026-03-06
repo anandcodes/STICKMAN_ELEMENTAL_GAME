@@ -61,6 +61,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     y: Math.random() * 400,
     size: Math.random() * 2 + 0.5,
     twinkle: Math.random() * Math.PI * 2,
+    speed: 0.1 + Math.random() * 0.4, // Star parallax speed
   }));
 
   // savedData and effectiveHighScore are generated above
@@ -68,6 +69,8 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
   return {
     screen: level === 0 && score === 0 ? 'menu' : 'playing',
     currentLevel: level,
+    furthestLevel: savedData.furthestLevel || 0,
+    levelSelectionIndex: level,
     totalLevels: TOTAL_LEVELS,
     stickman,
     platforms: [...def.platforms],
@@ -115,6 +118,8 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     tutorialHints: createTutorialHints(level),
     redFlash: 0,
     pauseSelection: 0,
+    bestTimes: savedData.bestTimes || {},
+    timeElapsed: 0,
     endlessWave: level === 15 ? 1 : undefined,
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
@@ -410,7 +415,23 @@ function handleEnemyHit(state: GameState, proj: Projectile, enemy: Enemy) {
       Audio.playSuperEffective();
     }
     Audio.playEnemyDeath();
+    state.screenShake = 8; // Screen shake on death
     state.enemiesDefeated++;
+
+    // Chance to drop mana crystal
+    if (Math.random() < 0.3) {
+      state.envObjects.push({
+        id: nid(),
+        type: 'mana_crystal',
+        x: enemy.x + enemy.width / 2 - 8,
+        y: enemy.y + enemy.height / 2 - 10,
+        width: 16, height: 20,
+        health: 1, maxHealth: 1,
+        state: 'normal',
+        solid: false
+      });
+    }
+
     if (state.endlessKills !== undefined) state.endlessKills++;
   }
 }
@@ -788,6 +809,7 @@ export function update(state: GameState): void {
       // Level complete!
       state.screen = 'levelComplete';
       state.screenTimer = 0;
+      state.furthestLevel = Math.max(state.furthestLevel, state.currentLevel + 1);
       addScore(state, 100 + state.gemsCollected * 10);
       Audio.playPortalEnter();
       Audio.playLevelComplete();
@@ -796,6 +818,13 @@ export function update(state: GameState): void {
       if (state.gemsCollected >= state.totalGems) {
         addScore(state, 200);
       }
+      // Speedrun Best Time update
+      const currentBest = state.bestTimes[state.currentLevel];
+      if (!currentBest || state.timeElapsed < currentBest) {
+        state.bestTimes[state.currentLevel] = state.timeElapsed;
+        spawnFloatingText(state, s.x + s.width / 2, s.y - 60, 'NEW BEST TIME!', '#44ffff', 18);
+      }
+      saveProgress(state);
     }
     if (obj.type === 'spike' && s.invincibleTimer <= 0) {
       const ds = DIFFICULTY_SETTINGS[state.difficulty];
@@ -1026,6 +1055,7 @@ export function update(state: GameState): void {
     state.levelTimer--;
     if (state.levelTimer <= 0) s.health = 0;
   }
+  state.timeElapsed++;
 
   // Camera follow
   const targetCamX = s.x - CANVAS_W / 2 + s.width / 2;
@@ -1101,7 +1131,9 @@ export function loadSave(): SaveData {
   return {
     highScore: 0, furthestLevel: 0, totalGemsEver: 0,
     totalEnemiesDefeated: 0, difficulty: 'normal',
-    gemsCurrency: 0, upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 }
+    gemsCurrency: 0,
+    upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 },
+    bestTimes: {}
   };
 }
 
@@ -1116,6 +1148,7 @@ export function saveProgress(state: GameState): void {
       difficulty: state.difficulty,
       gemsCurrency: state.gemsCurrency,
       upgrades: state.upgrades,
+      bestTimes: state.bestTimes,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch { /* ignore if localStorage unavailable */ }

@@ -1,5 +1,5 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop';
+export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'levelSelect';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export interface Vec2 { x: number; y: number; }
@@ -113,6 +113,7 @@ export interface SaveData {
   totalEnemiesDefeated: number;
   difficulty?: Difficulty;
   upgrades: Upgrades;
+  bestTimes: Record<number, number>; // level index -> time in frames
 }
 
 export interface DifficultySettings {
@@ -136,6 +137,8 @@ export interface TutorialHint {
 export interface GameState {
   screen: GameScreen;
   currentLevel: number;
+  furthestLevel: number;
+  levelSelectionIndex: number;
   totalLevels: number;
   stickman: Stickman;
   platforms: Platform[];
@@ -161,7 +164,7 @@ export interface GameState {
   mouseDown: boolean;
   castCooldown: number;
   wind: { active: boolean; direction: number; timer: number };
-  backgroundStars: { x: number; y: number; size: number; twinkle: number }[];
+  backgroundStars: { x: number; y: number; size: number; twinkle: number; speed?: number }[];
   bgColors: [string, string, string, string];
   levelTimer: number; // frames remaining
   portalOpen: boolean;
@@ -186,4 +189,6 @@ export interface GameState {
   tutorialHints: TutorialHint[];
   redFlash: number; // frames for damage flash
   pauseSelection: number; // 0=Resume, 1=Restart, 2=Quit
+  bestTimes: Record<number, number>;
+  timeElapsed: number; // frames since level start
 }

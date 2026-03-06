@@ -32,6 +32,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 
   if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'shop') { drawShopScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'levelSelect') { drawLevelSelectScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'levelComplete') { drawLevelCompleteScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'gameOver') { drawGameOverScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'victory') { drawVictoryScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
@@ -63,13 +64,14 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 
   // Stars
   for (const star of state.backgroundStars) {
-    const sx = star.x * 0.3 - cam.x * 0.1;
+    const sx = (star.x - cam.x * (star.speed || 0.1)) % W;
     const sy = star.y * 0.5;
-    if (sx < -10 || sx > W + 10) continue;
+    const x = sx < 0 ? sx + W : sx;
+    if (x < -10 || x > W + 10) continue;
     const alpha = 0.4 + 0.4 * Math.sin(star.twinkle);
     ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.beginPath();
-    ctx.arc(sx, sy, star.size, 0, Math.PI * 2);
+    ctx.arc(x, sy, star.size, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -174,6 +176,9 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 
   ctx.restore(); // world transform
 
+  // Pass 2: Global Lights (Screen space)
+  drawLights(ctx, state, W, H);
+
   // HUD
   drawHUD(ctx, state, W, H);
 
@@ -206,7 +211,9 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, W, H);
 
-    // Title
+    // DRAW LIGHTS (Pass 1)
+    drawLights(ctx, state, W, H);
+
     ctx.save();
     ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
     ctx.fillStyle = '#ffffff';
@@ -855,8 +862,6 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.beginPath(); ctx.moveTo(cx, bodyBot); ctx.lineTo(cx + 6, bodyBot + 16); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, bodyBot); ctx.lineTo(cx - 6, bodyBot + 16); ctx.stroke();
   }
-
-  ctx.restore();
 }
 
 function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H: number) {
@@ -872,6 +877,17 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
   ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'left';
   ctx.fillText(`Level ${state.currentLevel + 1}: ${state.levelName}`, 18, 26);
+
+  // Best Time
+  const bestTime = state.bestTimes[state.currentLevel];
+  if (bestTime) {
+    const mins = Math.floor(bestTime / 3600);
+    const secs = Math.floor((bestTime % 3600) / 60);
+    const ms = Math.floor((bestTime % 60) / 0.6);
+    ctx.fillStyle = '#88ccff';
+    ctx.font = '9px monospace';
+    ctx.fillText(`Best: ${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`, 18, 100);
+  }
 
   // Health bar
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -906,6 +922,17 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
   let livesStr = '';
   for (let i = 0; i < state.lives; i++) livesStr += '❤️ ';
   ctx.fillText(livesStr, 18, 78);
+
+  // Timer (Speedrun Elapsed Time)
+  if (state.endlessWave === undefined) {
+    const mins = Math.floor(state.timeElapsed / 3600);
+    const secs = Math.floor((state.timeElapsed % 3600) / 60);
+    const ms = Math.floor((state.timeElapsed % 60) / 0.6);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`, 220, 78);
+  }
 
   const ds = { easy: '#44cc44', normal: '#ffcc00', hard: '#ff4444' };
   ctx.fillStyle = ds[state.difficulty] || '#aaaaaa';
@@ -998,6 +1025,33 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H:
     ctx.textAlign = 'center';
     ctx.fillText(`${state.comboCount}x COMBO!`, W / 2, _H - 60);
     ctx.globalAlpha = 1;
+  }
+
+  // BOSS HEALTH BAR (Bottom center during boss fights)
+  const boss = state.enemies.find(e => e.type === 'boss1' || e.type === 'boss2');
+  if (boss && boss.state !== 'dead') {
+    const bW = 400;
+    const bH = 15;
+    const bx = W / 2 - bW / 2;
+    const by = 80;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    roundRect(ctx, bx - 2, by - 2, bW + 4, bH + 4, 4);
+    ctx.fill();
+
+    const pct = Math.max(0, boss.health / boss.maxHealth);
+    const g = ctx.createLinearGradient(bx, 0, bx + bW, 0);
+    g.addColorStop(0, '#ff0000'); g.addColorStop(1, '#ff6600');
+    ctx.fillStyle = g;
+    ctx.fillRect(bx, by, bW * pct, bH);
+
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by, bW, bH);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(boss.type === 'boss1' ? 'STONE GOLEM' : 'ELEMENTAL SPIRIT', W / 2, by - 5);
   }
 
   // Element hint (bottom center)
@@ -1213,9 +1267,11 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 
   // Stars
   for (const star of state.backgroundStars) {
+    const sx = (star.x - state.screenTimer * 0.2 * (star.speed || 0.1)) % W;
+    const x = sx < 0 ? sx + W : sx;
     const alpha = 0.4 + 0.4 * Math.sin(star.twinkle + state.screenTimer * 0.03);
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    ctx.beginPath(); ctx.arc(star.x * 0.4, star.y * 0.5, star.size, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2); ctx.fill();
   }
 
   // Title
@@ -1530,4 +1586,138 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     ctx.fillText('Press 1, 2, 3, or 4 to buy upgrades.', W / 2, H - 80);
     ctx.fillText('Press [ESC] or [B] to return to Menu.', W / 2, H - 50);
   }
+}
+
+function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  const cam = state.camera;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  // 1. Player light
+  const s = state.stickman;
+  const px = s.x + s.width / 2 - cam.x;
+  const py = s.y + s.height / 2 - cam.y;
+  const pGrad = ctx.createRadialGradient(px, py, 0, px, py, 120);
+  const pColor = ELEMENT_COLORS[state.selectedElement];
+  pGrad.addColorStop(0, pColor + '44');
+  pGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = pGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Projectile lights
+  for (const p of state.projectiles) {
+    const lx = p.x - cam.x;
+    const ly = p.y - cam.y;
+    const lGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 60);
+    lGrad.addColorStop(0, ELEMENT_COLORS[p.element] + '66');
+    lGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = lGrad;
+    ctx.beginPath(); ctx.arc(lx, ly, 60, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 3. Env Light Sources
+  for (const obj of state.envObjects) {
+    if (obj.state === 'collected' || obj.state === 'destroyed') continue;
+    const ox = obj.x + obj.width / 2 - cam.x;
+    const oy = obj.y + obj.height / 2 - cam.y;
+    if (ox < -150 || ox > W + 150) continue;
+
+    let lightColor = '';
+    let size = 60;
+
+    if (obj.type === 'gem') { lightColor = '#ffcc0044'; size = 50; }
+    else if (obj.type === 'mana_crystal') { lightColor = '#0088ff44'; size = 50; }
+    else if (obj.type === 'portal') { lightColor = state.portalOpen ? '#aa44ff66' : '#5522aa33'; size = 180; }
+    else if (obj.type === 'fire_pit' || obj.state === 'burning') { lightColor = '#ff440044'; size = 90; }
+
+    if (lightColor) {
+      const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, size);
+      g.addColorStop(0, lightColor);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(ox, oy, size, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  // BG
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#0a0a2e'); skyGrad.addColorStop(0.5, '#1a1a4e'); skyGrad.addColorStop(1, '#2d1b4e');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+
+  // Stars (parallax)
+  for (const star of state.backgroundStars) {
+    const sx = (star.x - state.screenTimer * 0.1 * (star.speed || 0.1)) % W;
+    const x = sx < 0 ? sx + W : sx;
+    const alpha = 0.3 + 0.3 * Math.sin(star.twinkle + state.screenTimer * 0.02);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.beginPath(); ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Header
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('SELECT LEVEL', W / 2, 80);
+
+  // Level Grid
+  const cols = 5;
+  const cardW = 180; const cardH = 120;
+  const gap = 20;
+  const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+  const startY = 150;
+
+  for (let i = 0; i < state.totalLevels; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const lx = startX + col * (cardW + gap);
+    const ly = startY + row * (cardH + gap);
+
+    const isUnlocked = i <= state.furthestLevel;
+    const isSelected = state.levelSelectionIndex === i;
+
+    // Card background
+    ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.4)';
+    roundRect(ctx, lx, ly, cardW, cardH, 10);
+    ctx.fill();
+
+    if (isSelected) {
+      ctx.strokeStyle = '#44ccff'; ctx.lineWidth = 3;
+      ctx.shadowColor = '#44ccff'; ctx.shadowBlur = 15;
+      roundRect(ctx, lx, ly, cardW, cardH, 10);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      roundRect(ctx, lx, ly, cardW, cardH, 10);
+      ctx.stroke();
+    }
+
+    if (isUnlocked) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`${i + 1}`, lx + cardW / 2, ly + 50);
+
+      // Best Time
+      const best = state.bestTimes[i];
+      if (best) {
+        const mins = Math.floor(best / 3600);
+        const secs = Math.floor((best % 3600) / 60);
+        ctx.fillStyle = '#44ff44'; ctx.font = '10px monospace';
+        ctx.fillText(`BEST: ${mins}:${secs.toString().padStart(2, '0')}`, lx + cardW / 2, ly + 80);
+      } else {
+        ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+        ctx.fillText('NO RECORD', lx + cardW / 2, ly + 80);
+      }
+    } else {
+      ctx.fillStyle = '#555';
+      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('🔒', lx + cardW / 2, ly + 65);
+    }
+  }
+
+  // Footer
+  ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
+  ctx.fillText(isMobile ? 'Tap to Select  |  Double tap to Start' : 'Arrows: Select  |  Enter: Start  |  ESC: Menu', W / 2, H - 50);
 }
