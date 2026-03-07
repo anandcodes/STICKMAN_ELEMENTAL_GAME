@@ -1,0 +1,7 @@
+src/App.tsx(488,32): error TS2304: Cannot find name 'tx'.
+src/App.tsx(488,36): error TS2304: Cannot find name 'ty'.
+src/game/engine.ts(1,26): error TS6196: 'Projectile' is declared but never used.
+src/game/engine.ts(1,47): error TS6196: 'EnvObject' is declared but never used.
+src/game/engine.ts(1,58): error TS6196: 'Enemy' is declared but never used.
+src/game/engine.ts(7,7): error TS6133: 'MAX_PARTICLES' is declared but its value is never read.
+src/game/engine.ts(9,7): error TS6133: 'nid' is declared but its value is never read.

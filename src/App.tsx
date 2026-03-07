@@ -485,6 +485,11 @@ function App() {
         }
 
         // Other non-playing screens
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_W / rect.width;
+        const scaleY = CANVAS_H / rect.height;
+        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
+        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
         handleScreenTransition(tx, ty);
         return;
       }
