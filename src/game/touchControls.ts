@@ -18,6 +18,7 @@ export interface TouchControlsState {
   dpadTouchId: number | null;
   dpadDirection: { x: number; y: number };
   jumpActive: boolean;
+  jumpTouchId: number | null;
   castActive: boolean;
   castTouchId: number | null;
   castPosition: { x: number; y: number };
@@ -26,6 +27,7 @@ export interface TouchControlsState {
   castButton: TouchControl;
   dashButton: TouchControl;
   dashActive: boolean;
+  dashTouchId: number | null;
 }
 
 const DPAD_RADIUS = 55;
@@ -45,6 +47,7 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
     dpadTouchId: null,
     dpadDirection: { x: 0, y: 0 },
     jumpActive: false,
+    jumpTouchId: null,
     castActive: false,
     castTouchId: null,
     castPosition: { x: canvasW / 2, y: canvasH / 2 },
@@ -62,6 +65,7 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
       radius: 30, label: 'DASH', icon: '💨', color: '#44ffaa', active: false,
     },
     dashActive: false,
+    dashTouchId: null,
   };
 }
 
@@ -105,16 +109,18 @@ export function handleTouchStart(
     }
 
     // Check jump button
-    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.5) {
+    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.5 && controls.jumpTouchId === null) {
       controls.jumpActive = true;
+      controls.jumpTouchId = touch.identifier;
       controls.jumpButton.active = true;
       state.keys.add(' ');
       continue;
     }
 
     // Check dash button
-    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.5) {
+    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.5 && controls.dashTouchId === null) {
       controls.dashActive = true;
+      controls.dashTouchId = touch.identifier;
       controls.dashButton.active = true;
       state.keys.add('shift');
       continue;
@@ -212,20 +218,22 @@ export function handleTouchEnd(
       controls.castButton.active = false;
       state.mouseDown = false;
     }
-  }
 
-  // Jump release (any ended touch)
-  if (controls.jumpActive) {
-    controls.jumpActive = false;
-    controls.jumpButton.active = false;
-    state.keys.delete(' ');
-  }
+    // Jump release
+    if (touch.identifier === controls.jumpTouchId) {
+      controls.jumpTouchId = null;
+      controls.jumpActive = false;
+      controls.jumpButton.active = false;
+      state.keys.delete(' ');
+    }
 
-  // Dash release (any ended touch)
-  if (controls.dashActive) {
-    controls.dashActive = false;
-    controls.dashButton.active = false;
-    state.keys.delete('shift');
+    // Dash release
+    if (touch.identifier === controls.dashTouchId) {
+      controls.dashTouchId = null;
+      controls.dashActive = false;
+      controls.dashButton.active = false;
+      state.keys.delete('shift');
+    }
   }
 }
 
@@ -254,8 +262,6 @@ export function renderTouchControls(
   ctx: CanvasRenderingContext2D,
   controls: TouchControlsState,
   state: GameState,
-  _W: number,
-  _H: number,
 ): void {
   if (!controls.visible) return;
 

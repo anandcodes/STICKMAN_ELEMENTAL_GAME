@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { createInitialState, update, loadSave, DIFFICULTY_SETTINGS, saveProgress } from './game/engine';
+import { update, DIFFICULTY_SETTINGS } from './game/engine';
 import { render } from './game/renderer';
-import type { Element, GameState } from './game/types';
+import type { Difficulty, Element, GameSettings, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
+import { loadSave, saveProgress } from './game/persistence';
+import { advanceLoopClock, createLoopClock } from './game/loop';
+import { initTelemetrySession, trackError } from './game/telemetry';
+import { loadSettings, saveSettings } from './game/settings';
+import { t } from './game/i18n';
+import {
+  buildEndlessState,
+  buildMenuState,
+  buildNextLevelState,
+  buildPlayingState,
+  buildRestartLevelState,
+} from './game/stateFactory';
 import {
   createTouchControlsState,
   handleTouchStart,
@@ -17,16 +29,64 @@ import {
 const CANVAS_W = 1200;
 const CANVAS_H = 700;
 
+const DIFFICULTY_CYCLE: Record<Difficulty, Difficulty> = {
+  easy: 'normal',
+  normal: 'hard',
+  hard: 'easy',
+};
+
+function applySettingsToState(state: GameState, settings: GameSettings): void {
+  state.locale = settings.locale;
+  state.graphicsQuality = settings.graphicsQuality;
+  state.textScale = settings.textScale;
+  state.reducedMotion = settings.reducedMotion;
+  state.highContrast = settings.highContrast;
+}
+
+function mapGameplayKey(rawKey: string, settings: GameSettings): string | null {
+  const k = rawKey.toLowerCase();
+  if (settings.keyboardLayout === 'both') return k;
+
+  if (settings.keyboardLayout === 'wasd') {
+    if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown') return null;
+    return k;
+  }
+
+  if (k === 'a') return 'arrowleft';
+  if (k === 'd') return 'arrowright';
+  if (k === 'w') return 'arrowup';
+  if (k === 's') return 'arrowdown';
+  return k;
+}
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const initialSettings = loadSettings();
   const initialSave = loadSave();
-  const stateRef = useRef<GameState>(createInitialState(0, 0, 3, initialSave.highScore, initialSave.difficulty || 'normal'));
+  const initialState = buildMenuState(initialSave.highScore, initialSave.difficulty || 'normal');
+  applySettingsToState(initialState, initialSettings);
+  const stateRef = useRef<GameState>(initialState);
   const touchControlsRef = useRef<TouchControlsState>(createTouchControlsState(CANVAS_W, CANVAS_H));
-  const [isMobile, setIsMobile] = useState(false);
-  const isMobileRef = useRef(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() => isMobileDevice());
+  const isMobileRef = useRef(isMobile);
   const [scale, setScale] = useState(1);
   const scaleRef = useRef(1);
+  const loopClockRef = useRef(createLoopClock());
+  const [fatalError, setFatalError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const showSettingsRef = useRef(showSettings);
+  const [settings, setSettings] = useState<GameSettings>(initialSettings);
+  const settingsRef = useRef(settings);
+
+  const patchSettings = (patch: Partial<GameSettings>) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  };
+
+  const assignState = (next: GameState) => {
+    applySettingsToState(next, settingsRef.current);
+    stateRef.current = next;
+  };
 
   // Compute scale to fill screen while preserving aspect ratio
   useEffect(() => {
@@ -47,8 +107,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const mobile = isMobileDevice();
-    setIsMobile(mobile);
+    showSettingsRef.current = showSettings;
+  }, [showSettings]);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+    saveSettings(settings);
+    applySettingsToState(stateRef.current, settings);
+
+    Audio.setMasterVolume(settings.muteAll ? 0 : settings.masterVolume);
+    Audio.setMusicVolume(settings.musicVolume);
+    Audio.setSfxVolume(settings.sfxVolume);
+  }, [settings]);
+
+  useEffect(() => {
+    const mobile = isMobileRef.current;
     isMobileRef.current = mobile;
     touchControlsRef.current.visible = mobile;
 
@@ -76,6 +149,7 @@ function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    initTelemetrySession();
     containerRef.current?.focus();
 
     const handleScreenTransition = (tx?: number, ty?: number) => {
@@ -104,11 +178,7 @@ function App() {
         // Click Wave Survival -> Start Endless
         if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
           const saved = loadSave();
-          const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
-          newState.screen = 'playing';
-          newState.showLevelIntro = true;
-          newState.levelIntroTimer = 180;
-          stateRef.current = newState;
+          assignState(buildEndlessState(saved.highScore, s.difficulty));
           Audio.initAudio();
           Audio.playMenuSelect();
           Audio.startMusic(15);
@@ -122,8 +192,7 @@ function App() {
         // Bottom Bar: Difficulty + Shop
         const barY = baseY + btnH + 40;
         if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
-          const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
-          s.difficulty = (dict[s.difficulty] || 'normal') as any;
+          s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
           Audio.playMenuSelect();
           return;
         }
@@ -142,13 +211,7 @@ function App() {
           s.screenTimer = 0;
         } else {
           const saved = loadSave();
-          const newState = createInitialState(nextLevel, s.score, s.lives, saved.highScore, saved.difficulty);
-          newState.screen = 'playing';
-          newState.showLevelIntro = true;
-          newState.levelIntroTimer = 180;
-          newState.totalGemsEver = s.totalGemsEver;
-          newState.enemiesDefeated = s.enemiesDefeated;
-          stateRef.current = newState;
+          assignState(buildNextLevelState(s, saved.highScore));
           Audio.startMusic(nextLevel);
         }
         return;
@@ -156,9 +219,7 @@ function App() {
 
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
-        const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-        newState.screen = 'menu';
-        stateRef.current = newState;
+        assignState(buildMenuState(saved.highScore, s.difficulty));
         Audio.playMenuSelect();
         Audio.stopMusic();
         return;
@@ -183,11 +244,7 @@ function App() {
           if (index >= 0 && index < s.totalLevels) {
             if (index <= s.furthestLevel) {
               const saved = loadSave();
-              const newState = createInitialState(index, 0, 3, saved.highScore, saved.difficulty);
-              newState.screen = 'playing';
-              newState.showLevelIntro = true;
-              newState.levelIntroTimer = 180;
-              stateRef.current = newState;
+              assignState(buildPlayingState(index, saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.startMusic(index);
               return;
@@ -209,6 +266,21 @@ function App() {
       const s = stateRef.current;
       const key = e.key;
       const keyLower = key.toLowerCase();
+      const mappedKey = mapGameplayKey(keyLower, settingsRef.current);
+
+      if (showSettingsRef.current) {
+        if (key === 'Escape') {
+          setShowSettings(false);
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (keyLower === 'o') {
+        setShowSettings((prev) => !prev);
+        e.preventDefault();
+        return;
+      }
 
       // IMP-1: Pause toggle
       if (key === 'Escape' && s.screen === 'playing' && !s.showLevelIntro) {
@@ -236,19 +308,13 @@ function App() {
           } else if (s.pauseSelection === 1) {
             // Restart Level
             const saved = loadSave();
-            const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
-            newState.screen = 'playing';
-            newState.showLevelIntro = true;
-            newState.levelIntroTimer = 180;
-            stateRef.current = newState;
+            assignState(buildRestartLevelState(s, saved.highScore));
             Audio.playMenuSelect();
             Audio.startMusic(s.currentLevel);
           } else if (s.pauseSelection === 2) {
             // Quit to Menu
             const saved = loadSave();
-            const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-            newState.screen = 'menu';
-            stateRef.current = newState;
+            assignState(buildMenuState(saved.highScore, s.difficulty));
             Audio.playMenuSelect();
             Audio.stopMusic();
           }
@@ -262,8 +328,7 @@ function App() {
         if (s.screen === 'menu') {
           // [D] Cycle Difficulty
           if (keyLower === 'd') {
-            const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
-            s.difficulty = (dict[s.difficulty] || 'normal') as any;
+            s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
             Audio.playMenuSelect();
             return;
           }
@@ -280,11 +345,7 @@ function App() {
           // [2] or [E] Start Wave Survival
           if (key === '2' || keyLower === 'e') {
             const saved = loadSave();
-            const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
-            newState.screen = 'playing';
-            newState.showLevelIntro = true;
-            newState.levelIntroTimer = 180;
-            stateRef.current = newState;
+            assignState(buildEndlessState(saved.highScore, s.difficulty));
             Audio.initAudio();
             Audio.playMenuSelect();
             Audio.startMusic(15);
@@ -325,11 +386,7 @@ function App() {
           } else if (key === 'Enter' || key === ' ') {
             if (s.levelSelectionIndex <= s.furthestLevel) {
               const saved = loadSave();
-              const newState = createInitialState(s.levelSelectionIndex, 0, 3, saved.highScore, saved.difficulty);
-              newState.screen = 'playing';
-              newState.showLevelIntro = true;
-              newState.levelIntroTimer = 180;
-              stateRef.current = newState;
+              assignState(buildPlayingState(s.levelSelectionIndex, saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.startMusic(s.levelSelectionIndex);
             }
@@ -391,7 +448,9 @@ function App() {
         return;
       }
 
-      s.keys.add(keyLower);
+      if (mappedKey) {
+        s.keys.add(mappedKey);
+      }
 
       const elementMap: Record<string, Element> = {
         '1': 'fire', '2': 'water', '3': 'earth', '4': 'wind',
@@ -401,12 +460,17 @@ function App() {
         Audio.playElementSwitch();
       }
 
-      const gameKeys = ['w', 'a', 's', 'd', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+      const gameKeys = ['w', 'a', 's', 'd', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'];
       if (gameKeys.includes(keyLower)) e.preventDefault();
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      stateRef.current.keys.delete(e.key.toLowerCase());
+      const rawKey = e.key.toLowerCase();
+      const mapped = mapGameplayKey(rawKey, settingsRef.current);
+      stateRef.current.keys.delete(rawKey);
+      if (mapped) {
+        stateRef.current.keys.delete(mapped);
+      }
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -441,18 +505,12 @@ function App() {
               Audio.playUnpause();
             } else if (i === 1) {
               const saved = loadSave();
-              const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
-              newState.screen = 'playing';
-              newState.showLevelIntro = true;
-              newState.levelIntroTimer = 180;
-              stateRef.current = newState;
+              assignState(buildRestartLevelState(s, saved.highScore));
               Audio.playMenuSelect();
               Audio.startMusic(s.currentLevel);
             } else if (i === 2) {
               const saved = loadSave();
-              const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-              newState.screen = 'menu';
-              stateRef.current = newState;
+              assignState(buildMenuState(saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.stopMusic();
             }
@@ -474,9 +532,24 @@ function App() {
       stateRef.current.keys.clear();
       stateRef.current.mouseDown = false;
       // Auto-pause when losing focus
-      if (stateRef.current.screen === 'playing' && !stateRef.current.showLevelIntro) {
+      if (settingsRef.current.autoPauseOnBlur && stateRef.current.screen === 'playing' && !stateRef.current.showLevelIntro) {
         stateRef.current.paused = true;
       }
+    };
+
+    const onWindowError = (event: ErrorEvent) => {
+      trackError(event.error ?? event.message, {
+        source: 'window_error',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+      setFatalError(event.message || 'Unexpected runtime error');
+    };
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      trackError(event.reason, { source: 'unhandled_rejection' });
+      setFatalError('Unhandled promise rejection');
     };
 
     // Touch support - full mobile controls
@@ -563,11 +636,7 @@ function App() {
           // Wave Survival Button
           if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
             const saved = loadSave();
-            const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
-            newState.screen = 'playing';
-            newState.showLevelIntro = true;
-            newState.levelIntroTimer = 180;
-            stateRef.current = newState;
+            assignState(buildEndlessState(saved.highScore, s.difficulty));
             Audio.initAudio();
             Audio.playMenuSelect();
             Audio.startMusic(15);
@@ -577,8 +646,7 @@ function App() {
           // Difficulty cycle (bottom-left area)
           const barY = baseY + btnH + 40;
           if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
-            const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
-            s.difficulty = (dict[s.difficulty] || 'normal') as any;
+            s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
             Audio.playMenuSelect();
             return;
           }
@@ -623,19 +691,13 @@ function App() {
             } else if (i === 1) {
               // Restart Level
               const saved = loadSave();
-              const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
-              newState.screen = 'playing';
-              newState.showLevelIntro = true;
-              newState.levelIntroTimer = 180;
-              stateRef.current = newState;
+              assignState(buildRestartLevelState(s, saved.highScore));
               Audio.playMenuSelect();
               Audio.startMusic(s.currentLevel);
             } else if (i === 2) {
               // Quit to Menu
               const saved = loadSave();
-              const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-              newState.screen = 'menu';
-              stateRef.current = newState;
+              assignState(buildMenuState(saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.stopMusic();
             }
@@ -679,19 +741,31 @@ function App() {
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    window.addEventListener('error', onWindowError);
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
 
     let animId: number;
-    const gameLoop = () => {
-      const currentState = stateRef.current;
-      update(currentState);
-      render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current);
+    const gameLoop = (nowMs: number) => {
+      try {
+        const currentState = stateRef.current;
+        const steps = advanceLoopClock(loopClockRef.current, nowMs);
+        for (let i = 0; i < steps; i++) {
+          update(currentState);
+        }
+        render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current);
 
-      // Render touch controls on top
-      if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
-        renderTouchControls(ctx, touchControlsRef.current, currentState, CANVAS_W, CANVAS_H);
+        // Render touch controls on top
+        if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
+          renderTouchControls(ctx, touchControlsRef.current, currentState);
+        }
+
+        animId = requestAnimationFrame(gameLoop);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown runtime error';
+        console.error('Fatal game loop error', err);
+        trackError(err, { source: 'game_loop' });
+        setFatalError(msg);
       }
-
-      animId = requestAnimationFrame(gameLoop);
     };
     animId = requestAnimationFrame(gameLoop);
 
@@ -706,14 +780,56 @@ function App() {
       canvas.removeEventListener('touchstart', onTouchStart);
       canvas.removeEventListener('touchmove', onTouchMove);
       canvas.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('error', onWindowError);
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
   }, []);
+
+  if (fatalError) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: '#090b15',
+          color: '#f0f4ff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'monospace',
+          padding: 24,
+        }}
+      >
+        <div style={{ maxWidth: 640, textAlign: 'center' }}>
+          <h1 style={{ fontSize: 22, marginBottom: 12 }}>{t(settings.locale, 'app_runtime_error_title')}</h1>
+          <p style={{ opacity: 0.85, marginBottom: 18 }}>
+            {fatalError}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              border: '1px solid #88bbff',
+              background: '#16233f',
+              color: '#deecff',
+              borderRadius: 8,
+              padding: '10px 18px',
+              cursor: 'pointer',
+            }}
+          >
+            {t(settings.locale, 'app_reload_game')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={containerRef}
       tabIndex={0}
       id="game-container"
+      aria-label="Elemental Stickman game"
+      role="application"
       style={{
         position: 'fixed',
         inset: 0,
@@ -727,11 +843,34 @@ function App() {
         touchAction: 'none',
       }}
     >
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={showSettings}
+        onClick={() => setShowSettings(true)}
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          zIndex: 30,
+          border: '1px solid #7db8ff',
+          background: 'rgba(9, 23, 44, 0.9)',
+          color: '#e8f2ff',
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontFamily: 'monospace',
+          fontSize: `${Math.round(12 * settings.textScale)}px`,
+          cursor: 'pointer',
+        }}
+      >
+        {t(settings.locale, 'app_open_settings')}
+      </button>
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
         height={CANVAS_H}
         id="game-canvas"
+        aria-label="Game canvas"
         style={{
           display: 'block',
           cursor: isMobile ? 'default' : 'crosshair',
@@ -741,9 +880,201 @@ function App() {
           imageRendering: 'auto',
         }}
       />
+      {showSettings && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t(settings.locale, 'settings_title')}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(3, 7, 16, 0.86)',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(760px, 96vw)',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              borderRadius: 12,
+              border: settings.highContrast ? '2px solid #ffffff' : '1px solid #6ca6ff',
+              background: settings.highContrast ? '#000000' : '#071120',
+              color: '#e9f3ff',
+              padding: 18,
+              fontFamily: 'monospace',
+              fontSize: `${Math.round(13 * settings.textScale)}px`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ margin: 0, fontSize: `${Math.round(20 * settings.textScale)}px` }}>{t(settings.locale, 'settings_title')}</h2>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                style={{
+                  border: '1px solid #96c4ff',
+                  background: '#102440',
+                  color: '#f0f7ff',
+                  borderRadius: 8,
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                {t(settings.locale, 'settings_close')}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 14 }}>
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_language')}</div>
+                <select
+                  value={settings.locale}
+                  onChange={(e) => patchSettings({ locale: e.target.value as GameSettings['locale'] })}
+                  style={{ width: '100%', padding: 8, borderRadius: 6 }}
+                >
+                  <option value="en">{t(settings.locale, 'settings_language_en')}</option>
+                  <option value="hi">{t(settings.locale, 'settings_language_hi')}</option>
+                </select>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_audio')}</div>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  {t(settings.locale, 'settings_mute_all')}
+                  <input
+                    type="checkbox"
+                    checked={settings.muteAll}
+                    onChange={(e) => patchSettings({ muteAll: e.target.checked })}
+                    style={{ marginLeft: 8 }}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  {t(settings.locale, 'settings_master_volume')} ({Math.round(settings.masterVolume * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={settings.masterVolume}
+                    onChange={(e) => patchSettings({ masterVolume: Number(e.target.value) })}
+                    style={{ width: '100%' }}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  {t(settings.locale, 'settings_music_volume')} ({Math.round(settings.musicVolume * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={settings.musicVolume}
+                    onChange={(e) => patchSettings({ musicVolume: Number(e.target.value) })}
+                    style={{ width: '100%' }}
+                  />
+                </label>
+                <label style={{ display: 'block' }}>
+                  {t(settings.locale, 'settings_sfx_volume')} ({Math.round(settings.sfxVolume * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={settings.sfxVolume}
+                    onChange={(e) => patchSettings({ sfxVolume: Number(e.target.value) })}
+                    style={{ width: '100%' }}
+                  />
+                </label>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_controls')}</div>
+                <label style={{ display: 'block' }}>
+                  {t(settings.locale, 'settings_keyboard_layout')}
+                  <select
+                    value={settings.keyboardLayout}
+                    onChange={(e) => patchSettings({ keyboardLayout: e.target.value as GameSettings['keyboardLayout'] })}
+                    style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6 }}
+                  >
+                    <option value="wasd">{t(settings.locale, 'settings_keyboard_wasd')}</option>
+                    <option value="arrows">{t(settings.locale, 'settings_keyboard_arrows')}</option>
+                    <option value="both">{t(settings.locale, 'settings_keyboard_both')}</option>
+                  </select>
+                </label>
+                <label style={{ display: 'block', marginTop: 8 }}>
+                  {t(settings.locale, 'settings_auto_pause')}
+                  <input
+                    type="checkbox"
+                    checked={settings.autoPauseOnBlur}
+                    onChange={(e) => patchSettings({ autoPauseOnBlur: e.target.checked })}
+                    style={{ marginLeft: 8 }}
+                  />
+                </label>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_graphics')}</div>
+                <label style={{ display: 'block' }}>
+                  {t(settings.locale, 'settings_graphics_quality')}
+                  <select
+                    value={settings.graphicsQuality}
+                    onChange={(e) => patchSettings({ graphicsQuality: e.target.value as GameSettings['graphicsQuality'] })}
+                    style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6 }}
+                  >
+                    <option value="low">{t(settings.locale, 'settings_quality_low')}</option>
+                    <option value="medium">{t(settings.locale, 'settings_quality_medium')}</option>
+                    <option value="high">{t(settings.locale, 'settings_quality_high')}</option>
+                  </select>
+                </label>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_accessibility')}</div>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  {t(settings.locale, 'settings_text_scale')} ({Math.round(settings.textScale * 100)}%)
+                  <input
+                    type="range"
+                    min={0.85}
+                    max={1.5}
+                    step={0.05}
+                    value={settings.textScale}
+                    onChange={(e) => patchSettings({ textScale: Number(e.target.value) })}
+                    style={{ width: '100%' }}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  {t(settings.locale, 'settings_reduced_motion')}
+                  <input
+                    type="checkbox"
+                    checked={settings.reducedMotion}
+                    onChange={(e) => patchSettings({ reducedMotion: e.target.checked })}
+                    style={{ marginLeft: 8 }}
+                  />
+                </label>
+                <label style={{ display: 'block' }}>
+                  {t(settings.locale, 'settings_high_contrast')}
+                  <input
+                    type="checkbox"
+                    checked={settings.highContrast}
+                    onChange={(e) => patchSettings({ highContrast: e.target.checked })}
+                    style={{ marginLeft: 8 }}
+                  />
+                </label>
+              </section>
+
+              <div style={{ color: '#9ab7d8' }}>{t(settings.locale, 'settings_hint_close')}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default App;
+
 

@@ -5,8 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:staging": "vite --mode staging",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
+    "budget:check": "node scripts/check-budgets.mjs",
+    "contrast:check": "node scripts/check-contrast.mjs",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "node --import tsx --test src/game/__tests__/*.test.ts",
+    "test": "npm run typecheck && npm run test:smoke",
+    "release:tag": "node scripts/create-release-tag.mjs",
+    "release:tag:push": "node scripts/create-release-tag.mjs --push"
   },
   "dependencies": {
     "clsx": "2.1.1",
@@ -15,13 +27,19 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^15.15.0",
     "tailwindcss": "4.1.17",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.56.1",
     "vite": "7.2.4",
     "vite-plugin-singlefile": "2.3.0"
   }

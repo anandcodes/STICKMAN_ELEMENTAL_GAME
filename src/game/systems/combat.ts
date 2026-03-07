@@ -142,7 +142,7 @@ export function updateProjectiles(state: GameState) {
                 spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, p.element, 15);
                 state.screenShake = 15; spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);
                 // We will call this from engine to avoid circular deps for Audio
-                if ((state as any)._onDamage) (state as any)._onDamage();
+                state.onDamage?.();
                 hit = true;
             }
         } else {

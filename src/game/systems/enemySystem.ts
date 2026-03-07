@@ -241,7 +241,7 @@ export function updateEnemies(state: GameState) {
             spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, particleEl, 10);
             state.screenShake = 12;
             spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);
-            if ((state as any)._onDamage) (state as any)._onDamage();
+            state.onDamage?.();
         }
     }
 }

@@ -1,10 +1,13 @@
-import type { GameState, Element, SaveData, Difficulty, DifficultySettings, TutorialHint } from './types';
+import type { GameState, Element, Difficulty, DifficultySettings, TutorialHint } from './types';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { spawnFloatingText, spawnParticles, addScore } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
 import * as Audio from './audio';
-
-const SAVE_KEY = 'elemental_stickman_save';
+import { loadSave, saveProgress } from './persistence';
+import { trackEvent } from './telemetry';
+import { loadSettings } from './settings';
+import { submitLeaderboardEntry } from './services/leaderboard';
+import { getAchievementLabel, updateProgression } from './services/progression';
 
 const GRAVITY = 0.75;
 const FRICTION = 0.88;
@@ -24,10 +27,10 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
 function createTutorialHints(level: number): TutorialHint[] {
   if (level !== 0) return [];
   return [
-    { x: 350, y: 520, text: '🔥 Press 1 → Click to burn crates!', triggered: false, triggerRadius: 120 },
-    { x: 650, y: 540, text: '💧 Press 2 → Click to water plants!', triggered: false, triggerRadius: 120 },
-    { x: 900, y: 540, text: '💧 Use Water on fire pits to extinguish!', triggered: false, triggerRadius: 100 },
-    { x: 270, y: 420, text: '⬆ Jump on platforms to reach gems!', triggered: false, triggerRadius: 100 },
+    { x: 350, y: 520, text: 'Press 1 and click to burn crates', triggered: false, triggerRadius: 120 },
+    { x: 650, y: 540, text: 'Press 2 and click to grow plants', triggered: false, triggerRadius: 120 },
+    { x: 900, y: 540, text: 'Use Water on fire pits to extinguish', triggered: false, triggerRadius: 100 },
+    { x: 270, y: 420, text: 'Jump on platforms to reach gems', triggered: false, triggerRadius: 100 },
   ];
 }
 
@@ -36,6 +39,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
   const ds = DIFFICULTY_SETTINGS[difficulty];
 
   const savedData = loadSave();
+  const runtimeSettings = loadSettings();
   const effectiveHighScore = Math.max(highScore, savedData.highScore);
   const upg = savedData.upgrades;
 
@@ -106,9 +110,9 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     comboCount: 0,
     comboTimer: 0,
     highScore: effectiveHighScore,
-    totalGemsEver: 0,
+    totalGemsEver: savedData.totalGemsEver || 0,
     gemsCurrency: savedData.gemsCurrency,
-    enemiesDefeated: 0,
+    enemiesDefeated: savedData.totalEnemiesDefeated || 0,
     paused: false,
     screenShake: 0,
     floatingTexts: [],
@@ -120,6 +124,11 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     pauseSelection: 0,
     bestTimes: savedData.bestTimes || {},
     timeElapsed: 0,
+    locale: runtimeSettings.locale,
+    graphicsQuality: runtimeSettings.graphicsQuality,
+    textScale: runtimeSettings.textScale,
+    reducedMotion: runtimeSettings.reducedMotion,
+    highContrast: runtimeSettings.highContrast,
     endlessWave: level === 15 ? 1 : undefined,
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
@@ -264,7 +273,7 @@ export function update(state: GameState): void {
   s.vy += GRAVITY;
 
   // Base friction (modified later by ice)
-  let currentFriction = FRICTION;
+  const currentFriction = FRICTION;
   // Apply friction
   s.vx *= currentFriction;
 
@@ -429,7 +438,22 @@ export function update(state: GameState): void {
         state.bestTimes[state.currentLevel] = state.timeElapsed;
         spawnFloatingText(state, s.x + s.width / 2, s.y - 60, 'NEW BEST TIME!', '#44ffff', 18);
       }
+      trackEvent('level_complete', {
+        mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+        level: state.currentLevel + 1,
+        gemsCollected: state.gemsCollected,
+        totalGems: state.totalGems,
+        timeFrames: state.timeElapsed,
+        score: state.score,
+      });
       saveProgress(state);
+      const progression = updateProgression(state);
+      for (const achievementId of progression.unlockedAchievements) {
+        spawnFloatingText(state, s.x + s.width / 2, s.y - 85, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+      }
+      if (progression.dailyJustCompleted) {
+        spawnFloatingText(state, s.x + s.width / 2, s.y - 110, `DAILY COMPLETE: ${progression.dailyChallenge.title}`, '#66ffcc', 12);
+      }
     }
     if (obj.type === 'spike' && s.invincibleTimer <= 0) {
       const ds = DIFFICULTY_SETTINGS[state.difficulty];
@@ -478,7 +502,7 @@ export function update(state: GameState): void {
   updateEnemies(state);
 
   // Inject audio player to state avoiding cyclic
-  (state as any)._onDamage = Audio.playDamage;
+  state.onDamage = Audio.playDamage;
 
   updateProjectiles(state);
 
@@ -518,7 +542,8 @@ export function update(state: GameState): void {
           const dx = centerX - (e.x + e.width / 2), dy = centerY - (e.y + e.height / 2);
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 150) {
-            e.vx += (dx / dist) * 0.5; e.vy += (dy / dist) * 0.2;
+            const safeDist = Math.max(dist, 1);
+            e.vx += (dx / safeDist) * 0.5; e.vy += (dy / safeDist) * 0.2;
             if (dist < 40 && Math.random() > 0.9) { e.health -= 2; e.state = 'hurt'; e.hurtTimer = 5; spawnParticles(state, e.x + e.width / 2, e.y + e.height / 2, 'fire', 2); }
           }
         }
@@ -551,7 +576,8 @@ export function update(state: GameState): void {
           const dx = (e.x + e.width / 2) - centerX, dy = (e.y + e.height / 2) - centerY;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 110) {
-            e.vx += (dx / dist) * 1.5; e.vy -= 1.2; // Blow away
+            const safeDist = Math.max(dist, 1);
+            e.vx += (dx / safeDist) * 1.5; e.vy -= 1.2; // Blow away
             // BUG-FIX: Don't mutate e.speed (permanent stat), only apply velocity impulse
           }
         }
@@ -600,9 +626,31 @@ export function update(state: GameState): void {
   // Death
   if (s.health <= 0) {
     state.lives--; state.screenShake = 20;
+    trackEvent('player_death', {
+      mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+      level: state.currentLevel + 1,
+      livesRemaining: state.lives,
+      score: state.score,
+    });
     if (state.lives <= 0) {
       state.screen = 'gameOver'; state.screenTimer = 0;
+      trackEvent('game_over', {
+        mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+        level: state.currentLevel + 1,
+        score: state.score,
+        enemiesDefeated: state.enemiesDefeated,
+        endlessWave: state.endlessWave ?? null,
+      }, { force: true });
       saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
+      const progression = updateProgression(state);
+      for (const achievementId of progression.unlockedAchievements) {
+        spawnFloatingText(state, s.x + s.width / 2, s.y - 85, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+      }
+      if (state.endlessWave !== undefined) {
+        void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {
+          // leaderboard submission is best-effort
+        });
+      }
     } else {
       const def = getLevel(state.currentLevel);
       s.x = def.playerStart.x; s.y = def.playerStart.y;
@@ -645,41 +693,4 @@ function updateFloatingTexts(state: GameState): void {
   }
 }
 
-// ===== IMP-3: LocalStorage Save/Load =====
-export function loadSave(): SaveData {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw) as SaveData;
-      return {
-        ...data,
-        gemsCurrency: data.gemsCurrency || 0,
-        upgrades: data.upgrades || { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 }
-      };
-    }
-  } catch { /* ignore */ }
-  return {
-    highScore: 0, furthestLevel: 0, totalGemsEver: 0,
-    totalEnemiesDefeated: 0, difficulty: 'normal',
-    gemsCurrency: 0,
-    upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 },
-    bestTimes: {}
-  };
-}
 
-export function saveProgress(state: GameState): void {
-  try {
-    const existing = loadSave();
-    const data: SaveData = {
-      highScore: Math.max(state.highScore, existing.highScore),
-      furthestLevel: Math.max(state.currentLevel, existing.furthestLevel),
-      totalGemsEver: Math.max(state.totalGemsEver, existing.totalGemsEver),
-      totalEnemiesDefeated: Math.max(state.enemiesDefeated, existing.totalEnemiesDefeated),
-      difficulty: state.difficulty,
-      gemsCurrency: state.gemsCurrency,
-      upgrades: state.upgrades,
-      bestTimes: state.bestTimes,
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  } catch { /* ignore if localStorage unavailable */ }
-}

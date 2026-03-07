@@ -1,6 +1,9 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
 export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'levelSelect';
 export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Locale = 'en' | 'hi';
+export type GraphicsQuality = 'low' | 'medium' | 'high';
+export type KeyboardLayout = 'wasd' | 'arrows' | 'both';
 
 export interface Vec2 { x: number; y: number; }
 
@@ -106,6 +109,8 @@ export interface Upgrades {
 }
 
 export interface SaveData {
+  version?: number;
+  integrity?: string;
   highScore: number;
   furthestLevel: number;
   totalGemsEver: number;
@@ -132,6 +137,21 @@ export interface TutorialHint {
   text: string;
   triggered: boolean;
   triggerRadius: number;
+}
+
+export interface GameSettings {
+  version?: number;
+  locale: Locale;
+  graphicsQuality: GraphicsQuality;
+  textScale: number;
+  reducedMotion: boolean;
+  highContrast: boolean;
+  keyboardLayout: KeyboardLayout;
+  autoPauseOnBlur: boolean;
+  muteAll: boolean;
+  masterVolume: number;
+  musicVolume: number;
+  sfxVolume: number;
 }
 
 export interface GameState {
@@ -191,4 +211,10 @@ export interface GameState {
   pauseSelection: number; // 0=Resume, 1=Restart, 2=Quit
   bestTimes: Record<number, number>;
   timeElapsed: number; // frames since level start
+  locale: Locale;
+  graphicsQuality: GraphicsQuality;
+  textScale: number;
+  reducedMotion: boolean;
+  highContrast: boolean;
+  onDamage?: () => void;
 }

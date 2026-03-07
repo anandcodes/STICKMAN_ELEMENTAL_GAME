@@ -1,4 +1,5 @@
 import type { GameState, Element } from './types';
+import { elementName, t } from './i18n';
 
 const ELEMENT_COLORS: Record<Element, string> = {
   fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
@@ -7,28 +8,42 @@ const ELEMENT_GLOW: Record<Element, string> = {
   fire: 'rgba(255, 100, 0, 0.3)', water: 'rgba(0, 100, 255, 0.3)',
   earth: 'rgba(80, 160, 40, 0.3)', wind: 'rgba(180, 200, 240, 0.3)',
 };
-const ELEMENT_NAMES: Record<Element, string> = {
-  fire: '🔥 Fire', water: '💧 Water', earth: '🌿 Earth', wind: '🌪️ Wind',
-};
-
 const boss1Img = new Image();
 boss1Img.src = '/bosses/boss1.png';
 
 const boss2Img = new Image();
 boss2Img.src = '/bosses/boss2.png';
 
-// Local helper to read save data for rendering stats on the menu
-function loadSaveForRender(): { highScore: number; gemsCurrency: number; furthestLevel: number } | null {
-  try {
-    const raw = localStorage.getItem('elemental_stickman_save');
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    return { highScore: d.highScore || 0, gemsCurrency: d.gemsCurrency || 0, furthestLevel: d.furthestLevel || 0 };
-  } catch { return null; }
+function uiScale(state: GameState): number {
+  return Math.min(1.5, Math.max(0.85, state.textScale || 1));
+}
+
+function setUiFont(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  size: number,
+  weight = '',
+  family = 'monospace',
+): void {
+  const px = Math.round(size * uiScale(state));
+  ctx.font = `${weight ? `${weight} ` : ''}${px}px ${family}`;
+}
+
+function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>): string {
+  return t(state.locale, key, vars);
+}
+
+function formatFramesAsTime(frames: number): string {
+  const mins = Math.floor(frames / 3600);
+  const secs = Math.floor((frames % 3600) / 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export function render(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false): void {
   ctx.save();
+  const nowMs = state.reducedMotion ? 0 : performance.now();
+  const lowQuality = state.graphicsQuality === 'low';
+  const highContrast = state.highContrast;
 
   if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'shop') { drawShopScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
@@ -41,19 +56,20 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 
   // Smooth screen shake using time-based sine — no per-frame Math.random() jitter
   let shakeX = 0, shakeY = 0;
-  if (state.screenShake > 0) {
-    const t2 = Date.now() * 0.04;
+  if (state.screenShake > 0 && !state.reducedMotion) {
+    const t2 = nowMs * 0.04;
     const intensity = state.screenShake * 0.4; // gentler than before
     shakeX = Math.sin(t2 * 7.3) * intensity;
     shakeY = Math.cos(t2 * 5.9) * intensity;
   }
 
   // Sky
+  const bgColors = highContrast ? (['#000000', '#050505', '#0a0a0a', '#101010'] as [string, string, string, string]) : state.bgColors;
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-  skyGrad.addColorStop(0, state.bgColors[0]);
-  skyGrad.addColorStop(0.4, state.bgColors[1]);
-  skyGrad.addColorStop(0.7, state.bgColors[2]);
-  skyGrad.addColorStop(1, state.bgColors[3]);
+  skyGrad.addColorStop(0, bgColors[0]);
+  skyGrad.addColorStop(0.4, bgColors[1]);
+  skyGrad.addColorStop(0.7, bgColors[2]);
+  skyGrad.addColorStop(1, bgColors[3]);
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -65,7 +81,9 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   }
 
   // Stars
-  for (const star of state.backgroundStars) {
+  for (let i = 0; i < state.backgroundStars.length; i++) {
+    if (lowQuality && i % 3 !== 0) continue;
+    const star = state.backgroundStars[i];
     const sx = (star.x - cam.x * (star.speed || 0.1)) % W;
     const sy = star.y * 0.5;
     const x = sx < 0 ? sx + W : sx;
@@ -161,13 +179,13 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   for (const obj of state.envObjects) {
     if (obj.state === 'destroyed' || obj.state === 'melted' || obj.state === 'collected') continue;
     if (obj.x + obj.width < cam.x - 50 || obj.x > cam.x + W + 50) continue;
-    drawEnvObject(ctx, obj, state);
+    drawEnvObject(ctx, obj, state, nowMs);
   }
 
   // Enemies
   for (const enemy of state.enemies) {
     if (enemy.state === 'dead') continue;
-    drawEnemy(ctx, enemy);
+    drawEnemy(ctx, enemy, nowMs);
   }
 
   // Projectiles
@@ -204,14 +222,16 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   ctx.restore(); // world transform
 
   // Pass 2: Global Lights (Screen space)
-  drawLights(ctx, state, W, H);
+  if (!lowQuality) {
+    drawLights(ctx, state, W, H);
+  }
 
   // HUD
-  drawHUD(ctx, state, W, H);
+  drawHUD(ctx, state, W, H, nowMs);
 
   // IMP-7: Minimap (for levels wider than 1.5x the canvas)
-  if (state.worldWidth > W * 1.5) {
-    drawMinimap(ctx, state, W, H);
+  if (!lowQuality && state.worldWidth > W * 1.5) {
+    drawMinimap(ctx, state, W, H, nowMs);
   }
 
   // Floating texts (screen-space but offset from world)
@@ -238,20 +258,21 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, W, H);
 
-    // DRAW LIGHTS (Pass 1)
-    drawLights(ctx, state, W, H);
+    if (!lowQuality) {
+      drawLights(ctx, state, W, H);
+    }
 
     ctx.save();
     ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 44px monospace';
+    setUiFont(ctx, state, 44, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⏸ PAUSED', W / 2, H / 2 - 110);
+    ctx.fillText(tr(state, 'pause_title'), W / 2, H / 2 - 110);
     ctx.restore();
 
     // Menu options
-    const options = ['▶ Resume', '🔄 Restart Level', '🏠 Quit to Menu'];
+    const options = [tr(state, 'pause_resume'), tr(state, 'pause_restart'), tr(state, 'pause_quit')];
     const optionColors = ['#44ff44', '#ffcc00', '#ff4444'];
     for (let i = 0; i < options.length; i++) {
       const y = H / 2 - 30 + i * 55;
@@ -272,20 +293,25 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
       }
 
       ctx.fillStyle = selected ? optionColors[i] : '#888';
-      ctx.font = selected ? 'bold 20px monospace' : '18px monospace';
+      setUiFont(ctx, state, selected ? 20 : 18, selected ? 'bold' : '');
       ctx.textAlign = 'center';
       ctx.fillText(options[i], W / 2, y + 8);
     }
 
     // Stats footer
     ctx.fillStyle = '#555';
-    ctx.font = '11px monospace';
-    ctx.fillText(`Score: ${state.score}  |  Level ${state.currentLevel + 1}  |  Best: ${state.highScore}  |  Kills: ${state.enemiesDefeated}`, W / 2, H / 2 + 155);
+    setUiFont(ctx, state, 11);
+    ctx.fillText(tr(state, 'pause_stats', {
+      score: state.score,
+      level: state.currentLevel + 1,
+      best: state.highScore,
+      kills: state.enemiesDefeated,
+    }), W / 2, H / 2 + 155);
 
     // Controls hint
     ctx.fillStyle = '#444';
-    ctx.font = '10px monospace';
-    ctx.fillText(isMobile ? 'Tap options to select' : 'W/S or ↑/↓: Navigate  |  Enter: Select  |  ESC: Resume', W / 2, H / 2 + 180);
+    setUiFont(ctx, state, 10);
+    ctx.fillText(isMobile ? tr(state, 'pause_mobile_hint') : tr(state, 'pause_desktop_hint'), W / 2, H / 2 + 180);
   }
 
   ctx.restore();
@@ -329,8 +355,8 @@ function drawMountains(ctx: CanvasRenderingContext2D, camX: number, W: number, H
   }
 }
 
-function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects'][number], state: GameState) {
-  const t = Date.now() * 0.005;
+function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects'][number], state: GameState, nowMs: number) {
+  const t = nowMs * 0.005;
 
   switch (obj.type) {
     case 'crate': {
@@ -588,7 +614,7 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '14px serif';
         ctx.textAlign = 'center';
-        ctx.fillText('🔒', obj.x + obj.width / 2, obj.y + obj.height / 2 + 5);
+        ctx.fillText('LOCK', obj.x + obj.width / 2, obj.y + obj.height / 2 + 5);
       }
       ctx.restore();
       break;
@@ -693,10 +719,10 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
   }
 }
 
-function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][number]) {
+function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][number], nowMs: number) {
   const cx = enemy.x + enemy.width / 2;
   const cy = enemy.y + enemy.height / 2;
-  const t = Date.now() * 0.005;
+  const t = nowMs * 0.005;
 
   ctx.save();
 
@@ -710,7 +736,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
     ctx.translate(-cx, -cy);
   } else if (enemy.state === 'hurt') {
     // Pulsating effect for hurt enemies
-    ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.02) * 0.4;
+    ctx.globalAlpha = 0.6 + Math.sin(nowMs * 0.02) * 0.4;
   }
 
   switch (enemy.type) {
@@ -898,291 +924,320 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H: number, nowMs: number) {
   const s = state.stickman;
-  const t = Date.now() * 0.001;
+  const tSec = nowMs * 0.001;
 
-  // ── SCREEN VIGNETTE ──────────────────────────────────
-  const vigGrad = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.3, W / 2, _H / 2, _H * 0.85);
-  vigGrad.addColorStop(0, 'transparent');
-  vigGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
-  ctx.fillStyle = vigGrad;
+  const vignette = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.3, W / 2, _H / 2, _H * 0.85);
+  vignette.addColorStop(0, 'transparent');
+  vignette.addColorStop(1, state.highContrast ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, W, _H);
 
-  // ── TOP-LEFT: PLAYER STATS PANEL ─────────────────────
+  const panelBg = state.highContrast ? 'rgba(0,0,0,0.96)' : 'rgba(8,12,30,0.92)';
+  const panelBorder = state.highContrast ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)';
+
   ctx.save();
-  // Solid dark panel with colored top border (clearly visible)
-  ctx.fillStyle = 'rgba(8,12,30,0.92)';
-  roundRect(ctx, 10, 10, 235, 120, 10);
+  ctx.fillStyle = panelBg;
+  roundRect(ctx, 10, 10, 250, 124, 10);
   ctx.fill();
-  // Gold top-border accent
   ctx.fillStyle = '#ffcc00';
-  roundRect(ctx, 10, 10, 235, 3, 3);
+  roundRect(ctx, 10, 10, 250, 3, 3);
   ctx.fill();
-  // Subtle white border
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = panelBorder;
   ctx.lineWidth = 1;
-  roundRect(ctx, 10, 10, 235, 120, 10);
+  roundRect(ctx, 10, 10, 250, 124, 10);
   ctx.stroke();
 
-  // Level name header
   ctx.fillStyle = '#ffdd55';
-  ctx.font = 'bold 11px monospace';
+  setUiFont(ctx, state, 11, 'bold');
   ctx.textAlign = 'left';
   ctx.fillText(`Lv.${state.currentLevel + 1}  ${state.levelName}`, 20, 28);
 
   const bestTime = state.bestTimes[state.currentLevel];
   if (bestTime) {
-    const bm = Math.floor(bestTime / 3600), bs = Math.floor((bestTime % 3600) / 60);
-    ctx.fillStyle = '#66aaff'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(`⏱ ${bm}:${bs.toString().padStart(2, '0')}`, 238, 28);
+    ctx.fillStyle = '#66aaff';
+    setUiFont(ctx, state, 9);
+    ctx.textAlign = 'right';
+    ctx.fillText(tr(state, 'hud_best_time', { time: formatFramesAsTime(bestTime) }), 252, 28);
   }
 
-  // HP bar
-  const hpPct = Math.max(0, s.health / s.maxHealth);
+  const hpPct = Math.max(0, s.health / Math.max(1, s.maxHealth));
   const hpColor = hpPct > 0.5 ? '#3de84a' : hpPct > 0.25 ? '#ffa500' : '#ff3322';
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  roundRect(ctx, 20, 34, 213, 14, 5); ctx.fill();
+  roundRect(ctx, 20, 34, 225, 14, 5);
+  ctx.fill();
   ctx.fillStyle = hpColor;
-  if (213 * hpPct > 0) { roundRect(ctx, 20, 34, 213 * hpPct, 14, 5); ctx.fill(); }
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  if (213 * hpPct > 4) { roundRect(ctx, 20, 34, 213 * hpPct, 5, 3); ctx.fill(); }
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
-  ctx.fillText(`❤ ${Math.ceil(s.health)} / ${s.maxHealth}`, 127, 45);
-  ctx.shadowBlur = 0;
+  if (225 * hpPct > 0) {
+    roundRect(ctx, 20, 34, 225 * hpPct, 14, 5);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 9, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'hud_health', { health: Math.ceil(s.health), maxHealth: s.maxHealth }), 132, 45);
 
-  // MP bar
-  const mpPct = Math.max(0, s.mana / s.maxMana);
+  const mpPct = Math.max(0, s.mana / Math.max(1, s.maxMana));
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  roundRect(ctx, 20, 52, 213, 10, 4); ctx.fill();
-  const mpGrad = ctx.createLinearGradient(20, 0, 233, 0);
-  mpGrad.addColorStop(0, '#1144ff'); mpGrad.addColorStop(1, '#22ccff');
-  ctx.fillStyle = mpGrad;
-  if (213 * mpPct > 0) { roundRect(ctx, 20, 52, 213 * mpPct, 10, 4); ctx.fill(); }
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  if (213 * mpPct > 4) { roundRect(ctx, 20, 52, 213 * mpPct, 4, 2); ctx.fill(); }
-  ctx.fillStyle = '#aaddff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-  ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
-  ctx.fillText(`💧 ${Math.ceil(s.mana)} / ${s.maxMana}`, 127, 60);
-  ctx.shadowBlur = 0;
+  roundRect(ctx, 20, 52, 225, 10, 4);
+  ctx.fill();
+  const manaGrad = ctx.createLinearGradient(20, 0, 245, 0);
+  manaGrad.addColorStop(0, '#1144ff');
+  manaGrad.addColorStop(1, '#22ccff');
+  ctx.fillStyle = manaGrad;
+  if (225 * mpPct > 0) {
+    roundRect(ctx, 20, 52, 225 * mpPct, 10, 4);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#aaddff';
+  setUiFont(ctx, state, 8);
+  ctx.fillText(tr(state, 'hud_mana', { mana: Math.ceil(s.mana), maxMana: s.maxMana }), 132, 60);
 
-  // Lives
-  ctx.textAlign = 'left'; ctx.font = '12px serif';
-  let livesStr = ''; for (let i = 0; i < state.lives; i++) livesStr += '❤️';
-  ctx.fillText(livesStr, 20, 80);
+  ctx.textAlign = 'left';
+  setUiFont(ctx, state, 12, '', 'serif');
+  const lifeCount = Math.max(0, Math.min(12, state.lives));
+  ctx.fillText(`Lives: ${lifeCount}`, 20, 80);
 
-  // Timer
   if (state.endlessWave === undefined) {
     const tm = Math.floor(state.timeElapsed / 3600);
     const ts = Math.floor((state.timeElapsed % 3600) / 60);
     const tms = Math.floor((state.timeElapsed % 60) / 0.6);
-    ctx.fillStyle = '#cccccc'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(`⏱ ${tm}:${ts.toString().padStart(2, '0')}.${tms.toString().padStart(2, '0')}`, 238, 80);
+    ctx.fillStyle = '#cccccc';
+    setUiFont(ctx, state, 10, 'bold');
+    ctx.textAlign = 'right';
+    ctx.fillText(`${tm}:${ts.toString().padStart(2, '0')}.${tms.toString().padStart(2, '0')}`, 252, 80);
   }
 
-  // Difficulty + gems
   const diffColor: Record<string, string> = { easy: '#33ee44', normal: '#ffcc00', hard: '#ff3333' };
   ctx.fillStyle = diffColor[state.difficulty] || '#888';
-  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
-  ctx.fillText(`★ ${state.difficulty.toUpperCase()}`, 20, 95);
+  setUiFont(ctx, state, 9, 'bold');
+  ctx.textAlign = 'left';
+  ctx.fillText(state.difficulty.toUpperCase(), 20, 95);
 
   if (state.endlessWave !== undefined) {
-    ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 11px monospace';
-    ctx.fillText(`🌊 WAVE ${state.endlessWave}  ☠ ${state.endlessKills}`, 20, 112);
+    ctx.fillStyle = '#ffcc00';
+    setUiFont(ctx, state, 11, 'bold');
+    ctx.fillText(tr(state, 'hud_wave', { wave: state.endlessWave, kills: state.endlessKills ?? 0 }), 20, 112);
   } else {
     const gemDone = state.gemsCollected >= state.gemsRequired;
     ctx.fillStyle = gemDone ? '#44ff88' : '#ffdd44';
-    ctx.font = 'bold 11px monospace';
-    ctx.fillText(`💎 ${state.gemsCollected} / ${state.gemsRequired}`, 20, 112);
+    setUiFont(ctx, state, 11, 'bold');
+    ctx.fillText(tr(state, 'hud_gems', { collected: state.gemsCollected, required: state.gemsRequired }), 20, 112);
     if (state.portalOpen) {
-      ctx.fillStyle = '#dd88ff'; ctx.textAlign = 'right';
-      ctx.fillText('✦ PORTAL OPEN!', 238, 112);
+      ctx.fillStyle = '#dd88ff';
+      ctx.textAlign = 'right';
+      ctx.fillText(tr(state, 'hud_portal_open'), 252, 112);
     }
   }
   ctx.restore();
 
-  // ── ELEMENT SELECTOR (top center) ────────────────────
   ctx.save();
-  const elements: { elem: Element; icon: string; key: string }[] = [
-    { elem: 'fire', icon: '🔥', key: '1' },
-    { elem: 'water', icon: '💧', key: '2' },
-    { elem: 'earth', icon: '🌿', key: '3' },
-    { elem: 'wind', icon: '🌪️', key: '4' },
+  const elements: { elem: Element; key: string }[] = [
+    { elem: 'fire', key: '1' },
+    { elem: 'water', key: '2' },
+    { elem: 'earth', key: '3' },
+    { elem: 'wind', key: '4' },
   ];
-  const unlocked = elements.filter(e => state.unlockedElements.includes(e.elem));
-  const selW = 56, selGap = 6;
-  const totalSelW = unlocked.length * (selW + selGap) - selGap;
-  const selStartX = W / 2 - totalSelW / 2;
+  const unlocked = elements.filter((entry) => state.unlockedElements.includes(entry.elem));
+  const itemW = 62;
+  const itemGap = 6;
+  const totalW = unlocked.length * (itemW + itemGap) - itemGap;
+  const startX = W / 2 - totalW / 2;
 
-  // Panel background - solid not glass so it's clearly visible
-  ctx.fillStyle = 'rgba(8,12,30,0.92)';
-  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 66, 10); ctx.fill();
-  // Colored top border matching current element
+  ctx.fillStyle = panelBg;
+  roundRect(ctx, startX - 10, 8, totalW + 20, 66, 10);
+  ctx.fill();
   ctx.fillStyle = ELEMENT_COLORS[state.selectedElement];
-  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 3, 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  roundRect(ctx, startX - 10, 8, totalW + 20, 3, 2);
+  ctx.fill();
+  ctx.strokeStyle = panelBorder;
   ctx.lineWidth = 1;
-  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 66, 10); ctx.stroke();
+  roundRect(ctx, startX - 10, 8, totalW + 20, 66, 10);
+  ctx.stroke();
 
-  unlocked.forEach((e, i) => {
-    const bx = selStartX + i * (selW + selGap);
-    const sel = state.selectedElement === e.elem;
-    const color = ELEMENT_COLORS[e.elem];
+  unlocked.forEach((entry, idx) => {
+    const x = startX + idx * (itemW + itemGap);
+    const selected = state.selectedElement === entry.elem;
+    const color = ELEMENT_COLORS[entry.elem];
 
-    if (sel) {
+    if (selected) {
       ctx.fillStyle = color + '33';
-      roundRect(ctx, bx - 2, 12, selW + 4, 56, 8); ctx.fill();
+      roundRect(ctx, x - 2, 12, itemW + 4, 56, 8);
+      ctx.fill();
       ctx.save();
-      ctx.shadowColor = color; ctx.shadowBlur = 14;
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      roundRect(ctx, bx - 2, 12, selW + 4, 56, 8); ctx.stroke();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      roundRect(ctx, x - 2, 12, itemW + 4, 56, 8);
+      ctx.stroke();
       ctx.restore();
     }
 
-    ctx.font = '24px serif'; ctx.textAlign = 'center';
-    ctx.fillText(e.icon, bx + selW / 2, 42);
-    ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = sel ? '#fff' : '#555';
-    ctx.fillText(`[${e.key}]`, bx + selW / 2, 58);
+    ctx.fillStyle = selected ? '#ffffff' : '#c9d5e4';
+    setUiFont(ctx, state, 11, 'bold');
+    ctx.textAlign = 'center';
+    ctx.fillText(elementName(state.locale, entry.elem), x + itemW / 2, 38);
+    setUiFont(ctx, state, 9, 'bold');
+    ctx.fillStyle = selected ? '#ffffff' : '#555';
+    ctx.fillText(`[${entry.key}]`, x + itemW / 2, 58);
   });
   ctx.restore();
 
-  // ── SCORE PANEL (top right) ───────────────────────────
   ctx.save();
-  ctx.fillStyle = 'rgba(8,12,30,0.92)';
-  roundRect(ctx, W - 185, 10, 175, 80, 10); ctx.fill();
-  // Amber top border
+  ctx.fillStyle = panelBg;
+  roundRect(ctx, W - 190, 10, 180, 82, 10);
+  ctx.fill();
   ctx.fillStyle = '#ffaa00';
-  roundRect(ctx, W - 185, 10, 175, 3, 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-  roundRect(ctx, W - 185, 10, 175, 80, 10); ctx.stroke();
+  roundRect(ctx, W - 190, 10, 180, 3, 2);
+  ctx.fill();
+  ctx.strokeStyle = panelBorder;
+  ctx.lineWidth = 1;
+  roundRect(ctx, W - 190, 10, 180, 82, 10);
+  ctx.stroke();
 
   ctx.fillStyle = '#ffdd33';
-  ctx.font = 'bold 18px monospace'; ctx.textAlign = 'right';
-  ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 8;
-  ctx.fillText(`⭐ ${state.score}`, W - 18, 36);
+  setUiFont(ctx, state, 18, 'bold');
+  ctx.textAlign = 'right';
+  ctx.shadowColor = '#ff8800';
+  ctx.shadowBlur = 8;
+  ctx.fillText(tr(state, 'hud_score', { score: state.score }), W - 18, 36);
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#aaaaaa'; ctx.font = '10px monospace';
-  ctx.fillText(`Best: ${state.highScore}`, W - 18, 52);
-  ctx.fillText(`Kills: ${state.enemiesDefeated}`, W - 18, 66);
+  ctx.fillStyle = '#aaaaaa';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(tr(state, 'hud_best', { best: state.highScore }), W - 18, 52);
+  ctx.fillText(tr(state, 'hud_kills', { kills: state.enemiesDefeated }), W - 18, 66);
 
   const dashReady = s.dashCooldown <= 0;
   ctx.fillStyle = dashReady ? '#44ff88' : '#888';
-  ctx.font = 'bold 9px monospace';
-  ctx.fillText(dashReady ? '⚡ DASH  READY' : `⚡ ${Math.ceil(s.dashCooldown / 6)}s`, W - 18, 81);
+  setUiFont(ctx, state, 9, 'bold');
+  ctx.fillText(dashReady ? tr(state, 'hud_dash_ready') : tr(state, 'hud_dash_cd', { seconds: Math.ceil(s.dashCooldown / 6) }), W - 18, 81);
   ctx.restore();
 
-  // ── COMBO TEXT ─────────────────────────────────────────
   if (state.comboCount > 1 && state.comboTimer > 0) {
     ctx.save();
     const alpha = Math.min(1, state.comboTimer / 30);
-    const scale2 = 1 + (state.comboCount > 5 ? Math.sin(t * 8) * 0.05 : 0);
+    const wobble = state.reducedMotion ? 1 : 1 + (state.comboCount > 5 ? Math.sin(tSec * 8) * 0.05 : 0);
     ctx.globalAlpha = alpha;
     ctx.textAlign = 'center';
     ctx.save();
     ctx.translate(W / 2, _H - 55);
-    ctx.scale(scale2, scale2);
-    const cSize = 16 + Math.min(state.comboCount * 2, 20);
-    ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 15;
+    ctx.scale(wobble, wobble);
+    const size = 16 + Math.min(state.comboCount * 2, 20);
+    ctx.shadowColor = '#ff8800';
+    ctx.shadowBlur = 15;
     ctx.fillStyle = state.comboCount >= 5 ? '#ff4400' : '#ffaa00';
-    ctx.font = `bold ${cSize}px monospace`;
-    ctx.fillText(`${state.comboCount}× COMBO!`, 0, 0);
+    setUiFont(ctx, state, size, 'bold');
+    ctx.fillText(tr(state, 'hud_combo', { count: state.comboCount }), 0, 0);
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.restore();
   }
 
-  // ── BOSS HEALTH BAR ────────────────────────────────────
-  const boss = state.enemies.find(e => e.type === 'boss1' || e.type === 'boss2');
+  const boss = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2');
   if (boss && boss.state !== 'dead') {
     ctx.save();
-    const bW = 480; const bH = 20;
+    const bW = 480;
+    const bH = 20;
     const bx = W / 2 - bW / 2;
     const by = 80;
 
-    // Outer shadow glow
-    ctx.shadowColor = '#ff2200'; ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ff2200';
+    ctx.shadowBlur = 20;
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    roundRect(ctx, bx - 4, by - 4, bW + 8, bH + 8, 8); ctx.fill();
+    roundRect(ctx, bx - 4, by - 4, bW + 8, bH + 8, 8);
+    ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Background track
     ctx.fillStyle = 'rgba(30,0,0,0.9)';
-    roundRect(ctx, bx, by, bW, bH, 6); ctx.fill();
+    roundRect(ctx, bx, by, bW, bH, 6);
+    ctx.fill();
 
-    const pct = Math.max(0, boss.health / boss.maxHealth);
-    const bg = ctx.createLinearGradient(bx, 0, bx + bW, 0);
-    bg.addColorStop(0, '#cc0000'); bg.addColorStop(0.5, '#ff4400'); bg.addColorStop(1, '#ff8800');
-    ctx.fillStyle = bg;
-    roundRect(ctx, bx, by, bW * pct, bH, 6); ctx.fill();
+    const pct = Math.max(0, boss.health / Math.max(1, boss.maxHealth));
+    const grad = ctx.createLinearGradient(bx, 0, bx + bW, 0);
+    grad.addColorStop(0, '#cc0000');
+    grad.addColorStop(0.5, '#ff4400');
+    grad.addColorStop(1, '#ff8800');
+    ctx.fillStyle = grad;
+    roundRect(ctx, bx, by, bW * pct, bH, 6);
+    ctx.fill();
 
-    // Shine on bar
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
-    roundRect(ctx, bx, by, bW * pct, bH / 2, 6); ctx.fill();
+    roundRect(ctx, bx, by, bW * pct, bH / 2, 6);
+    ctx.fill();
 
-    // Border
-    ctx.strokeStyle = 'rgba(255,100,0,0.5)'; ctx.lineWidth = 1.5;
-    roundRect(ctx, bx, by, bW, bH, 6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,100,0,0.5)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, bW, bH, 6);
+    ctx.stroke();
 
-    // Boss name with pulse
-    const nameAlpha = 0.7 + Math.sin(t * 4) * 0.3;
-    ctx.globalAlpha = nameAlpha;
+    ctx.globalAlpha = state.reducedMotion ? 1 : 0.7 + Math.sin(tSec * 4) * 0.3;
     ctx.fillStyle = '#ffcc00';
-    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
-    ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8;
-    ctx.fillText(boss.type === 'boss1' ? '☠ STONE OVERLORD' : '☠ ELEMENTAL WRAITH', W / 2, by - 6);
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    setUiFont(ctx, state, 12, 'bold');
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff4400';
+    ctx.shadowBlur = 8;
+    ctx.fillText(boss.type === 'boss1' ? tr(state, 'hud_boss_stone') : tr(state, 'hud_boss_wraith'), W / 2, by - 6);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
     ctx.restore();
 
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
     ctx.strokeRect(bx, by, bW, bH);
   }
 
-  // ── BOTTOM BAR: Element hint ───────────────────────────
-  ctx.fillStyle = 'rgba(0,0,20,0.55)';
-  roundRect(ctx, W / 2 - 220, _H - 26, 440, 22, 6);
+  ctx.fillStyle = state.highContrast ? 'rgba(0,0,0,0.86)' : 'rgba(0,0,20,0.55)';
+  roundRect(ctx, W / 2 - 250, _H - 28, 500, 24, 6);
   ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`${ELEMENT_NAMES[state.selectedElement]}  •  ${state.elementHint}  •  [SHIFT] Dash`, W / 2, _H - 10);
+  ctx.fillStyle = state.highContrast ? '#ffffff' : 'rgba(255,255,255,0.7)';
+  setUiFont(ctx, state, 10);
+  ctx.textAlign = 'center';
+  ctx.fillText(
+    tr(state, 'hud_bottom_hint', {
+      element: elementName(state.locale, state.selectedElement),
+      hint: state.elementHint,
+    }),
+    W / 2,
+    _H - 11,
+  );
 
-  // LEVEL PROGRESS BAR (Campaign only)
   if (state.endlessWave === undefined) {
     const barW = W - 40;
     const barH = 4;
     const barX = 20;
     const barY = _H - 6;
 
-    // Find portal position
     let portalX = state.worldWidth;
     for (const obj of state.envObjects) {
-      if (obj.type === 'portal') { portalX = obj.x; break; }
+      if (obj.type === 'portal') {
+        portalX = obj.x;
+        break;
+      }
     }
 
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
     ctx.fillRect(barX, barY, barW, barH);
 
-    // Fill to player position
-    const playerPct = Math.min(1, (s.x / state.worldWidth));
+    const playerPct = Math.min(1, s.x / Math.max(1, state.worldWidth));
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fillRect(barX, barY, barW * playerPct, barH);
 
-    // Portal marker
-    const portalPct = portalX / state.worldWidth;
+    const portalPct = portalX / Math.max(1, state.worldWidth);
     const portalMarkerX = barX + barW * portalPct;
     ctx.fillStyle = state.portalOpen ? '#aa44ff' : '#553377';
     ctx.fillRect(portalMarkerX - 2, barY - 2, 4, barH + 4);
 
-    // Player dot
     const playerMarkerX = barX + barW * playerPct;
     ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(playerMarkerX, barY + barH / 2, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(playerMarkerX, barY + barH / 2, 3, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
   const mapW = 160;
   const mapH = 50;
   const mx = W - mapW - 10;
@@ -1205,9 +1260,9 @@ function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number,
 
   // Label
   ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.font = '7px monospace';
+  setUiFont(ctx, state, 7);
   ctx.textAlign = 'left';
-  ctx.fillText('MAP', mx, my - 6);
+  ctx.fillText(tr(state, 'hud_map'), mx, my - 6);
 
   // Platforms
   ctx.fillStyle = 'rgba(120, 120, 120, 0.6)';
@@ -1271,7 +1326,7 @@ function drawMinimap(ctx: CanvasRenderingContext2D, state: GameState, W: number,
   const s = state.stickman;
   const playerX = mx + s.x * scaleX;
   const playerY = my + s.y * scaleY;
-  const pulse = 2 + Math.sin(Date.now() * 0.008) * 0.8;
+  const pulse = state.reducedMotion ? 2.5 : 2 + Math.sin(nowMs * 0.008) * 0.8;
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(playerX, playerY, pulse, 0, Math.PI * 2);
@@ -1290,275 +1345,291 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.fillRect(0, 0, W, H);
 
   ctx.globalAlpha = alpha;
-
-  // Level number
   ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 16px monospace';
+  setUiFont(ctx, state, 16, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText(`LEVEL ${state.currentLevel + 1}`, W / 2, H / 2 - 40);
+  ctx.fillText(tr(state, 'level_intro_header', { level: state.currentLevel + 1 }), W / 2, H / 2 - 40);
 
-  // Level name
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 32px monospace';
+  setUiFont(ctx, state, 32, 'bold');
   ctx.fillText(state.levelName, W / 2, H / 2);
 
-  // Subtitle
   ctx.fillStyle = '#aaaacc';
-  ctx.font = '14px monospace';
+  setUiFont(ctx, state, 14);
   ctx.fillText(state.levelSubtitle, W / 2, H / 2 + 30);
 
-  // Objective
   ctx.fillStyle = '#ffcc44';
-  ctx.font = '12px monospace';
-  ctx.fillText(`Collect ${state.gemsRequired} gems to open the portal`, W / 2, H / 2 + 60);
+  setUiFont(ctx, state, 12);
+  ctx.fillText(tr(state, 'level_intro_objective', { gems: state.gemsRequired }), W / 2, H / 2 + 60);
 
-  // Element hint
   ctx.fillStyle = '#88ccff';
   ctx.fillText(state.elementHint, W / 2, H / 2 + 80);
-
   ctx.restore();
 }
-
 function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
-  // Background
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-  skyGrad.addColorStop(0, '#0a0a2e'); skyGrad.addColorStop(0.5, '#1a1a4e');
-  skyGrad.addColorStop(1, '#2d1b4e');
-  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+  skyGrad.addColorStop(0, state.highContrast ? '#000000' : '#0a0a2e');
+  skyGrad.addColorStop(0.5, state.highContrast ? '#050505' : '#1a1a4e');
+  skyGrad.addColorStop(1, state.highContrast ? '#0d0d0d' : '#2d1b4e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Stars
-  for (const star of state.backgroundStars) {
+  const lowQuality = state.graphicsQuality === 'low';
+  for (let i = 0; i < state.backgroundStars.length; i++) {
+    if (lowQuality && i % 3 !== 0) continue;
+    const star = state.backgroundStars[i];
     const sx = (star.x - state.screenTimer * 0.2 * (star.speed || 0.1)) % W;
     const x = sx < 0 ? sx + W : sx;
-    const alpha = 0.4 + 0.4 * Math.sin(star.twinkle + state.screenTimer * 0.03);
+    const alpha = state.reducedMotion ? 0.5 : 0.4 + 0.4 * Math.sin(star.twinkle + state.screenTimer * 0.03);
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    ctx.beginPath(); ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Title
-  const t = state.screenTimer * 0.02;
+  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.02;
   ctx.save();
-  ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 20;
+  ctx.shadowColor = '#ff4400';
+  ctx.shadowBlur = 20;
   ctx.fillStyle = '#ff4400';
-  ctx.font = 'bold 48px monospace';
+  setUiFont(ctx, state, 48, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText('⚡ ELEMENTAL', W / 2, 140 + Math.sin(t) * 5);
+  ctx.fillText(tr(state, 'menu_title_line_1'), W / 2, 140 + Math.sin(tSec) * 5);
   ctx.shadowColor = '#44aaff';
   ctx.fillStyle = '#44aaff';
-  ctx.fillText('STICKMAN ⚡', W / 2, 195 + Math.sin(t + 1) * 5);
+  ctx.fillText(tr(state, 'menu_title_line_2'), W / 2, 195 + Math.sin(tSec + 1) * 5);
   ctx.restore();
 
-  // Subtitle
   ctx.fillStyle = '#aaa';
-  ctx.font = '14px monospace';
+  setUiFont(ctx, state, 14);
   ctx.textAlign = 'center';
-  ctx.fillText('Master the elements across two epic game modes', W / 2, 235);
+  ctx.fillText(tr(state, 'menu_subtitle'), W / 2, 235);
 
-  // Elements showcase
-  const elems = ['🔥 Fire', '💧 Water', '🌿 Earth', '🌪️ Wind'];
+  const elements: Element[] = ['fire', 'water', 'earth', 'wind'];
   const colors = ['#ff4400', '#0088ff', '#66aa33', '#aabbee'];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < elements.length; i++) {
     ctx.fillStyle = colors[i];
-    ctx.font = '16px monospace';
-    ctx.fillText(elems[i], W / 2 - 150 + i * 100, 270);
+    setUiFont(ctx, state, 16);
+    ctx.fillText(elementName(state.locale, elements[i]), W / 2 - 150 + i * 100, 270);
   }
 
-  // ===== MODE BUTTONS =====
-  const btnW = 280; const btnH = 80;
+  const btnW = 280;
+  const btnH = 80;
   const gap = 40;
   const baseY = 320;
 
-  // --- Campaign Button ---
   const campX = W / 2 - btnW - gap / 2;
   ctx.save();
   const campGrad = ctx.createLinearGradient(campX, baseY, campX, baseY + btnH);
-  campGrad.addColorStop(0, '#1a3a1a'); campGrad.addColorStop(1, '#0a2a0a');
+  campGrad.addColorStop(0, '#1a3a1a');
+  campGrad.addColorStop(1, '#0a2a0a');
   ctx.fillStyle = campGrad;
-  roundRect(ctx, campX, baseY, btnW, btnH, 12); ctx.fill();
-  ctx.strokeStyle = '#44cc44'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.shadowColor = '#44cc44'; ctx.shadowBlur = 15;
+  roundRect(ctx, campX, baseY, btnW, btnH, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#44cc44';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowColor = '#44cc44';
+  ctx.shadowBlur = 15;
   ctx.fillStyle = '#44ff44';
-  ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('⚔️  CAMPAIGN', campX + btnW / 2, baseY + 32);
+  setUiFont(ctx, state, 22, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'menu_campaign'), campX + btnW / 2, baseY + 32);
   ctx.restore();
-  ctx.fillStyle = '#88cc88'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('15 Levels · Story · Boss Fights', campX + btnW / 2, baseY + 55);
-  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
-  ctx.fillText(isMobile ? 'Tap to Play' : 'Press [1] or Click', campX + btnW / 2, baseY + 72);
+  ctx.fillStyle = '#88cc88';
+  setUiFont(ctx, state, 12);
+  ctx.fillText(tr(state, 'menu_campaign_subtitle'), campX + btnW / 2, baseY + 55);
+  ctx.fillStyle = '#556';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_campaign'), campX + btnW / 2, baseY + 72);
 
-  // --- Wave Survival Button ---
   const waveX = W / 2 + gap / 2;
   ctx.save();
   const waveGrad = ctx.createLinearGradient(waveX, baseY, waveX, baseY + btnH);
-  waveGrad.addColorStop(0, '#3a1a1a'); waveGrad.addColorStop(1, '#2a0a0a');
+  waveGrad.addColorStop(0, '#3a1a1a');
+  waveGrad.addColorStop(1, '#2a0a0a');
   ctx.fillStyle = waveGrad;
-  roundRect(ctx, waveX, baseY, btnW, btnH, 12); ctx.fill();
-  ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 15;
+  roundRect(ctx, waveX, baseY, btnW, btnH, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#ff4444';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowColor = '#ff4444';
+  ctx.shadowBlur = 15;
   ctx.fillStyle = '#ff6644';
-  ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('🌊  WAVE SURVIVAL', waveX + btnW / 2, baseY + 32);
+  setUiFont(ctx, state, 22, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'menu_wave'), waveX + btnW / 2, baseY + 32);
   ctx.restore();
-  ctx.fillStyle = '#cc8888'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('Endless Waves · Leaderboard · Chaos', waveX + btnW / 2, baseY + 55);
-  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
-  ctx.fillText(isMobile ? 'Tap to Play' : 'Press [2] or Click', waveX + btnW / 2, baseY + 72);
+  ctx.fillStyle = '#cc8888';
+  setUiFont(ctx, state, 12);
+  ctx.fillText(tr(state, 'menu_wave_subtitle'), waveX + btnW / 2, baseY + 55);
+  ctx.fillStyle = '#556';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_wave'), waveX + btnW / 2, baseY + 72);
 
-  // ===== BOTTOM BAR: Difficulty + Shop =====
   const barY = baseY + btnH + 40;
-
-  // Difficulty
   const diffColors: Record<string, string> = { easy: '#44cc44', normal: '#ffcc00', hard: '#ff4444' };
   ctx.fillStyle = diffColors[state.difficulty] || '#ffcc00';
-  ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`Difficulty: ${state.difficulty.toUpperCase()}`, W / 2 - 120, barY);
-  ctx.fillStyle = '#666'; ctx.font = '10px monospace';
-  ctx.fillText(isMobile ? 'Tap to Cycle' : '[D] Cycle', W / 2 - 120, barY + 16);
+  setUiFont(ctx, state, 14, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'menu_difficulty', { difficulty: state.difficulty.toUpperCase() }), W / 2 - 120, barY);
+  ctx.fillStyle = '#666';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(isMobile ? tr(state, 'menu_tap_cycle') : tr(state, 'menu_key_cycle'), W / 2 - 120, barY + 16);
 
-  // Shop Button
   ctx.save();
   ctx.fillStyle = '#1a1a3a';
-  roundRect(ctx, W / 2 + 20, barY - 18, 200, 40, 8); ctx.fill();
-  ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#88bbff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('🛒 UPGRADE SHOP', W / 2 + 120, barY + 5);
+  roundRect(ctx, W / 2 + 20, barY - 18, 200, 40, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#4488ff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#88bbff';
+  setUiFont(ctx, state, 14, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'menu_shop'), W / 2 + 120, barY + 5);
   ctx.restore();
-  ctx.fillStyle = '#556'; ctx.font = '10px monospace';
-  ctx.fillText(isMobile ? 'Tap to Open' : '[U] Open', W / 2 + 120, barY + 22);
 
-  // Stats
-  const saved = loadSaveForRender();
-  if (saved) {
-    ctx.fillStyle = '#555'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(`Best: ${saved.highScore} pts  ·  💎 ${saved.gemsCurrency}  ·  Furthest: Lv.${saved.furthestLevel + 1}`, W / 2, barY + 55);
-  }
+  ctx.fillStyle = '#556';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(isMobile ? tr(state, 'menu_tap_open') : tr(state, 'menu_key_open'), W / 2 + 120, barY + 22);
 
-  // Controls footer
-  ctx.fillStyle = '#444'; ctx.font = '10px monospace';
-  if (isMobile) {
-    ctx.fillText('D-Pad: Move  |  Tap icons: Switch  |  CAST: Shoot', W / 2, H - 20);
-  } else {
-    ctx.fillText('WASD: Move & Jump  |  1-4: Elements  |  Click: Cast  |  ESC: Pause', W / 2, H - 20);
-  }
+  ctx.fillStyle = '#555';
+  setUiFont(ctx, state, 11);
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'menu_stats', {
+    best: state.highScore,
+    gems: state.gemsCurrency,
+    level: state.furthestLevel + 1,
+  }), W / 2, barY + 55);
+
+  ctx.fillStyle = '#444';
+  setUiFont(ctx, state, 10);
+  ctx.fillText(isMobile ? tr(state, 'menu_controls_mobile') : tr(state, 'menu_controls_desktop'), W / 2, H - 20);
 }
-
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   ctx.fillStyle = 'rgba(0,0,20,0.85)';
   ctx.fillRect(0, 0, W, H);
 
-  const t = state.screenTimer * 0.03;
-
+  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#44ff44'; ctx.shadowBlur = 20;
+  ctx.shadowColor = '#44ff44';
+  ctx.shadowBlur = 20;
   ctx.fillStyle = '#44ff44';
-  ctx.font = 'bold 40px monospace';
+  setUiFont(ctx, state, 40, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText('LEVEL COMPLETE!', W / 2, H / 2 - 80 + Math.sin(t) * 3);
+  ctx.fillText(tr(state, 'level_complete_title'), W / 2, H / 2 - 80 + Math.sin(tSec) * 3);
   ctx.restore();
 
   ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 20px monospace';
-  ctx.fillText(`Level ${state.currentLevel + 1}: ${state.levelName}`, W / 2, H / 2 - 35);
+  setUiFont(ctx, state, 20, 'bold');
+  ctx.fillText(tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }), W / 2, H / 2 - 35);
 
-  // Stats
-  ctx.fillStyle = '#ffffff'; ctx.font = '14px monospace';
-  ctx.fillText(`Gems: ${state.gemsCollected} / ${state.totalGems}`, W / 2, H / 2 + 5);
-  ctx.fillText(`Enemies Defeated: ${state.enemiesDefeated}`, W / 2, H / 2 + 25);
-  ctx.fillText(`Score: ${state.score}`, W / 2, H / 2 + 45);
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 14);
+  ctx.fillText(tr(state, 'level_complete_gems', { collected: state.gemsCollected, total: state.totalGems }), W / 2, H / 2 + 5);
+  ctx.fillText(tr(state, 'level_complete_enemies', { count: state.enemiesDefeated }), W / 2, H / 2 + 25);
+  ctx.fillText(tr(state, 'level_complete_score', { score: state.score }), W / 2, H / 2 + 45);
 
   if (state.gemsCollected >= state.totalGems) {
     ctx.fillStyle = '#ffaa00';
-    ctx.fillText('★ ALL GEMS COLLECTED! +200 BONUS ★', W / 2, H / 2 + 70);
+    ctx.fillText(tr(state, 'level_complete_all_gems_bonus'), W / 2, H / 2 + 70);
   }
 
-  const blinkAlpha = 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
+  const blinkAlpha = state.reducedMotion ? 1 : 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#44aaff';
-  ctx.font = 'bold 18px monospace';
+  setUiFont(ctx, state, 18, 'bold');
   if (state.currentLevel + 1 >= state.totalLevels) {
-    ctx.fillText(isMobile ? 'Tap for Victory!' : 'Click or Press ENTER for Victory!', W / 2, H / 2 + 110);
+    ctx.fillText(isMobile ? tr(state, 'level_complete_tap_victory') : tr(state, 'level_complete_click_victory'), W / 2, H / 2 + 110);
   } else {
-    ctx.fillText(isMobile ? 'Tap for Next Level' : 'Click or Press ENTER for Next Level', W / 2, H / 2 + 110);
+    ctx.fillText(isMobile ? tr(state, 'level_complete_tap_next') : tr(state, 'level_complete_click_next'), W / 2, H / 2 + 110);
   }
   ctx.globalAlpha = 1;
 }
-
 function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   ctx.fillStyle = 'rgba(20,0,0,0.9)';
   ctx.fillRect(0, 0, W, H);
 
-  const t = state.screenTimer * 0.03;
-
+  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#ff2222'; ctx.shadowBlur = 25;
+  ctx.shadowColor = '#ff2222';
+  ctx.shadowBlur = 25;
   ctx.fillStyle = '#ff2222';
-  ctx.font = 'bold 48px monospace';
+  setUiFont(ctx, state, 48, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText(state.endlessWave !== undefined ? 'WAVE OVER' : 'GAME OVER', W / 2, H / 2 - 60 + Math.sin(t) * 3);
+  ctx.fillText(state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title'), W / 2, H / 2 - 60 + Math.sin(tSec) * 3);
   ctx.restore();
 
-  ctx.fillStyle = '#aaa'; ctx.font = '16px monospace';
-  ctx.fillText(`Final Score: ${state.score}`, W / 2, H / 2 - 10);
-  ctx.fillText(`Best Score: ${state.highScore}`, W / 2, H / 2 + 15);
+  ctx.fillStyle = '#aaa';
+  setUiFont(ctx, state, 16);
+  ctx.fillText(tr(state, 'game_over_final_score', { score: state.score }), W / 2, H / 2 - 10);
+  ctx.fillText(tr(state, 'game_over_best_score', { score: state.highScore }), W / 2, H / 2 + 15);
 
   if (state.endlessWave !== undefined) {
     ctx.fillStyle = '#44aaff';
-    ctx.fillText(`Survived to Wave: ${state.endlessWave}`, W / 2, H / 2 + 40);
-    ctx.fillText(`Total Kills: ${state.endlessKills}`, W / 2, H / 2 + 65);
+    ctx.fillText(tr(state, 'game_over_survived_wave', { wave: state.endlessWave }), W / 2, H / 2 + 40);
+    ctx.fillText(tr(state, 'game_over_total_kills', { kills: state.endlessKills ?? 0 }), W / 2, H / 2 + 65);
   } else {
-    ctx.fillText(`Reached Level ${state.currentLevel + 1}: ${state.levelName}`, W / 2, H / 2 + 40);
+    ctx.fillText(tr(state, 'game_over_reached_level', { level: state.currentLevel + 1, name: state.levelName }), W / 2, H / 2 + 40);
   }
 
-  const blinkAlpha = 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
+  const blinkAlpha = state.reducedMotion ? 1 : 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 18px monospace';
-  ctx.fillText(isMobile ? 'Tap to Return to Menu' : 'Press ENTER to Return to Menu', W / 2, H / 2 + 90);
+  setUiFont(ctx, state, 18, 'bold');
+  ctx.fillText(isMobile ? tr(state, 'game_over_tap_return') : tr(state, 'game_over_press_return'), W / 2, H / 2 + 90);
   ctx.globalAlpha = 1;
 }
-
 function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
-  // Rainbow gradient background
   const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#1a0a2e'); grad.addColorStop(0.3, '#0a2a4e');
-  grad.addColorStop(0.6, '#0a3a2e'); grad.addColorStop(1, '#2a1a0e');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  grad.addColorStop(0, '#1a0a2e');
+  grad.addColorStop(0.3, '#0a2a4e');
+  grad.addColorStop(0.6, '#0a3a2e');
+  grad.addColorStop(1, '#2a1a0e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Sparkles
-  for (let i = 0; i < 20; i++) {
-    const sx = (Math.sin(state.screenTimer * 0.02 + i * 1.3) * 0.5 + 0.5) * W;
-    const sy = (Math.cos(state.screenTimer * 0.015 + i * 0.9) * 0.5 + 0.5) * H;
-    const alpha = 0.3 + Math.sin(state.screenTimer * 0.05 + i) * 0.3;
-    ctx.fillStyle = `rgba(255,255,100,${alpha})`;
-    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+  if (!state.reducedMotion) {
+    for (let i = 0; i < 20; i++) {
+      const sx = (Math.sin(state.screenTimer * 0.02 + i * 1.3) * 0.5 + 0.5) * W;
+      const sy = (Math.cos(state.screenTimer * 0.015 + i * 0.9) * 0.5 + 0.5) * H;
+      const alpha = 0.3 + Math.sin(state.screenTimer * 0.05 + i) * 0.3;
+      ctx.fillStyle = `rgba(255,255,100,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  const t = state.screenTimer * 0.03;
-
+  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 30;
+  ctx.shadowColor = '#ffcc00';
+  ctx.shadowBlur = 30;
   ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 44px monospace';
+  setUiFont(ctx, state, 44, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText('🏆 VICTORY! 🏆', W / 2, H / 2 - 80 + Math.sin(t) * 5);
+  ctx.fillText(tr(state, 'victory_title'), W / 2, H / 2 - 80 + Math.sin(tSec) * 5);
   ctx.restore();
 
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px monospace';
-  ctx.fillText('You have mastered all the elements!', W / 2, H / 2 - 30);
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 18, 'bold');
+  ctx.fillText(tr(state, 'victory_subtitle'), W / 2, H / 2 - 30);
 
-  ctx.fillStyle = '#ffcc44'; ctx.font = '16px monospace';
-  ctx.fillText(`Final Score: ${state.score}`, W / 2, H / 2 + 10);
-  ctx.fillText(`Total Gems: ${state.totalGemsEver}`, W / 2, H / 2 + 35);
-  ctx.fillText(`Enemies Defeated: ${state.enemiesDefeated}`, W / 2, H / 2 + 55);
+  ctx.fillStyle = '#ffcc44';
+  setUiFont(ctx, state, 16);
+  ctx.fillText(tr(state, 'victory_final_score', { score: state.score }), W / 2, H / 2 + 10);
+  ctx.fillText(tr(state, 'victory_total_gems', { gems: state.totalGemsEver }), W / 2, H / 2 + 35);
+  ctx.fillText(tr(state, 'victory_enemies', { count: state.enemiesDefeated }), W / 2, H / 2 + 55);
 
-  const blinkAlpha = 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
+  const blinkAlpha = state.reducedMotion ? 1 : 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
   ctx.globalAlpha = blinkAlpha;
   ctx.fillStyle = '#44aaff';
-  ctx.font = 'bold 16px monospace';
-  ctx.fillText(isMobile ? 'Tap to Play Again' : 'Click or Press ENTER to Play Again', W / 2, H / 2 + 100);
+  setUiFont(ctx, state, 16, 'bold');
+  ctx.fillText(isMobile ? tr(state, 'victory_tap_again') : tr(state, 'victory_click_again'), W / 2, H / 2 + 100);
   ctx.globalAlpha = 1;
 }
-
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -1574,81 +1645,81 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
-  // Deep gradient background
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
   skyGrad.addColorStop(0, '#0a0a1a');
   skyGrad.addColorStop(1, '#1b1b2d');
-  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Floating shop items background
   for (let i = 0; i < 20; i++) {
     const x = (i * 100 + state.screenTimer) % W;
-    const y = H / 2 + Math.sin(state.screenTimer * 0.01 + i) * 100;
-    ctx.fillStyle = `rgba(100, 200, 255, 0.05)`;
-    ctx.beginPath(); ctx.arc(x, y, 40, 0, Math.PI * 2); ctx.fill();
+    const y = H / 2 + (state.reducedMotion ? 0 : Math.sin(state.screenTimer * 0.01 + i) * 100);
+    ctx.fillStyle = 'rgba(100, 200, 255, 0.05)';
+    ctx.beginPath();
+    ctx.arc(x, y, 40, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 36px monospace';
+  setUiFont(ctx, state, 36, 'bold');
   ctx.textAlign = 'center';
-  ctx.fillText('🛒 UPGRADE SHOP', W / 2, 80);
+  ctx.fillText(tr(state, 'shop_title'), W / 2, 80);
 
   ctx.fillStyle = '#ffcc00';
-  ctx.font = '24px monospace';
-  ctx.fillText(`Currency: ${state.gemsCurrency} 💎`, W / 2, 130);
+  setUiFont(ctx, state, 24);
+  ctx.fillText(tr(state, 'shop_currency', { gems: state.gemsCurrency }), W / 2, 130);
 
-  // Draw Upgrades Options
   const upg = state.upgrades;
-  const costH = (upg.healthLevel + 1) * 30;
-  const costM = (upg.manaLevel + 1) * 30;
-  const costR = (upg.regenLevel + 1) * 50;
-  const costD = (upg.damageLevel + 1) * 60;
+  const costs = {
+    health: (upg.healthLevel + 1) * 30,
+    mana: (upg.manaLevel + 1) * 30,
+    regen: (upg.regenLevel + 1) * 50,
+    damage: (upg.damageLevel + 1) * 60,
+  };
 
   const spacing = 100;
   const startY = 220;
-
-  ctx.font = 'bold 20px monospace';
+  setUiFont(ctx, state, 20, 'bold');
   ctx.textAlign = 'left';
 
-  const drawRow = (idx: number, y: number, name: string, lvl: number, cost: number, max: boolean) => {
-    ctx.fillStyle = max ? '#66aa33' : (state.gemsCurrency >= cost ? '#ffffff' : '#aa5555');
+  const drawRow = (idx: number, y: number, name: string, level: number, cost: number, maxed: boolean) => {
+    ctx.fillStyle = maxed ? '#66aa33' : (state.gemsCurrency >= cost ? '#ffffff' : '#aa5555');
     ctx.fillText(`[${idx}] ${name}`, W / 2 - 250, y);
 
-    // Level Box graphics
     for (let i = 0; i < 5; i++) {
-      ctx.fillStyle = i < lvl ? '#00bbff' : '#222';
+      ctx.fillStyle = i < level ? '#00bbff' : '#222';
       ctx.fillRect(W / 2 + i * 35 - 30, y - 18, 25, 20);
-      ctx.strokeStyle = '#555'; ctx.strokeRect(W / 2 + i * 35 - 30, y - 18, 25, 20);
+      ctx.strokeStyle = '#555';
+      ctx.strokeRect(W / 2 + i * 35 - 30, y - 18, 25, 20);
     }
 
-    ctx.fillStyle = max ? '#66aa33' : '#ffcc00';
-    ctx.fillText(max ? 'MAXED' : `${cost} 💎`, W / 2 + 180, y);
+    ctx.fillStyle = maxed ? '#66aa33' : '#ffcc00';
+    ctx.fillText(maxed ? tr(state, 'shop_maxed') : `${cost}`, W / 2 + 180, y);
   };
 
-  drawRow(1, startY, 'Max Health (+25)', upg.healthLevel, costH, upg.healthLevel >= 5);
-  drawRow(2, startY + spacing, 'Max Mana (+25)', upg.manaLevel, costM, upg.manaLevel >= 5);
-  drawRow(3, startY + spacing * 2, 'Mana Regen (+20%)', upg.regenLevel, costR, upg.regenLevel >= 5);
-  drawRow(4, startY + spacing * 3, 'Spell Damage (+25%)', upg.damageLevel, costD, upg.damageLevel >= 5);
+  drawRow(1, startY, tr(state, 'shop_max_health'), upg.healthLevel, costs.health, upg.healthLevel >= 5);
+  drawRow(2, startY + spacing, tr(state, 'shop_max_mana'), upg.manaLevel, costs.mana, upg.manaLevel >= 5);
+  drawRow(3, startY + spacing * 2, tr(state, 'shop_mana_regen'), upg.regenLevel, costs.regen, upg.regenLevel >= 5);
+  drawRow(4, startY + spacing * 3, tr(state, 'shop_spell_damage'), upg.damageLevel, costs.damage, upg.damageLevel >= 5);
 
   ctx.fillStyle = '#aaa';
   ctx.textAlign = 'center';
-  ctx.font = '16px monospace';
+  setUiFont(ctx, state, 16);
 
   if (isMobile) {
-    ctx.fillText('Tap directly on an upgrade to buy it!', W / 2, H - 90);
-    // Visual Back Button for Mobile
+    ctx.fillText(tr(state, 'shop_tap_buy'), W / 2, H - 90);
     ctx.fillStyle = '#333';
     roundRect(ctx, W / 2 - 60, H - 70, 120, 40, 10);
     ctx.fill();
-    ctx.strokeStyle = '#666'; ctx.stroke();
+    ctx.strokeStyle = '#666';
+    ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.fillText('BACK', W / 2, H - 43);
+    ctx.fillText(tr(state, 'shop_back'), W / 2, H - 43);
   } else {
-    ctx.fillText('Press 1, 2, 3, or 4 to buy upgrades.', W / 2, H - 80);
-    ctx.fillText('Press [ESC] or [B] to return to Menu.', W / 2, H - 50);
+    ctx.fillText(tr(state, 'shop_press_buy'), W / 2, H - 80);
+    ctx.fillText(tr(state, 'shop_press_back'), W / 2, H - 50);
   }
 }
-
 function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   const cam = state.camera;
   ctx.save();
@@ -1704,27 +1775,34 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, 
 }
 
 function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
-  // BG
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-  skyGrad.addColorStop(0, '#0a0a2e'); skyGrad.addColorStop(0.5, '#1a1a4e'); skyGrad.addColorStop(1, '#2d1b4e');
-  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+  skyGrad.addColorStop(0, '#0a0a2e');
+  skyGrad.addColorStop(0.5, '#1a1a4e');
+  skyGrad.addColorStop(1, '#2d1b4e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Stars (parallax)
-  for (const star of state.backgroundStars) {
+  const lowQuality = state.graphicsQuality === 'low';
+  for (let i = 0; i < state.backgroundStars.length; i++) {
+    if (lowQuality && i % 3 !== 0) continue;
+    const star = state.backgroundStars[i];
     const sx = (star.x - state.screenTimer * 0.1 * (star.speed || 0.1)) % W;
     const x = sx < 0 ? sx + W : sx;
-    const alpha = 0.3 + 0.3 * Math.sin(star.twinkle + state.screenTimer * 0.02);
+    const alpha = state.reducedMotion ? 0.35 : 0.3 + 0.3 * Math.sin(star.twinkle + state.screenTimer * 0.02);
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    ctx.beginPath(); ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, star.y * 0.5, star.size, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Header
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('SELECT LEVEL', W / 2, 80);
+  ctx.fillStyle = '#fff';
+  setUiFont(ctx, state, 36, 'bold');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'level_select_title'), W / 2, 80);
 
-  // Level Grid
   const cols = 5;
-  const cardW = 180; const cardH = 120;
+  const cardW = 180;
+  const cardH = 120;
   const gap = 20;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
   const startY = 150;
@@ -1735,52 +1813,57 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
     const lx = startX + col * (cardW + gap);
     const ly = startY + row * (cardH + gap);
 
-    const isUnlocked = i <= state.furthestLevel;
-    const isSelected = state.levelSelectionIndex === i;
+    const unlocked = i <= state.furthestLevel;
+    const selected = state.levelSelectionIndex === i;
 
-    // Card background
-    ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.fillStyle = selected ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.4)';
     roundRect(ctx, lx, ly, cardW, cardH, 10);
     ctx.fill();
 
-    if (isSelected) {
-      ctx.strokeStyle = '#44ccff'; ctx.lineWidth = 3;
-      ctx.shadowColor = '#44ccff'; ctx.shadowBlur = 15;
+    if (selected) {
+      ctx.strokeStyle = '#44ccff';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#44ccff';
+      ctx.shadowBlur = 15;
       roundRect(ctx, lx, ly, cardW, cardH, 10);
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else {
-      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
       roundRect(ctx, lx, ly, cardW, cardH, 10);
       ctx.stroke();
     }
 
-    if (isUnlocked) {
+    if (unlocked) {
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
+      setUiFont(ctx, state, 24, 'bold');
+      ctx.textAlign = 'center';
       ctx.fillText(`${i + 1}`, lx + cardW / 2, ly + 50);
 
-      // Best Time
       const best = state.bestTimes[i];
       if (best) {
-        const mins = Math.floor(best / 3600);
-        const secs = Math.floor((best % 3600) / 60);
-        ctx.fillStyle = '#44ff44'; ctx.font = '10px monospace';
-        ctx.fillText(`BEST: ${mins}:${secs.toString().padStart(2, '0')}`, lx + cardW / 2, ly + 80);
+        ctx.fillStyle = '#44ff44';
+        setUiFont(ctx, state, 10);
+        ctx.fillText(tr(state, 'level_select_best', { time: formatFramesAsTime(best) }), lx + cardW / 2, ly + 80);
       } else {
-        ctx.fillStyle = '#666'; ctx.font = '10px monospace';
-        ctx.fillText('NO RECORD', lx + cardW / 2, ly + 80);
+        ctx.fillStyle = '#666';
+        setUiFont(ctx, state, 10);
+        ctx.fillText(tr(state, 'level_select_none'), lx + cardW / 2, ly + 80);
       }
     } else {
       ctx.fillStyle = '#555';
-      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('🔒', lx + cardW / 2, ly + 65);
+      setUiFont(ctx, state, 20, 'bold');
+      ctx.textAlign = 'center';
+      ctx.fillText(tr(state, 'level_select_locked'), lx + cardW / 2, ly + 65);
     }
   }
 
-  // Footer
-  ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
-  ctx.fillText(isMobile ? 'Tap to Start Level' : 'Click Level to Start  |  ESC: Back to Menu', W / 2, H - 50);
-  ctx.fillStyle = '#555'; ctx.font = '11px monospace';
-  ctx.fillText('🔒 = Locked  |  Complete levels to unlock', W / 2, H - 28);
+  ctx.fillStyle = '#aaa';
+  setUiFont(ctx, state, 14);
+  ctx.fillText(isMobile ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start'), W / 2, H - 50);
+
+  ctx.fillStyle = '#555';
+  setUiFont(ctx, state, 11);
+  ctx.fillText(tr(state, 'level_select_locked_hint'), W / 2, H - 28);
 }
