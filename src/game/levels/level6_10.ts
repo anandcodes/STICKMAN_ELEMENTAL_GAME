@@ -46,6 +46,8 @@ export function level6(): LevelDef {
         makeEnemy('slime', 1800, 580, 'fire', 'water', 100, 10, 1.2, 50),
         makeEnemy('bat', 1900, 250, 'wind', 'earth', 180, 12, 2.0, 40),
         makeEnemy('golem', 2200, 580, 'water', 'earth', 80, 20, 0.7, 100),
+        makeEnemy('shadow_wolf', 700, 580, 'fire', 'wind', 160, 14, 2.2, 60),
+        makeEnemy('shadow_wolf', 2400, 580, 'fire', 'wind', 140, 14, 2.4, 60),
     ];
 
     return {
@@ -153,6 +155,8 @@ export function level8(): LevelDef {
         makeEnemy('fire_spirit', 850, 500, 'water', 'fire', 160, 16, 1.8, 60),
         makeEnemy('fire_spirit', 1750, 500, 'water', 'fire', 160, 16, 1.8, 60),
         makeEnemy('fire_spirit', 1950, 500, 'water', 'fire', 160, 16, 1.8, 60),
+        makeEnemy('lava_crab', 1000, 580, 'water', 'fire', 100, 18, 0.9, 120),
+        makeEnemy('lava_crab', 2000, 580, 'water', 'fire', 100, 18, 0.9, 120),
         makeEnemy('bat', 1300, 200, 'wind', 'earth', 200, 12, 2.5, 40),
         makeEnemy('boss1', 2100, 580, 'water', 'earth', 200, 30, 1.0, 600),
     ];
@@ -202,10 +206,10 @@ export function level9(): LevelDef {
     ];
 
     const enemies: Enemy[] = [
-        makeEnemy('bat', 600, 300, 'wind', 'earth', 250, 15, 3.0, 40),
-        makeEnemy('bat', 1200, 150, 'wind', 'earth', 250, 15, 3.0, 40),
+        makeEnemy('thunder_hawk', 600, 300, 'earth', 'wind', 250, 15, 2.5, 45),
+        makeEnemy('thunder_hawk', 1200, 150, 'earth', 'wind', 250, 15, 2.8, 45),
         makeEnemy('bat', 1600, 250, 'wind', 'earth', 250, 15, 3.0, 40),
-        makeEnemy('bat', 2000, 400, 'wind', 'earth', 250, 15, 3.0, 40),
+        makeEnemy('thunder_hawk', 2000, 400, 'earth', 'wind', 250, 15, 2.5, 45),
     ];
 
     return {

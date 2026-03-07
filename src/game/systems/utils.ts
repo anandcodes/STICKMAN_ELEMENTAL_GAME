@@ -1,6 +1,5 @@
 import type { GameState, Element } from '../types';
 import * as Audio from '../audio';
-import { saveProgress } from '../engine';
 
 const MAX_PARTICLES = 300;
 
@@ -43,15 +42,15 @@ export function addScore(state: GameState, amount: number) {
         state.comboCount++;
         amount = Math.floor(amount * (1 + state.comboCount * 0.25));
     } else {
-        state.comboCount = 1;
+        state.comboCount = 0; // BUG-FIX: Start at 0; first real combo hit increments to 1
     }
     state.comboTimer = 120;
     state.score += amount;
     if (state.score > state.highScore) {
         state.highScore = state.score;
     }
-    // Save progress whenever score changes
-    saveProgress(state);
+    // BUG-FIX: Removed excessive saveProgress() here — saves now only happen at
+    // level complete and game over to avoid heavy localStorage thrashing per frame
 }
 
 const nids = () => Date.now() + Math.random();

@@ -25,6 +25,26 @@ function App() {
   const touchControlsRef = useRef<TouchControlsState>(createTouchControlsState(CANVAS_W, CANVAS_H));
   const [isMobile, setIsMobile] = useState(false);
   const isMobileRef = useRef(false);
+  const [scale, setScale] = useState(1);
+  const scaleRef = useRef(1);
+
+  // Compute scale to fill screen while preserving aspect ratio
+  useEffect(() => {
+    const computeScale = () => {
+      const scaleX = window.innerWidth / CANVAS_W;
+      const scaleY = window.innerHeight / CANVAS_H;
+      const s = Math.min(scaleX, scaleY);
+      setScale(s);
+      scaleRef.current = s;
+    };
+    computeScale();
+    window.addEventListener('resize', computeScale);
+    document.addEventListener('fullscreenchange', computeScale);
+    return () => {
+      window.removeEventListener('resize', computeScale);
+      document.removeEventListener('fullscreenchange', computeScale);
+    };
+  }, []);
 
   useEffect(() => {
     const mobile = isMobileDevice();
@@ -32,7 +52,6 @@ function App() {
     isMobileRef.current = mobile;
     touchControlsRef.current.visible = mobile;
 
-    // Fallback: if touch event fires but we didn't detect mobile, enable touch controls
     const enableTouchOnFirst = () => {
       if (!isMobileRef.current) {
         isMobileRef.current = true;
@@ -50,6 +69,7 @@ function App() {
     };
   }, []);
 
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -62,7 +82,56 @@ function App() {
       const s = stateRef.current;
 
       if (s.screen === 'menu') {
-        // Menu interactions are handled by key/touch handlers directly
+        if (tx === undefined || ty === undefined) return;
+
+        // Mode Buttons logic (synchronized with renderer coordinates)
+        const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
+        const campX = CANVAS_W / 2 - btnW - gap / 2;
+        const waveX = CANVAS_W / 2 + gap / 2;
+
+        // Click Campaign -> Go to Level Select
+        if (tx >= campX && tx <= campX + btnW && ty >= baseY && ty <= baseY + btnH) {
+          Audio.initAudio();
+          Audio.playMenuSelect();
+          s.screen = 'levelSelect';
+          // Request fullscreen when entering the game
+          if (!document.fullscreenElement) {
+            containerRef.current?.requestFullscreen().catch(() => { });
+          }
+          return;
+        }
+
+        // Click Wave Survival -> Start Endless
+        if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
+          const saved = loadSave();
+          const newState = createInitialState(15, 0, 3, saved.highScore, saved.difficulty || 'normal');
+          newState.screen = 'playing';
+          newState.showLevelIntro = true;
+          newState.levelIntroTimer = 180;
+          stateRef.current = newState;
+          Audio.initAudio();
+          Audio.playMenuSelect();
+          Audio.startMusic(15);
+          // Request fullscreen
+          if (!document.fullscreenElement) {
+            containerRef.current?.requestFullscreen().catch(() => { });
+          }
+          return;
+        }
+
+        // Bottom Bar: Difficulty + Shop
+        const barY = baseY + btnH + 40;
+        if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
+          const dict: Record<string, string> = { 'easy': 'normal', 'normal': 'hard', 'hard': 'easy' };
+          s.difficulty = (dict[s.difficulty] || 'normal') as any;
+          Audio.playMenuSelect();
+          return;
+        }
+        if (tx > CANVAS_W / 2 + 20 && tx < CANVAS_W / 2 + 220 && ty >= barY - 18 && ty <= barY + 22) {
+          s.screen = 'shop';
+          Audio.playMenuSelect();
+          return;
+        }
         return;
       }
 
@@ -88,7 +157,7 @@ function App() {
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
         const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
-        newState.screen = 'menu'; // Return to menu for mode select
+        newState.screen = 'menu';
         stateRef.current = newState;
         Audio.playMenuSelect();
         Audio.stopMusic();
@@ -101,13 +170,18 @@ function App() {
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
         const startY = 150;
 
-        const col = Math.floor((tx - startX) / (cardW + gap));
-        const row = Math.floor((ty - startY) / (cardH + gap));
-        if (col >= 0 && col < cols && row >= 0) {
+        // Precise hit test - only count clicks within card bounds, not in gaps
+        const relX = tx - startX;
+        const relY = ty - startY;
+        const col = Math.floor(relX / (cardW + gap));
+        const row = Math.floor(relY / (cardH + gap));
+        // Make sure click is inside the card tile, not the gap
+        const localX = relX - col * (cardW + gap);
+        const localY = relY - row * (cardH + gap);
+        if (col >= 0 && col < cols && row >= 0 && localX >= 0 && localX <= cardW && localY >= 0 && localY <= cardH) {
           const index = row * cols + col;
           if (index >= 0 && index < s.totalLevels) {
-            if (s.levelSelectionIndex === index && index <= s.furthestLevel) {
-              // Secondary click starts the level
+            if (index <= s.furthestLevel) {
               const saved = loadSave();
               const newState = createInitialState(index, 0, 3, saved.highScore, saved.difficulty);
               newState.screen = 'playing';
@@ -118,6 +192,7 @@ function App() {
               Audio.startMusic(index);
               return;
             }
+            // Locked level — show selection highlight only
             s.levelSelectionIndex = index;
             Audio.playMenuSelect();
           }
@@ -351,6 +426,40 @@ function App() {
       if (s.screen !== 'playing') {
         handleScreenTransition(s.mousePos.x, s.mousePos.y);
         return;
+      }
+
+      // Handle pause menu clicks
+      if (s.paused) {
+        const mx = s.mousePos.x;
+        const my = s.mousePos.y;
+        for (let i = 0; i < 3; i++) {
+          const optionY = CANVAS_H / 2 - 30 + i * 55;
+          if (mx > CANVAS_W / 2 - 160 && mx < CANVAS_W / 2 + 160 &&
+            my > optionY - 18 && my < optionY + 24) {
+            if (i === 0) {
+              s.paused = false;
+              Audio.playUnpause();
+            } else if (i === 1) {
+              const saved = loadSave();
+              const newState = createInitialState(s.currentLevel, 0, s.lives, saved.highScore, saved.difficulty);
+              newState.screen = 'playing';
+              newState.showLevelIntro = true;
+              newState.levelIntroTimer = 180;
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.startMusic(s.currentLevel);
+            } else if (i === 2) {
+              const saved = loadSave();
+              const newState = createInitialState(0, 0, 3, saved.highScore, saved.difficulty);
+              newState.screen = 'menu';
+              stateRef.current = newState;
+              Audio.playMenuSelect();
+              Audio.stopMusic();
+            }
+            return;
+          }
+        }
+        return; // Clicked outside pause menu
       }
 
       s.mouseDown = true;
@@ -606,93 +715,35 @@ function App() {
       tabIndex={0}
       id="game-container"
       style={{
-        minHeight: '100dvh',
-        width: '100vw',
-        backgroundColor: '#050510',
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: '#000',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0',
         userSelect: 'none',
         outline: 'none',
         overflow: 'hidden',
         touchAction: 'none',
-        position: 'fixed',
-        top: 0,
-        left: 0,
       }}
     >
-      <div
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        id="game-canvas"
         style={{
-          position: 'relative',
-          width: '100vw',
-          height: '100dvh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
+          display: 'block',
+          cursor: isMobile ? 'default' : 'crosshair',
+          touchAction: 'none',
+          transformOrigin: 'center center',
+          transform: `scale(${scale})`,
+          imageRendering: 'auto',
         }}
-      >
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
-          id="game-canvas"
-          style={{
-            display: 'block',
-            cursor: isMobile ? 'default' : 'crosshair',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            width: 'auto',
-            height: 'auto',
-            aspectRatio: `${CANVAS_W} / ${CANVAS_H}`,
-            objectFit: 'contain',
-            touchAction: 'none',
-            boxShadow: isMobile ? 'none' : '0 0 50px rgba(0,0,0,0.5)',
-          }}
-        />
-      </div>
-
-      {/* Desktop controls hint - hidden on mobile */}
-      {!isMobile && (
-        <div
-          style={{
-            marginTop: '12px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '12px',
-              color: '#666',
-              backgroundColor: '#111',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #222',
-            }}
-          >
-            <span style={{ color: '#eab308' }}>💡</span>
-            <span>
-              <strong style={{ color: '#d1d5db' }}>WASD/Arrows:</strong> Move |{' '}
-              <strong style={{ color: '#ef4444' }}>1:🔥</strong>{' '}
-              <strong style={{ color: '#3b82f6' }}>2:💧</strong>{' '}
-              <strong style={{ color: '#22c55e' }}>3:🌿</strong>{' '}
-              <strong style={{ color: '#67e8f9' }}>4:🌪️</strong> |{' '}
-              <strong style={{ color: '#d1d5db' }}>Click:</strong> Cast
-            </span>
-          </div>
-        </div>
-      )}
+      />
     </div>
   );
 }
 
 export default App;
+

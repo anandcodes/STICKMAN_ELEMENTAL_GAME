@@ -25,6 +25,7 @@ export function level11(): LevelDef {
         makeEnemy('fire_spirit', 450, 520, 'water', 'fire', 120, 20, 1.8, 80),
         makeEnemy('ice_spirit', 850, 500, 'fire', 'water', 120, 20, 1.8, 80),
         makeEnemy('slime', 1200, 580, 'fire', 'water', 100, 15, 1.5, 60),
+        makeEnemy('shadow_wolf', 600, 580, 'fire', 'wind', 150, 18, 2.2, 70),
     ];
     return {
         name: 'The Steam Pits', subtitle: 'Fire and Water create blinding steam!',
@@ -53,7 +54,8 @@ export function level12(): LevelDef {
     ];
     const enemies: Enemy[] = [
         makeEnemy('golem', 1000, 580, 'water', 'earth', 150, 25, 0.8, 200),
-        makeEnemy('bat', 1500, 300, 'wind', 'earth', 200, 15, 2.5, 60),
+        makeEnemy('thunder_hawk', 1500, 200, 'earth', 'wind', 200, 15, 2.5, 60),
+        makeEnemy('thunder_hawk', 2000, 200, 'earth', 'wind', 200, 15, 2.5, 60),
     ];
     return {
         name: 'Dust Storm Desert', subtitle: 'Wind and Earth stir up blinding sand!',
@@ -110,6 +112,8 @@ export function level14(): LevelDef {
     const enemies: Enemy[] = [
         makeEnemy('fire_spirit', 1600, 500, 'water', 'fire', 150, 25, 2.0, 100),
         makeEnemy('fire_spirit', 1900, 500, 'water', 'fire', 150, 25, 2.0, 100),
+        makeEnemy('lava_crab', 700, 580, 'water', 'fire', 120, 22, 0.9, 140),
+        makeEnemy('lava_crab', 1300, 580, 'water', 'fire', 120, 22, 0.9, 140),
     ];
     return {
         name: 'Magma Labyrinth', subtitle: 'Heat and Earth form deadly pools',
@@ -132,7 +136,10 @@ export function level15(): LevelDef {
         makePortal(2500, 580),
     ];
     const enemies: Enemy[] = [
-        // THE OVERLORD
+        // THE OVERLORD + elite guard
+        makeEnemy('shadow_wolf', 900, 580, 'fire', 'wind', 300, 25, 2.8, 150),
+        makeEnemy('thunder_hawk', 1200, 200, 'earth', 'wind', 300, 20, 3.0, 120),
+        makeEnemy('lava_crab', 1400, 580, 'water', 'fire', 200, 22, 1.0, 200),
         makeEnemy('boss2', 1700, 580, 'wind', 'water', 400, 50, 2.0, 2500),
     ];
     return {

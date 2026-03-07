@@ -1,18 +1,16 @@
-import type { GameState, Projectile, Element, EnvObject, Enemy, SaveData, Difficulty, DifficultySettings, TutorialHint } from './types';
+import type { GameState, Element, SaveData, Difficulty, DifficultySettings, TutorialHint } from './types';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { spawnFloatingText, spawnParticles, addScore } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
 import * as Audio from './audio';
 
-const MAX_PARTICLES = 300;
 const SAVE_KEY = 'elemental_stickman_save';
-const nid = () => Date.now() + Math.random();
 
-const GRAVITY = 0.6;
-const FRICTION = 0.85;
-const JUMP_FORCE = -13;
-const MOVE_SPEED = 1.2;
-const MAX_SPEED = 5.5;
+const GRAVITY = 0.75;
+const FRICTION = 0.88;
+const JUMP_FORCE = -13.5;
+const MOVE_SPEED = 0.9;
+const MAX_SPEED = 4.5;
 const CANVAS_W = 1200;
 const CANVAS_H = 700;
 
@@ -52,7 +50,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     maxHealth: ds.playerHealth + upg.healthLevel * 25,
     mana: ds.playerMana + upg.manaLevel * 25,
     maxMana: ds.playerMana + upg.manaLevel * 25,
-    invincibleTimer: 60,
+    invincibleTimer: 0,
     dashCooldown: 0,
     dashTimer: 0,
     isDashing: false,
@@ -164,7 +162,7 @@ function spawnProjectile(state: GameState) {
 
   s.casting = true;
   s.castTimer = 15;
-  state.castCooldown = state.selectedElement === 'earth' ? 25 : 12;
+  state.castCooldown = state.selectedElement === 'earth' ? 40 : 24;
 
   // IMP-2: Cast sound per element
   const castSounds: Record<Element, () => void> = {
@@ -292,7 +290,7 @@ export function update(state: GameState): void {
   // Platform collision
   s.onGround = false;
   for (const p of state.platforms) {
-    if (p.melting) continue;
+    if (p.melting && (p.meltTimer ?? 1) <= 0) continue;
     if (
       s.x + s.width > p.x && s.x < p.x + p.width &&
       s.y + s.height > p.y && s.y + s.height < p.y + p.height + s.vy + 5 &&
@@ -476,9 +474,6 @@ export function update(state: GameState): void {
   if (s.castTimer > 0) s.castTimer--;
   if (s.castTimer <= 0) s.casting = false;
 
-  // Mana regen
-  s.mana = Math.min(s.maxMana, s.mana + 0.15);
-
   // Update enemies
   updateEnemies(state);
 
@@ -531,7 +526,8 @@ export function update(state: GameState): void {
       if (obj.state === 'mud') {
         for (const e of state.enemies) {
           if (e.x + e.width > obj.x && e.x < obj.x + obj.width && e.y + e.height > obj.y && e.y + e.height < obj.y + obj.height + 10) {
-            e.vx *= 0.2; e.speed *= 0.1;
+            // BUG-FIX: Only slow vx (velocity), not e.speed (permanent stat)
+            e.vx *= 0.2;
           }
         }
       }
@@ -556,7 +552,7 @@ export function update(state: GameState): void {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 110) {
             e.vx += (dx / dist) * 1.5; e.vy -= 1.2; // Blow away
-            e.speed *= 0.5;
+            // BUG-FIX: Don't mutate e.speed (permanent stat), only apply velocity impulse
           }
         }
         if (Math.random() > 0.5) spawnParticles(state, centerX, centerY, 'earth', 2);
@@ -631,7 +627,7 @@ export function update(state: GameState): void {
           const bType = state.endlessWave % 10 === 0 ? 'boss2' : 'boss1';
           state.enemies.push(makeEnemy(bType, spawnX, 530, 'water', 'earth', 200, 30 + state.endlessWave * 2, 1.5, bType === 'boss2' ? 1500 + state.endlessWave * 100 : 800 + state.endlessWave * 50));
         } else {
-          const types = ['slime', 'bat', 'golem', 'fire_spirit', 'ice_spirit'] as const;
+          const types = ['slime', 'bat', 'golem', 'fire_spirit', 'ice_spirit', 'shadow_wolf', 'lava_crab', 'thunder_hawk'] as const;
           const type = types[Math.floor(Math.random() * types.length)];
           state.enemies.push(makeEnemy(type, spawnX, 580, 'water', 'fire', 150, 15 + state.endlessWave, 1.5, 50 + state.endlessWave * 10));
         }

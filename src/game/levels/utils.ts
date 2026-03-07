@@ -12,7 +12,8 @@ export function makeEnemy(
   const sizes: Record<Enemy['type'], [number, number]> = {
     slime: [28, 22], bat: [30, 20], golem: [36, 44],
     fire_spirit: [26, 30], ice_spirit: [26, 30],
-    boss1: [90, 110], boss2: [70, 90], // Boss sizes
+    boss1: [90, 110], boss2: [70, 90],
+    shadow_wolf: [38, 28], lava_crab: [40, 30], thunder_hawk: [34, 24],
   };
   const [w, h] = sizes[type];
   return {

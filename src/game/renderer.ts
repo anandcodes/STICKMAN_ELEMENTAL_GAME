@@ -39,12 +39,13 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 
   const cam = state.camera;
 
-  // IMP-4: Screen shake offset
+  // Smooth screen shake using time-based sine — no per-frame Math.random() jitter
   let shakeX = 0, shakeY = 0;
   if (state.screenShake > 0) {
-    const intensity = state.screenShake * 0.8;
-    shakeX = (Math.random() - 0.5) * intensity;
-    shakeY = (Math.random() - 0.5) * intensity;
+    const t2 = Date.now() * 0.04;
+    const intensity = state.screenShake * 0.4; // gentler than before
+    shakeX = Math.sin(t2 * 7.3) * intensity;
+    shakeY = Math.cos(t2 * 5.9) * intensity;
   }
 
   // Sky
@@ -56,9 +57,10 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Damage flash
+  // Damage flash - subtle vignette, not a full-screen overlay
   if (state.redFlash > 0) {
-    ctx.fillStyle = `rgba(255, 0, 0, ${state.redFlash * 0.02})`;
+    const flashAlpha = state.redFlash * 0.01; // max ~0.15 at flash=15
+    ctx.fillStyle = `rgba(255, 0, 0, ${flashAlpha})`;
     ctx.fillRect(0, 0, W, H);
   }
 
@@ -93,25 +95,50 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     if (p.melting) ctx.globalAlpha = (p.meltTimer || 0) / 120;
 
     if (p.type === 'ground') {
+      // Rich layered ground
       const gGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
-      gGrad.addColorStop(0, '#3a5a2a'); gGrad.addColorStop(0.05, '#2a4a1a');
-      gGrad.addColorStop(0.3, '#5a3a1a'); gGrad.addColorStop(1, '#3a2a0a');
+      gGrad.addColorStop(0, '#4a6a30'); gGrad.addColorStop(0.08, '#3a5520');
+      gGrad.addColorStop(0.25, '#5a3a18'); gGrad.addColorStop(1, '#2e1e08');
       ctx.fillStyle = gGrad;
       ctx.fillRect(p.x, p.y, p.width, p.height);
-      ctx.fillStyle = '#4a8a2a';
-      ctx.fillRect(p.x, p.y, p.width, 4);
-      ctx.strokeStyle = '#5aaa3a'; ctx.lineWidth = 1.5;
-      for (let gx = p.x; gx < p.x + p.width; gx += 8) {
+      // Grass top strip
+      const grassGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + 6);
+      grassGrad.addColorStop(0, '#5ec830'); grassGrad.addColorStop(1, '#3a8820');
+      ctx.fillStyle = grassGrad;
+      ctx.fillRect(p.x, p.y, p.width, 6);
+      // Bright edge highlight
+      ctx.fillStyle = 'rgba(120,255,60,0.18)';
+      ctx.fillRect(p.x, p.y, p.width, 2);
+      // Deterministic grass blades
+      ctx.strokeStyle = '#6ee840'; ctx.lineWidth = 1.5;
+      for (let gx = p.x + 4; gx < p.x + p.width - 4; gx += 9) {
+        const blade = Math.sin(gx * 0.31) * 3;
         ctx.beginPath(); ctx.moveTo(gx, p.y);
-        ctx.lineTo(gx + 2, p.y - 4 - Math.random() * 3); ctx.stroke();
+        ctx.lineTo(gx + blade, p.y - 5 - Math.abs(Math.sin(gx * 0.17)) * 3); ctx.stroke();
+      }
+      // Soil texture
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(p.x + Math.sin(i * 77 + p.x) * p.width * 0.4 + p.width * 0.5, p.y + 10 + i * 8, 20, 3);
       }
     } else if (p.type === 'ice') {
-      ctx.fillStyle = 'rgba(150, 220, 255, 0.7)';
+      // Glassy ice platform
+      const iceGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+      iceGrad.addColorStop(0, 'rgba(180,240,255,0.85)');
+      iceGrad.addColorStop(0.4, 'rgba(120,200,240,0.70)');
+      iceGrad.addColorStop(1, 'rgba(80,150,210,0.60)');
+      ctx.fillStyle = iceGrad;
       ctx.fillRect(p.x, p.y, p.width, p.height);
-      ctx.strokeStyle = 'rgba(200, 240, 255, 0.8)'; ctx.lineWidth = 1;
+      // Top shine stripe
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fillRect(p.x + 4, p.y + 2, p.width - 8, 3);
+      // Crystal facet lines
+      ctx.strokeStyle = 'rgba(200,240,255,0.5)'; ctx.lineWidth = 1;
+      for (let fx = p.x + 12; fx < p.x + p.width - 8; fx += 22) {
+        ctx.beginPath(); ctx.moveTo(fx, p.y); ctx.lineTo(fx - 6, p.y + p.height); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(160,220,255,0.3)'; ctx.lineWidth = 1;
       ctx.strokeRect(p.x, p.y, p.width, p.height);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.fillRect(p.x + 5, p.y + 2, p.width * 0.3, 3);
     } else if (p.type === 'earth') {
       ctx.fillStyle = '#6a5a3a';
       ctx.fillRect(p.x, p.y, p.width, p.height);
@@ -307,23 +334,68 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
 
   switch (obj.type) {
     case 'crate': {
-      ctx.fillStyle = obj.state === 'burning' ? '#8a4400' : '#aa7733';
+      // Detailed wooden crate
+      const burning = obj.state === 'burning';
+      const baseColor = burning ? '#7a3800' : '#c08830';
+      const darkColor = burning ? '#5a2000' : '#8a5818';
+      ctx.fillStyle = baseColor;
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-      ctx.strokeStyle = '#664422'; ctx.lineWidth = 2;
-      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+      // Wood grain lines
+      ctx.strokeStyle = darkColor; ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(obj.x, obj.y); ctx.lineTo(obj.x + obj.width, obj.y + obj.height);
-      ctx.moveTo(obj.x + obj.width, obj.y); ctx.lineTo(obj.x, obj.y + obj.height);
+      ctx.moveTo(obj.x, obj.y + obj.height * 0.33); ctx.lineTo(obj.x + obj.width, obj.y + obj.height * 0.33);
+      ctx.moveTo(obj.x, obj.y + obj.height * 0.67); ctx.lineTo(obj.x + obj.width, obj.y + obj.height * 0.67);
+      ctx.moveTo(obj.x + obj.width * 0.33, obj.y); ctx.lineTo(obj.x + obj.width * 0.33, obj.y + obj.height);
+      ctx.moveTo(obj.x + obj.width * 0.67, obj.y); ctx.lineTo(obj.x + obj.width * 0.67, obj.y + obj.height);
       ctx.stroke();
+      // Border & diagonal X
+      ctx.strokeStyle = darkColor; ctx.lineWidth = 2;
+      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(obj.x + 3, obj.y + 3); ctx.lineTo(obj.x + obj.width - 3, obj.y + obj.height - 3);
+      ctx.moveTo(obj.x + obj.width - 3, obj.y + 3); ctx.lineTo(obj.x + 3, obj.y + obj.height - 3);
+      ctx.stroke();
+      // Nails at corners
+      ctx.fillStyle = burning ? '#cc6622' : '#ccaa66';
+      const nailR = 2.5;
+      [[obj.x + 5, obj.y + 5], [obj.x + obj.width - 5, obj.y + 5], [obj.x + 5, obj.y + obj.height - 5], [obj.x + obj.width - 5, obj.y + obj.height - 5]].forEach(([nx, ny]) => {
+        ctx.beginPath(); ctx.arc(nx, ny, nailR, 0, Math.PI * 2); ctx.fill();
+      });
+      // Highlight edge
+      ctx.fillStyle = 'rgba(255,200,100,0.18)';
+      ctx.fillRect(obj.x, obj.y, obj.width, 3);
+      if (burning) {
+        ctx.save(); ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 12;
+        ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 1;
+        ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+        ctx.restore();
+      }
       break;
     }
     case 'ice': {
-      ctx.fillStyle = 'rgba(150, 220, 255, 0.8)';
+      // Detailed ice block with facets
+      ctx.save();
+      const iceBlockGrad = ctx.createLinearGradient(obj.x, obj.y, obj.x + obj.width, obj.y + obj.height);
+      iceBlockGrad.addColorStop(0, 'rgba(200,245,255,0.9)');
+      iceBlockGrad.addColorStop(0.5, 'rgba(140,210,250,0.75)');
+      iceBlockGrad.addColorStop(1, 'rgba(80,160,220,0.60)');
+      ctx.fillStyle = iceBlockGrad;
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-      ctx.strokeStyle = 'rgba(200, 240, 255, 0.9)'; ctx.lineWidth = 1;
+      // Inner glow
+      ctx.shadowColor = '#88ccff'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(200,240,255,0.9)'; ctx.lineWidth = 1.5;
       ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillRect(obj.x + 5, obj.y + 5, 10, 5);
+      // Top shine
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(obj.x + 4, obj.y + 3, obj.width * 0.4, 3);
+      // Crack lines
+      ctx.strokeStyle = 'rgba(180,230,255,0.6)'; ctx.lineWidth = 1; ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(obj.x + obj.width * 0.3, obj.y); ctx.lineTo(obj.x + obj.width * 0.5, obj.y + obj.height);
+      ctx.moveTo(obj.x + obj.width * 0.65, obj.y + obj.height * 0.2); ctx.lineTo(obj.x + obj.width * 0.8, obj.y + obj.height);
+      ctx.stroke();
+      ctx.restore();
       break;
     }
     case 'plant': {
@@ -572,9 +644,12 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       ctx.fillStyle = '#5a4a3a';
       roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 4);
       ctx.fill();
+      // Deterministic mud texture bumps via sin, no random per frame
       ctx.fillStyle = '#3a2a1a';
       for (let i = 0; i < 5; i++) {
-        ctx.beginPath(); ctx.arc(obj.x + Math.random() * obj.width, obj.y + Math.random() * obj.height, 3, 0, Math.PI * 2); ctx.fill();
+        const bx = obj.x + (i / 5) * obj.width + Math.sin(i * 1.7) * 5;
+        const by = obj.y + Math.cos(i * 2.3) * obj.height * 0.3 + obj.height * 0.5;
+        ctx.beginPath(); ctx.arc(bx, by, 3, 0, Math.PI * 2); ctx.fill();
       }
       break;
     }
@@ -584,8 +659,12 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       ctx.fillStyle = grad;
       roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 5);
       ctx.fill();
-      ctx.fillStyle = '#ffff00';
-      if (Math.random() > 0.7) ctx.fillRect(obj.x + Math.random() * obj.width, obj.y, 4, 2);
+      // Animated lava bubble using time, not Math.random()
+      const bubble = Math.sin(t * 3 + obj.x * 0.1);
+      if (bubble > 0.7) {
+        ctx.fillStyle = '#ffff00';
+        ctx.fillRect(obj.x + (obj.x % obj.width), obj.y, 4, 2);
+      }
       break;
     }
     case 'steam_cloud': {
@@ -619,21 +698,20 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
   const cy = enemy.y + enemy.height / 2;
   const t = Date.now() * 0.005;
 
-  if (enemy.state === 'hurt') {
-    ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.02) * 0.4;
-  }
+  ctx.save();
 
-  // BUG-5 / IMP-5: Dead enemy fade-out and shrink animation
+  // Apply fade-out and shrink for dead enemies
   if (enemy.state === 'dead') {
-    const fadeProgress = Math.max(0, enemy.hurtTimer / 60);
+    const fadeProgress = Math.max(0, enemy.hurtTimer / 60); // hurtTimer counts down from 60
     ctx.globalAlpha = fadeProgress * 0.7;
     const scale = 0.5 + fadeProgress * 0.5;
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
     ctx.translate(-cx, -cy);
+  } else if (enemy.state === 'hurt') {
+    // Pulsating effect for hurt enemies
+    ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.02) * 0.4;
   }
-
-  ctx.save();
 
   switch (enemy.type) {
     case 'slime': {
@@ -735,50 +813,6 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
       ctx.restore();
       break;
     }
-    case 'boss1': {
-      if (boss1Img.complete && boss1Img.naturalWidth > 0) {
-        ctx.save();
-        if (enemy.facing === -1) {
-          ctx.scale(-1, 1);
-          ctx.drawImage(boss1Img, -enemy.x - enemy.width, enemy.y, enemy.width, enemy.height);
-        } else {
-          ctx.drawImage(boss1Img, enemy.x, enemy.y, enemy.width, enemy.height);
-        }
-        ctx.restore();
-      } else {
-        ctx.fillStyle = '#443322';
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      }
-      break;
-    }
-    case 'boss2': {
-      if (boss2Img.complete && boss2Img.naturalWidth > 0) {
-        ctx.save();
-        if (enemy.facing === -1) {
-          ctx.scale(-1, 1);
-          ctx.drawImage(boss2Img, -enemy.x - enemy.width, enemy.y, enemy.width, enemy.height);
-        } else {
-          ctx.drawImage(boss2Img, enemy.x, enemy.y, enemy.width, enemy.height);
-        }
-        ctx.restore();
-      } else {
-        ctx.fillStyle = '#221144';
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      }
-      break;
-    }
-  }
-
-  // Health bar above enemy
-  if (enemy.health < enemy.maxHealth) {
-    const barW = enemy.width + 10;
-    const barH = 4;
-    const barX = enemy.x + (enemy.width - barW) / 2;
-    const barY = enemy.y - 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = enemy.health > enemy.maxHealth * 0.3 ? '#44cc44' : '#ff4444';
-    ctx.fillRect(barX, barY, barW * (enemy.health / enemy.maxHealth), barH);
   }
 
   ctx.restore();
@@ -866,226 +900,253 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
 
 function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H: number) {
   const s = state.stickman;
+  const t = Date.now() * 0.001;
 
-  // Dark panel top-left
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  roundRect(ctx, 10, 10, 220, 80, 8);
+  // ── SCREEN VIGNETTE ──────────────────────────────────
+  const vigGrad = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.3, W / 2, _H / 2, _H * 0.85);
+  vigGrad.addColorStop(0, 'transparent');
+  vigGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = vigGrad;
+  ctx.fillRect(0, 0, W, _H);
+
+  // ── TOP-LEFT: PLAYER STATS PANEL ─────────────────────
+  ctx.save();
+  // Solid dark panel with colored top border (clearly visible)
+  ctx.fillStyle = 'rgba(8,12,30,0.92)';
+  roundRect(ctx, 10, 10, 235, 120, 10);
   ctx.fill();
-
-  // Level indicator
+  // Gold top-border accent
   ctx.fillStyle = '#ffcc00';
+  roundRect(ctx, 10, 10, 235, 3, 3);
+  ctx.fill();
+  // Subtle white border
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 10, 10, 235, 120, 10);
+  ctx.stroke();
+
+  // Level name header
+  ctx.fillStyle = '#ffdd55';
   ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText(`Level ${state.currentLevel + 1}: ${state.levelName}`, 18, 26);
+  ctx.fillText(`Lv.${state.currentLevel + 1}  ${state.levelName}`, 20, 28);
 
-  // Best Time
   const bestTime = state.bestTimes[state.currentLevel];
   if (bestTime) {
-    const mins = Math.floor(bestTime / 3600);
-    const secs = Math.floor((bestTime % 3600) / 60);
-    const ms = Math.floor((bestTime % 60) / 0.6);
-    ctx.fillStyle = '#88ccff';
-    ctx.font = '9px monospace';
-    ctx.fillText(`Best: ${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`, 18, 100);
+    const bm = Math.floor(bestTime / 3600), bs = Math.floor((bestTime % 3600) / 60);
+    ctx.fillStyle = '#66aaff'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(`⏱ ${bm}:${bs.toString().padStart(2, '0')}`, 238, 28);
   }
 
-  // Health bar
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(18, 32, 196, 14);
+  // HP bar
   const hpPct = Math.max(0, s.health / s.maxHealth);
-  const hpGrad = ctx.createLinearGradient(18, 0, 214, 0);
-  hpGrad.addColorStop(0, '#ff2222'); hpGrad.addColorStop(1, '#ff6644');
-  ctx.fillStyle = hpGrad;
-  ctx.fillRect(18, 32, 196 * hpPct, 14);
-  ctx.strokeStyle = '#ffffff33'; ctx.lineWidth = 1;
-  ctx.strokeRect(18, 32, 196, 14);
+  const hpColor = hpPct > 0.5 ? '#3de84a' : hpPct > 0.25 ? '#ffa500' : '#ff3322';
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  roundRect(ctx, 20, 34, 213, 14, 5); ctx.fill();
+  ctx.fillStyle = hpColor;
+  if (213 * hpPct > 0) { roundRect(ctx, 20, 34, 213 * hpPct, 14, 5); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  if (213 * hpPct > 4) { roundRect(ctx, 20, 34, 213 * hpPct, 5, 3); ctx.fill(); }
   ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`HP ${Math.ceil(s.health)}/${s.maxHealth}`, 116, 43);
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+  ctx.fillText(`❤ ${Math.ceil(s.health)} / ${s.maxHealth}`, 127, 45);
+  ctx.shadowBlur = 0;
 
-  // Mana bar
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(18, 50, 196, 12);
-  const mpPct = s.mana / s.maxMana;
-  const mpGrad = ctx.createLinearGradient(18, 0, 214, 0);
-  mpGrad.addColorStop(0, '#2244ff'); mpGrad.addColorStop(1, '#44aaff');
+  // MP bar
+  const mpPct = Math.max(0, s.mana / s.maxMana);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  roundRect(ctx, 20, 52, 213, 10, 4); ctx.fill();
+  const mpGrad = ctx.createLinearGradient(20, 0, 233, 0);
+  mpGrad.addColorStop(0, '#1144ff'); mpGrad.addColorStop(1, '#22ccff');
   ctx.fillStyle = mpGrad;
-  ctx.fillRect(18, 50, 196 * mpPct, 12);
-  ctx.strokeStyle = '#ffffff33';
-  ctx.strokeRect(18, 50, 196, 12);
-  ctx.font = 'bold 8px monospace';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(`MP ${Math.ceil(s.mana)}/${s.maxMana}`, 116, 59);
+  if (213 * mpPct > 0) { roundRect(ctx, 20, 52, 213 * mpPct, 10, 4); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  if (213 * mpPct > 4) { roundRect(ctx, 20, 52, 213 * mpPct, 4, 2); ctx.fill(); }
+  ctx.fillStyle = '#aaddff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+  ctx.fillText(`💧 ${Math.ceil(s.mana)} / ${s.maxMana}`, 127, 60);
+  ctx.shadowBlur = 0;
 
-  // Lives and Difficulty
-  ctx.textAlign = 'left';
-  ctx.font = '12px serif';
-  let livesStr = '';
-  for (let i = 0; i < state.lives; i++) livesStr += '❤️ ';
-  ctx.fillText(livesStr, 18, 78);
+  // Lives
+  ctx.textAlign = 'left'; ctx.font = '12px serif';
+  let livesStr = ''; for (let i = 0; i < state.lives; i++) livesStr += '❤️';
+  ctx.fillText(livesStr, 20, 80);
 
-  // Timer (Speedrun Elapsed Time)
+  // Timer
   if (state.endlessWave === undefined) {
-    const mins = Math.floor(state.timeElapsed / 3600);
-    const secs = Math.floor((state.timeElapsed % 3600) / 60);
-    const ms = Math.floor((state.timeElapsed % 60) / 0.6);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`, 220, 78);
+    const tm = Math.floor(state.timeElapsed / 3600);
+    const ts = Math.floor((state.timeElapsed % 3600) / 60);
+    const tms = Math.floor((state.timeElapsed % 60) / 0.6);
+    ctx.fillStyle = '#cccccc'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(`⏱ ${tm}:${ts.toString().padStart(2, '0')}.${tms.toString().padStart(2, '0')}`, 238, 80);
   }
 
-  const ds = { easy: '#44cc44', normal: '#ffcc00', hard: '#ff4444' };
-  ctx.fillStyle = ds[state.difficulty] || '#aaaaaa';
-  ctx.font = 'bold 9px monospace';
-  ctx.fillText(`Difficulty: ${state.difficulty.toUpperCase()}`, 110, 78);
-
-  // Gem counter or Wave counter
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  roundRect(ctx, 10, 96, 170, 24, 6);
-  ctx.fill();
+  // Difficulty + gems
+  const diffColor: Record<string, string> = { easy: '#33ee44', normal: '#ffcc00', hard: '#ff3333' };
+  ctx.fillStyle = diffColor[state.difficulty] || '#888';
+  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText(`★ ${state.difficulty.toUpperCase()}`, 20, 95);
 
   if (state.endlessWave !== undefined) {
-    ctx.fillStyle = '#ffcc00';
-    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(`🌊 WAVE: ${state.endlessWave} | Kills: ${state.endlessKills}`, 18, 113);
+    ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 11px monospace';
+    ctx.fillText(`🌊 WAVE ${state.endlessWave}  ☠ ${state.endlessKills}`, 20, 112);
   } else {
-    ctx.fillStyle = state.gemsCollected >= state.gemsRequired ? '#44ff44' : '#ffcc00';
-    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(`💎 ${state.gemsCollected} / ${state.gemsRequired}`, 18, 113);
+    const gemDone = state.gemsCollected >= state.gemsRequired;
+    ctx.fillStyle = gemDone ? '#44ff88' : '#ffdd44';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText(`💎 ${state.gemsCollected} / ${state.gemsRequired}`, 20, 112);
     if (state.portalOpen) {
-      ctx.fillStyle = '#aa66ff';
-      ctx.fillText('Portal Open!', 90, 113);
+      ctx.fillStyle = '#dd88ff'; ctx.textAlign = 'right';
+      ctx.fillText('✦ PORTAL OPEN!', 238, 112);
     }
   }
+  ctx.restore();
 
-  // Element selector (center top)
+  // ── ELEMENT SELECTOR (top center) ────────────────────
+  ctx.save();
   const elements: { elem: Element; icon: string; key: string }[] = [
     { elem: 'fire', icon: '🔥', key: '1' },
     { elem: 'water', icon: '💧', key: '2' },
     { elem: 'earth', icon: '🌿', key: '3' },
     { elem: 'wind', icon: '🌪️', key: '4' },
   ];
+  const unlocked = elements.filter(e => state.unlockedElements.includes(e.elem));
+  const selW = 56, selGap = 6;
+  const totalSelW = unlocked.length * (selW + selGap) - selGap;
+  const selStartX = W / 2 - totalSelW / 2;
 
-  const selW = 52;
-  const totalW = state.unlockedElements.length * (selW + 5);
-  const startX = W / 2 - totalW / 2;
+  // Panel background - solid not glass so it's clearly visible
+  ctx.fillStyle = 'rgba(8,12,30,0.92)';
+  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 66, 10); ctx.fill();
+  // Colored top border matching current element
+  ctx.fillStyle = ELEMENT_COLORS[state.selectedElement];
+  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 3, 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, selStartX - 10, 8, totalSelW + 20, 66, 10); ctx.stroke();
 
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  roundRect(ctx, startX - 8, 8, totalW + 12, 58, 8);
-  ctx.fill();
-
-  let idx = 0;
-  for (const e of elements) {
-    if (!state.unlockedElements.includes(e.elem)) continue;
-    const bx = startX + idx * (selW + 5);
+  unlocked.forEach((e, i) => {
+    const bx = selStartX + i * (selW + selGap);
     const sel = state.selectedElement === e.elem;
-
-    ctx.fillStyle = sel ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)';
-    roundRect(ctx, bx, 12, selW, 48, 6);
-    ctx.fill();
+    const color = ELEMENT_COLORS[e.elem];
 
     if (sel) {
-      ctx.strokeStyle = ELEMENT_COLORS[e.elem]; ctx.lineWidth = 2;
-      ctx.shadowColor = ELEMENT_COLORS[e.elem]; ctx.shadowBlur = 8;
-      roundRect(ctx, bx, 12, selW, 48, 6);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = color + '33';
+      roundRect(ctx, bx - 2, 12, selW + 4, 56, 8); ctx.fill();
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = 14;
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      roundRect(ctx, bx - 2, 12, selW + 4, 56, 8); ctx.stroke();
+      ctx.restore();
     }
 
-    ctx.font = '20px serif'; ctx.textAlign = 'center';
-    ctx.fillText(e.icon, bx + selW / 2, 40);
-    ctx.font = '9px monospace';
-    ctx.fillStyle = sel ? '#fff' : '#888';
-    ctx.fillText(`[${e.key}]`, bx + selW / 2, 54);
-    idx++;
-  }
+    ctx.font = '24px serif'; ctx.textAlign = 'center';
+    ctx.fillText(e.icon, bx + selW / 2, 42);
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = sel ? '#fff' : '#555';
+    ctx.fillText(`[${e.key}]`, bx + selW / 2, 58);
+  });
+  ctx.restore();
 
-  // Score panel (top right)
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  roundRect(ctx, W - 180, 10, 170, 55, 8);
-  ctx.fill();
+  // ── SCORE PANEL (top right) ───────────────────────────
+  ctx.save();
+  ctx.fillStyle = 'rgba(8,12,30,0.92)';
+  roundRect(ctx, W - 185, 10, 175, 80, 10); ctx.fill();
+  // Amber top border
+  ctx.fillStyle = '#ffaa00';
+  roundRect(ctx, W - 185, 10, 175, 3, 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+  roundRect(ctx, W - 185, 10, 175, 80, 10); ctx.stroke();
 
-  ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 14px monospace'; ctx.textAlign = 'right';
-  ctx.fillText(`⭐ ${state.score}`, W - 20, 32);
+  ctx.fillStyle = '#ffdd33';
+  ctx.font = 'bold 18px monospace'; ctx.textAlign = 'right';
+  ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 8;
+  ctx.fillText(`⭐ ${state.score}`, W - 18, 36);
+  ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#aaa';
-  ctx.font = '10px monospace';
-  ctx.fillText(`Best: ${state.highScore}`, W - 20, 46);
+  ctx.fillStyle = '#aaaaaa'; ctx.font = '10px monospace';
+  ctx.fillText(`Best: ${state.highScore}`, W - 18, 52);
+  ctx.fillText(`Kills: ${state.enemiesDefeated}`, W - 18, 66);
 
-  // Enemies defeated
-  ctx.fillText(`Enemies: ${state.enemiesDefeated}`, W - 20, 58);
+  const dashReady = s.dashCooldown <= 0;
+  ctx.fillStyle = dashReady ? '#44ff88' : '#888';
+  ctx.font = 'bold 9px monospace';
+  ctx.fillText(dashReady ? '⚡ DASH  READY' : `⚡ ${Math.ceil(s.dashCooldown / 6)}s`, W - 18, 81);
+  ctx.restore();
 
-  // Combo
+  // ── COMBO TEXT ─────────────────────────────────────────
   if (state.comboCount > 1 && state.comboTimer > 0) {
+    ctx.save();
     const alpha = Math.min(1, state.comboTimer / 30);
+    const scale2 = 1 + (state.comboCount > 5 ? Math.sin(t * 8) * 0.05 : 0);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#ffaa00';
-    ctx.font = `bold ${14 + state.comboCount * 2}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${state.comboCount}x COMBO!`, W / 2, _H - 60);
+    ctx.save();
+    ctx.translate(W / 2, _H - 55);
+    ctx.scale(scale2, scale2);
+    const cSize = 16 + Math.min(state.comboCount * 2, 20);
+    ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 15;
+    ctx.fillStyle = state.comboCount >= 5 ? '#ff4400' : '#ffaa00';
+    ctx.font = `bold ${cSize}px monospace`;
+    ctx.fillText(`${state.comboCount}× COMBO!`, 0, 0);
+    ctx.restore();
     ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
-  // BOSS HEALTH BAR (Bottom center during boss fights)
+  // ── BOSS HEALTH BAR ────────────────────────────────────
   const boss = state.enemies.find(e => e.type === 'boss1' || e.type === 'boss2');
   if (boss && boss.state !== 'dead') {
-    const bW = 400;
-    const bH = 15;
+    ctx.save();
+    const bW = 480; const bH = 20;
     const bx = W / 2 - bW / 2;
     const by = 80;
 
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    roundRect(ctx, bx - 2, by - 2, bW + 4, bH + 4, 4);
-    ctx.fill();
+    // Outer shadow glow
+    ctx.shadowColor = '#ff2200'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    roundRect(ctx, bx - 4, by - 4, bW + 8, bH + 8, 8); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Background track
+    ctx.fillStyle = 'rgba(30,0,0,0.9)';
+    roundRect(ctx, bx, by, bW, bH, 6); ctx.fill();
 
     const pct = Math.max(0, boss.health / boss.maxHealth);
-    const g = ctx.createLinearGradient(bx, 0, bx + bW, 0);
-    g.addColorStop(0, '#ff0000'); g.addColorStop(1, '#ff6600');
-    ctx.fillStyle = g;
-    ctx.fillRect(bx, by, bW * pct, bH);
+    const bg = ctx.createLinearGradient(bx, 0, bx + bW, 0);
+    bg.addColorStop(0, '#cc0000'); bg.addColorStop(0.5, '#ff4400'); bg.addColorStop(1, '#ff8800');
+    ctx.fillStyle = bg;
+    roundRect(ctx, bx, by, bW * pct, bH, 6); ctx.fill();
+
+    // Shine on bar
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    roundRect(ctx, bx, by, bW * pct, bH / 2, 6); ctx.fill();
+
+    // Border
+    ctx.strokeStyle = 'rgba(255,100,0,0.5)'; ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, bW, bH, 6); ctx.stroke();
+
+    // Boss name with pulse
+    const nameAlpha = 0.7 + Math.sin(t * 4) * 0.3;
+    ctx.globalAlpha = nameAlpha;
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8;
+    ctx.fillText(boss.type === 'boss1' ? '☠ STONE OVERLORD' : '☠ ELEMENTAL WRAITH', W / 2, by - 6);
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    ctx.restore();
 
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
     ctx.strokeRect(bx, by, bW, bH);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(boss.type === 'boss1' ? 'STONE GOLEM' : 'ELEMENTAL SPIRIT', W / 2, by - 5);
   }
 
-  // Element hint (bottom center)
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  // ── BOTTOM BAR: Element hint ───────────────────────────
+  ctx.fillStyle = 'rgba(0,0,20,0.55)';
+  roundRect(ctx, W / 2 - 220, _H - 26, 440, 22, 6);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`${ELEMENT_NAMES[state.selectedElement]} selected  |  ${state.elementHint}`, W / 2, _H - 15);
-
-  // DASH COOLDOWN INDICATOR
-  const dashReady = s.dashCooldown <= 0;
-  const dashX = W / 2 + 180;
-  const dashY = _H - 40;
-  const dashRadius = 14;
-
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius + 3, 0, Math.PI * 2); ctx.fill();
-
-  if (dashReady) {
-    ctx.fillStyle = '#44ff44';
-    ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('DASH', dashX, dashY + 3);
-  } else {
-    const pct = 1 - (s.dashCooldown / 90);
-    ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(dashX, dashY, dashRadius, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#666';
-    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('DASH', dashX, dashY + 3);
-  }
-
-  // Label
-  ctx.fillStyle = '#888'; ctx.font = '7px monospace';
-  ctx.fillText('[SHIFT]', dashX, dashY + dashRadius + 10);
+  ctx.fillText(`${ELEMENT_NAMES[state.selectedElement]}  •  ${state.elementHint}  •  [SHIFT] Dash`, W / 2, _H - 10);
 
   // LEVEL PROGRESS BAR (Campaign only)
   if (state.endlessWave === undefined) {
@@ -1719,5 +1780,7 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
 
   // Footer
   ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
-  ctx.fillText(isMobile ? 'Tap to Select  |  Double tap to Start' : 'Arrows: Select  |  Enter: Start  |  ESC: Menu', W / 2, H - 50);
+  ctx.fillText(isMobile ? 'Tap to Start Level' : 'Click Level to Start  |  ESC: Back to Menu', W / 2, H - 50);
+  ctx.fillStyle = '#555'; ctx.font = '11px monospace';
+  ctx.fillText('🔒 = Locked  |  Complete levels to unlock', W / 2, H - 28);
 }

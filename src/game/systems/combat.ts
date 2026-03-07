@@ -147,6 +147,7 @@ export function updateProjectiles(state: GameState) {
             }
         } else {
             // Synergy Check
+            let synergyHit = false;
             for (let j = 0; j < state.projectiles.length; j++) {
                 if (i === j) continue;
                 const o = state.projectiles[j];
@@ -154,12 +155,17 @@ export function updateProjectiles(state: GameState) {
                 const dist = Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
                 if (dist < p.size + o.size + 10) {
                     createSynergyZone(state, (p.x + o.x) / 2, (p.y + o.y) / 2, p.element, o.element);
+                    // BUG-FIX: Remove higher index first to avoid shifting issues,
+                    // then remove lower. Both projectiles are consumed by the synergy.
                     state.projectiles.splice(Math.max(i, j), 1);
                     state.projectiles.splice(Math.min(i, j), 1);
-                    if (j < i) i--;
-                    hit = true; break;
+                    // Adjust i so the outer loop doesn't revisit or over-skip
+                    i = Math.min(i, j) - 1;
+                    synergyHit = true; break;
                 }
             }
+            // If synergy consumed both projectiles, skip remaining collision checks
+            if (synergyHit) continue;
             if (!hit) {
                 for (const enemy of state.enemies) {
                     if (enemy.state === 'dead') continue;

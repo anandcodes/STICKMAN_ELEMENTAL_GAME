@@ -34,7 +34,7 @@ export interface EnvObject {
 
 export interface Enemy {
   id: number;
-  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2';
+  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk';
   x: number; y: number; width: number; height: number;
   vx: number; vy: number;
   health: number; maxHealth: number;
