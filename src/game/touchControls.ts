@@ -1,4 +1,4 @@
-import type { GameState, Element } from './types';
+import type { Element, GameState } from './types';
 
 export interface TouchControl {
   id: string;
@@ -32,14 +32,15 @@ export interface TouchControlsState {
 
 const DPAD_RADIUS = 55;
 
-export function createTouchControlsState(canvasW: number, canvasH: number): TouchControlsState {
-  const elementButtons: TouchControl[] = [
-    { id: 'fire', x: 50, y: 50, radius: 24, label: '1', icon: '🔥', color: '#ff4400', active: false },
-    { id: 'water', x: 105, y: 50, radius: 24, label: '2', icon: '💧', color: '#0088ff', active: false },
-    { id: 'earth', x: 160, y: 50, radius: 24, label: '3', icon: '🌿', color: '#66aa33', active: false },
-    { id: 'wind', x: 215, y: 50, radius: 24, label: '4', icon: '🌪', color: '#aabbee', active: false },
-  ];
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
 
+function dist(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+export function createTouchControlsState(canvasW: number, canvasH: number): TouchControlsState {
   return {
     visible: false,
     dpadCenter: { x: 120, y: canvasH - 120 },
@@ -51,22 +52,78 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
     castActive: false,
     castTouchId: null,
     castPosition: { x: canvasW / 2, y: canvasH / 2 },
-    elementButtons,
+    elementButtons: [
+      { id: 'fire', x: 50, y: 50, radius: 24, label: '1', icon: 'F', color: '#ff4400', active: false },
+      { id: 'water', x: 105, y: 50, radius: 24, label: '2', icon: 'W', color: '#0088ff', active: false },
+      { id: 'earth', x: 160, y: 50, radius: 24, label: '3', icon: 'E', color: '#66aa33', active: false },
+      { id: 'wind', x: 215, y: 50, radius: 24, label: '4', icon: 'A', color: '#aabbee', active: false },
+    ],
     jumpButton: {
       id: 'jump', x: canvasW - 90, y: canvasH - 100,
-      radius: 40, label: 'JUMP', icon: '⬆', color: '#ffffff', active: false,
+      radius: 40, label: 'JUMP', color: '#ffffff', active: false,
     },
     castButton: {
       id: 'cast', x: canvasW - 90, y: canvasH - 200,
-      radius: 40, label: 'CAST', icon: '✨', color: '#ffcc00', active: false,
+      radius: 40, label: 'CAST', color: '#ffcc00', active: false,
     },
     dashButton: {
       id: 'dash', x: canvasW - 90, y: canvasH - 300,
-      radius: 30, label: 'DASH', icon: '💨', color: '#44ffaa', active: false,
+      radius: 30, label: 'DASH', color: '#44ffaa', active: false,
     },
     dashActive: false,
     dashTouchId: null,
   };
+}
+
+export function updateTouchControlsLayout(
+  controls: TouchControlsState,
+  canvasW: number,
+  canvasH: number,
+  viewW: number,
+  viewH: number,
+): void {
+  const safeViewW = Math.max(1, viewW);
+  const safeViewH = Math.max(1, viewH);
+  const portrait = safeViewH > safeViewW;
+
+  const logicalPerPixelX = canvasW / safeViewW;
+  const logicalPerPixelY = canvasH / safeViewH;
+  const scale = clamp(Math.max(logicalPerPixelX, logicalPerPixelY), 0.8, 5);
+
+  const margin = (portrait ? 18 : 14) * scale;
+  const dpadRadius = clamp((portrait ? 72 : 58) * scale, 44, 230);
+  controls.dpadRadius = dpadRadius;
+  if (controls.dpadTouchId === null) {
+    controls.dpadCenter = {
+      x: margin + dpadRadius,
+      y: canvasH - margin - dpadRadius,
+    };
+  }
+
+  const actionRadius = clamp((portrait ? 54 : 42) * scale, 34, 180);
+  controls.jumpButton.radius = actionRadius;
+  controls.castButton.radius = actionRadius;
+  controls.dashButton.radius = clamp(actionRadius * 0.76, 26, 140);
+
+  const actionX = canvasW - margin - actionRadius;
+  controls.jumpButton.x = actionX;
+  controls.jumpButton.y = canvasH - margin - actionRadius;
+  controls.castButton.x = actionX;
+  controls.castButton.y = controls.jumpButton.y - (actionRadius * 2 + 18 * scale);
+  controls.dashButton.x = actionX;
+  controls.dashButton.y = controls.castButton.y - (controls.dashButton.radius + actionRadius + 14 * scale);
+
+  const elementRadius = clamp((portrait ? 30 : 24) * scale, 18, 120);
+  const gap = 10 * scale;
+  const totalW = controls.elementButtons.length * (elementRadius * 2) + (controls.elementButtons.length - 1) * gap;
+  let x = canvasW - margin - totalW + elementRadius;
+  const y = margin + elementRadius;
+  for (const btn of controls.elementButtons) {
+    btn.radius = elementRadius;
+    btn.x = x;
+    btn.y = y;
+    x += elementRadius * 2 + gap;
+  }
 }
 
 export function isMobileDevice(): boolean {
@@ -74,10 +131,6 @@ export function isMobileDevice(): boolean {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || ('ontouchstart' in window)
     || (navigator.maxTouchPoints > 0);
-}
-
-function dist(x1: number, y1: number, x2: number, y2: number): number {
-  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 }
 
 export function handleTouchStart(
@@ -96,9 +149,8 @@ export function handleTouchStart(
     const tx = (touch.clientX - rect.left) * scaleX;
     const ty = (touch.clientY - rect.top) * scaleY;
 
-    // Check element buttons
     for (const btn of controls.elementButtons) {
-      if (dist(tx, ty, btn.x, btn.y) < btn.radius * 1.5) {
+      if (dist(tx, ty, btn.x, btn.y) < btn.radius * 2.0) {
         const elemMap: Record<string, Element> = { fire: 'fire', water: 'water', earth: 'earth', wind: 'wind' };
         const elem = elemMap[btn.id];
         if (elem && state.unlockedElements.includes(elem)) {
@@ -108,8 +160,7 @@ export function handleTouchStart(
       }
     }
 
-    // Check jump button
-    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.5 && controls.jumpTouchId === null) {
+    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.8 && controls.jumpTouchId === null) {
       controls.jumpActive = true;
       controls.jumpTouchId = touch.identifier;
       controls.jumpButton.active = true;
@@ -117,8 +168,7 @@ export function handleTouchStart(
       continue;
     }
 
-    // Check dash button
-    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.5 && controls.dashTouchId === null) {
+    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.8 && controls.dashTouchId === null) {
       controls.dashActive = true;
       controls.dashTouchId = touch.identifier;
       controls.dashButton.active = true;
@@ -126,10 +176,8 @@ export function handleTouchStart(
       continue;
     }
 
-    // Check d-pad area (left side of screen for dynamic centering, or near existing center)
-    if (tx < canvasW * 0.4 && controls.dpadTouchId === null) {
+    if (tx < canvasW * 0.48 && controls.dpadTouchId === null) {
       controls.dpadTouchId = touch.identifier;
-      // Recenter d-pad where user touched if it's far from current center
       if (dist(tx, ty, controls.dpadCenter.x, controls.dpadCenter.y) > controls.dpadRadius) {
         controls.dpadCenter = { x: tx, y: ty };
       }
@@ -137,12 +185,10 @@ export function handleTouchStart(
       continue;
     }
 
-    // Check cast button
-    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 1.5) {
+    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 1.8) {
       controls.castActive = true;
       controls.castButton.active = true;
       controls.castTouchId = touch.identifier;
-      // Aim forward based on facing direction
       const s = state.stickman;
       state.mousePos = {
         x: s.x + s.facing * 200 - state.camera.x,
@@ -152,7 +198,6 @@ export function handleTouchStart(
       continue;
     }
 
-    // If touching elsewhere on screen during gameplay, use as aim + cast
     if (state.screen === 'playing' && !state.showLevelIntro && controls.castTouchId === null) {
       controls.castTouchId = touch.identifier;
       controls.castActive = true;
@@ -178,17 +223,18 @@ export function handleTouchMove(
     const tx = (touch.clientX - rect.left) * scaleX;
     const ty = (touch.clientY - rect.top) * scaleY;
 
-    // D-pad movement
     if (touch.identifier === controls.dpadTouchId) {
       const dx = tx - controls.dpadCenter.x;
       const dy = ty - controls.dpadCenter.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       const clampedD = Math.min(d, controls.dpadRadius);
-      controls.dpadDirection = { x: (dx / d) * (clampedD / controls.dpadRadius), y: (dy / d) * (clampedD / controls.dpadRadius) };
+      controls.dpadDirection = {
+        x: (dx / d) * (clampedD / controls.dpadRadius),
+        y: (dy / d) * (clampedD / controls.dpadRadius),
+      };
       updateDpadKeys(controls, state);
     }
 
-    // Cast aim update
     if (touch.identifier === controls.castTouchId && controls.castActive) {
       state.mousePos = { x: tx, y: ty };
     }
@@ -201,7 +247,6 @@ export function handleTouchEnd(
   state: GameState,
 ): void {
   for (const touch of touches) {
-    // D-pad release
     if (touch.identifier === controls.dpadTouchId) {
       controls.dpadTouchId = null;
       controls.dpadDirection = { x: 0, y: 0 };
@@ -211,7 +256,6 @@ export function handleTouchEnd(
       state.keys.delete('arrowright');
     }
 
-    // Cast release
     if (touch.identifier === controls.castTouchId) {
       controls.castTouchId = null;
       controls.castActive = false;
@@ -219,7 +263,6 @@ export function handleTouchEnd(
       state.mouseDown = false;
     }
 
-    // Jump release
     if (touch.identifier === controls.jumpTouchId) {
       controls.jumpTouchId = null;
       controls.jumpActive = false;
@@ -227,7 +270,6 @@ export function handleTouchEnd(
       state.keys.delete(' ');
     }
 
-    // Dash release
     if (touch.identifier === controls.dashTouchId) {
       controls.dashTouchId = null;
       controls.dashActive = false;
@@ -253,7 +295,7 @@ function updateDpadKeys(controls: TouchControlsState, state: GameState): void {
   }
 
   if (y < -threshold * 1.5) {
-    state.keys.add(' '); // jump
+    state.keys.add(' ');
     setTimeout(() => state.keys.delete(' '), 100);
   }
 }
@@ -267,115 +309,99 @@ export function renderTouchControls(
 
   ctx.save();
 
-  // ===== D-PAD =====
   const dpc = controls.dpadCenter;
 
-  // Outer ring
   ctx.globalAlpha = 0.25;
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(dpc.x, dpc.y, controls.dpadRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Inner background
   ctx.globalAlpha = 0.15;
   ctx.fillStyle = '#000000';
   ctx.beginPath();
   ctx.arc(dpc.x, dpc.y, controls.dpadRadius - 4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Direction arrows
-  ctx.globalAlpha = 0.5;
+  const arrowOffset = controls.dpadRadius * 0.62;
+  const arrowFont = Math.max(16, Math.round(controls.dpadRadius * 0.34));
+  ctx.globalAlpha = 0.55;
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 18px sans-serif';
+  ctx.font = `700 ${arrowFont}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('◀', dpc.x - 35, dpc.y);
-  ctx.fillText('▶', dpc.x + 35, dpc.y);
-  ctx.fillText('▲', dpc.x, dpc.y - 35);
+  ctx.fillText('<', dpc.x - arrowOffset, dpc.y);
+  ctx.fillText('>', dpc.x + arrowOffset, dpc.y);
+  ctx.fillText('^', dpc.x, dpc.y - arrowOffset);
 
-  // Joystick thumb
   const thumbX = dpc.x + controls.dpadDirection.x * controls.dpadRadius * 0.6;
   const thumbY = dpc.y + controls.dpadDirection.y * controls.dpadRadius * 0.6;
-  ctx.globalAlpha = 0.6;
+  const thumbOuter = Math.max(16, controls.dpadRadius * 0.32);
+  const thumbInner = thumbOuter * 0.66;
+  ctx.globalAlpha = 0.62;
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.arc(thumbX, thumbY, 18, 0, Math.PI * 2);
+  ctx.arc(thumbX, thumbY, thumbOuter, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 0.8;
+  ctx.globalAlpha = 0.86;
   ctx.fillStyle = '#aaaaaa';
   ctx.beginPath();
-  ctx.arc(thumbX, thumbY, 12, 0, Math.PI * 2);
+  ctx.arc(thumbX, thumbY, thumbInner, 0, Math.PI * 2);
   ctx.fill();
 
-  // ===== JUMP BUTTON =====
   const jb = controls.jumpButton;
-  ctx.globalAlpha = jb.active ? 0.6 : 0.3;
+  ctx.globalAlpha = jb.active ? 0.65 : 0.34;
   ctx.fillStyle = jb.active ? '#44ff44' : '#ffffff';
   ctx.beginPath();
   ctx.arc(jb.x, jb.y, jb.radius, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.globalAlpha = jb.active ? 1 : 0.7;
+  ctx.globalAlpha = jb.active ? 1 : 0.8;
   ctx.fillStyle = jb.active ? '#ffffff' : '#cccccc';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.max(10, Math.round(jb.radius * 0.36))}px sans-serif`;
   ctx.fillText('JUMP', jb.x, jb.y);
 
-  // ===== CAST BUTTON =====
   const cb = controls.castButton;
   const elemColor = {
     fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
   }[state.selectedElement];
-
-  ctx.globalAlpha = cb.active ? 0.6 : 0.3;
-  ctx.fillStyle = cb.active ? elemColor : elemColor;
+  ctx.globalAlpha = cb.active ? 0.66 : 0.34;
+  ctx.fillStyle = elemColor;
   ctx.beginPath();
   ctx.arc(cb.x, cb.y, cb.radius, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.globalAlpha = cb.active ? 1 : 0.7;
+  ctx.globalAlpha = cb.active ? 1 : 0.8;
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.max(10, Math.round(cb.radius * 0.34))}px sans-serif`;
   ctx.fillText('CAST', cb.x, cb.y);
 
-  // ===== DASH BUTTON =====
   const db = controls.dashButton;
   const dashReady = state.stickman.dashCooldown <= 0;
-
-  ctx.globalAlpha = db.active ? 0.6 : (dashReady ? 0.35 : 0.15);
+  ctx.globalAlpha = db.active ? 0.64 : (dashReady ? 0.4 : 0.18);
   ctx.fillStyle = dashReady ? '#44ffaa' : '#555555';
   ctx.beginPath();
   ctx.arc(db.x, db.y, db.radius, 0, Math.PI * 2);
   ctx.fill();
 
   if (!dashReady) {
-    // Cooldown arc
     const pct = 1 - (state.stickman.dashCooldown / 90);
-    ctx.globalAlpha = 0.5;
-    ctx.strokeStyle = '#44ffaa'; ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = '#44ffaa';
+    ctx.lineWidth = Math.max(2, db.radius * 0.11);
     ctx.beginPath();
     ctx.arc(db.x, db.y, db.radius, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
     ctx.stroke();
   }
 
-  ctx.globalAlpha = dashReady ? 1 : 0.5;
+  ctx.globalAlpha = dashReady ? 1 : 0.58;
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 9px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.max(9, Math.round(db.radius * 0.38))}px sans-serif`;
   ctx.fillText('DASH', db.x, db.y);
 
-  // ===== ELEMENT BUTTONS (on mobile these replace the HUD element selector) =====
-  // These are drawn near the top-right
   for (const btn of controls.elementButtons) {
     if (!state.unlockedElements.includes(btn.id as Element)) continue;
     const isSelected = state.selectedElement === btn.id;
 
-    ctx.globalAlpha = isSelected ? 0.7 : 0.25;
+    ctx.globalAlpha = isSelected ? 0.72 : 0.34;
     ctx.fillStyle = btn.color;
     ctx.beginPath();
     ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);
@@ -383,18 +409,16 @@ export function renderTouchControls(
 
     if (isSelected) {
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = Math.max(2, btn.radius * 0.12);
+      ctx.globalAlpha = 0.95;
       ctx.beginPath();
       ctx.arc(btn.x, btn.y, btn.radius + 3, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    ctx.globalAlpha = isSelected ? 1 : 0.6;
+    ctx.globalAlpha = isSelected ? 1 : 0.78;
     ctx.fillStyle = '#ffffff';
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(12, Math.round(btn.radius * 0.78))}px sans-serif`;
     ctx.fillText(btn.icon || btn.label, btn.x, btn.y);
   }
 

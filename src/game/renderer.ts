@@ -143,7 +143,14 @@ function drawPanel(
   ctx.fill();
 }
 
-export function render(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false): void {
+export function render(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  W: number,
+  H: number,
+  isMobile = false,
+  isPortraitMobile = false,
+): void {
   ctx.save();
   const nowMs = state.reducedMotion ? 0 : performance.now();
   const lowQuality = state.graphicsQuality === 'low';
@@ -340,10 +347,10 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   ctx.translate(hudFollowX + uiShakeX, hudFollowY + uiShakeY);
 
   // HUD
-  drawHUD(ctx, state, W, H, nowMs);
+  drawHUD(ctx, state, W, H, nowMs, isPortraitMobile);
 
   // IMP-7: Minimap (for levels wider than 1.5x the canvas)
-  if (!lowQuality && state.worldWidth > W * 1.5) {
+  if (!lowQuality && !isPortraitMobile && state.worldWidth > W * 1.5) {
     drawMinimap(ctx, state, W, H, nowMs);
   }
   ctx.restore();
@@ -1160,9 +1167,120 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, state: GameState, W: number, _H: number, nowMs: number) {
+function drawHUD(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  W: number,
+  _H: number,
+  nowMs: number,
+  isPortraitMobile = false,
+) {
   const s = state.stickman;
   const tSec = nowMs * 0.001;
+
+  if (isPortraitMobile) {
+    const leftW = 236;
+    const rightW = 190;
+
+    drawPanel(ctx, 10, 10, leftW, 104, 12, '#7bd3ff');
+    drawPanel(ctx, W - rightW - 10, 10, rightW, 104, 12, '#88d8ff');
+
+    ctx.fillStyle = '#d8eeff';
+    setUiFont(ctx, state, 11, '700');
+    ctx.textAlign = 'left';
+    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: state.levelName.toUpperCase() }), 20, 28);
+
+    const healthRatioCompact = Math.max(0, s.health / Math.max(1, s.maxHealth));
+    const manaRatioCompact = Math.max(0, s.mana / Math.max(1, s.maxMana));
+
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, 20, 36, leftW - 20, 12, 5); ctx.fill();
+    ctx.fillStyle = '#78f3b6';
+    roundRect(ctx, 20, 36, (leftW - 20) * healthRatioCompact, 12, 5); ctx.fill();
+    ctx.fillStyle = '#0d2343';
+    setUiFont(ctx, state, 9, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText(tr(state, 'hud_health', { health: Math.ceil(s.health), maxHealth: s.maxHealth }), 20 + (leftW - 20) / 2, 45);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, 20, 54, leftW - 20, 10, 5); ctx.fill();
+    ctx.fillStyle = '#6bb8ff';
+    roundRect(ctx, 20, 54, (leftW - 20) * manaRatioCompact, 10, 5); ctx.fill();
+    ctx.fillStyle = '#d8eeff';
+    setUiFont(ctx, state, 9, '700');
+    ctx.fillText(tr(state, 'hud_mana', { mana: Math.ceil(s.mana), maxMana: s.maxMana }), 20 + (leftW - 20) / 2, 62);
+
+    ctx.fillStyle = '#9ec1e6';
+    setUiFont(ctx, state, 10, '700');
+    ctx.textAlign = 'left';
+    if (state.endlessWave !== undefined) {
+      ctx.fillText(tr(state, 'hud_wave', { wave: state.endlessWave, kills: state.endlessKills ?? 0 }), 20, 80);
+    } else {
+      ctx.fillText(tr(state, 'hud_gems', { collected: state.gemsCollected, required: state.gemsRequired }), 20, 80);
+    }
+    ctx.fillText(tr(state, 'hud_lives', { lives: Math.max(0, Math.min(12, state.lives)) }), 20, 96);
+
+    ctx.fillStyle = '#f3fbff';
+    setDisplayFont(ctx, state, 22, '800');
+    ctx.textAlign = 'right';
+    ctx.fillText(String(state.score), W - 20, 40);
+
+    ctx.fillStyle = UI_THEME.muted;
+    setUiFont(ctx, state, 10, '700');
+    ctx.fillText(tr(state, 'hud_best', { best: state.highScore }), W - 20, 58);
+    const dashReadyCompact = s.dashCooldown <= 0;
+    ctx.fillStyle = dashReadyCompact ? '#8bf4c7' : '#ffb0ba';
+    ctx.fillText(
+      dashReadyCompact ? tr(state, 'hud_dash_ready') : tr(state, 'hud_dash_cd', { seconds: Math.ceil(s.dashCooldown / 6) }),
+      W - 20,
+      76,
+    );
+    ctx.fillStyle = UI_THEME.muted;
+    ctx.fillText(tr(state, 'hud_kills', { kills: state.enemiesDefeated }), W - 20, 94);
+
+    if (state.comboCount > 1 && state.comboTimer > 0) {
+      const alpha = Math.min(1, state.comboTimer / 30);
+      const pulse = state.reducedMotion ? 1 : 1 + Math.sin(tSec * 9) * 0.05;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(W / 2, _H - 76);
+      ctx.scale(pulse, pulse);
+      ctx.shadowColor = '#7de8ff';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#d9f8ff';
+      setDisplayFont(ctx, state, 20, '800');
+      ctx.textAlign = 'center';
+      ctx.fillText(tr(state, 'hud_combo', { count: state.comboCount }), 0, 0);
+      ctx.restore();
+    }
+
+    const bossCompact = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2');
+    if (bossCompact && bossCompact.state !== 'dead') {
+      const barW = 380;
+      const barH = 18;
+      const bx = W / 2 - barW / 2;
+      const by = 118;
+      const pct = Math.max(0, bossCompact.health / Math.max(1, bossCompact.maxHealth));
+      drawPanel(ctx, bx - 10, by - 18, barW + 20, 48, 9, '#ff90a0');
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      roundRect(ctx, bx, by, barW, barH, 7); ctx.fill();
+      const bossGrad = ctx.createLinearGradient(bx, 0, bx + barW, 0);
+      bossGrad.addColorStop(0, '#ff6f86');
+      bossGrad.addColorStop(1, '#ffd27f');
+      ctx.fillStyle = bossGrad;
+      roundRect(ctx, bx, by, barW * pct, barH, 7); ctx.fill();
+      ctx.fillStyle = '#ffe1e6';
+      setUiFont(ctx, state, 11, '700');
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        bossCompact.type === 'boss1' ? tr(state, 'hud_boss_stone') : tr(state, 'hud_boss_wraith'),
+        W / 2,
+        by - 4,
+      );
+    }
+
+    return;
+  }
 
   const vignette = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.28, W / 2, _H / 2, _H * 0.9);
   vignette.addColorStop(0, 'rgba(0,0,0,0)');

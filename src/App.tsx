@@ -22,6 +22,7 @@ import {
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  updateTouchControlsLayout,
   renderTouchControls,
   isMobileDevice,
   type TouchControlsState,
@@ -73,6 +74,7 @@ function App() {
   const isMobileRef = useRef(isMobile);
   const [scale, setScale] = useState(1);
   const scaleRef = useRef(1);
+  const isPortraitMobileRef = useRef(false);
   const loopClockRef = useRef(createLoopClock());
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -90,21 +92,62 @@ function App() {
     stateRef.current = next;
   };
 
+  const syncTouchLayout = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
+  };
+
+  const enterMobileImmersive = () => {
+    if (!isMobileRef.current) return;
+
+    const host = containerRef.current;
+    if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
+      void host.requestFullscreen().catch(() => { });
+    }
+
+    try {
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (orientation:
+          | 'any'
+          | 'natural'
+          | 'landscape'
+          | 'portrait'
+          | 'portrait-primary'
+          | 'portrait-secondary'
+          | 'landscape-primary'
+          | 'landscape-secondary') => Promise<void>;
+      };
+      if (orientation && typeof orientation.lock === 'function') {
+        void orientation.lock('landscape').catch(() => { });
+      }
+    } catch {
+      // orientation lock unsupported
+    }
+  };
+
   // Compute scale to fill screen while preserving aspect ratio
   useEffect(() => {
     const computeScale = () => {
-      const scaleX = window.innerWidth / CANVAS_W;
-      const scaleY = window.innerHeight / CANVAS_H;
+      const vw = window.visualViewport?.width ?? window.innerWidth;
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const scaleX = vw / CANVAS_W;
+      const scaleY = vh / CANVAS_H;
       const s = Math.min(scaleX, scaleY);
       setScale(s);
       scaleRef.current = s;
+      isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
+      requestAnimationFrame(syncTouchLayout);
     };
     computeScale();
     window.addEventListener('resize', computeScale);
     document.addEventListener('fullscreenchange', computeScale);
+    window.visualViewport?.addEventListener('resize', computeScale);
     return () => {
       window.removeEventListener('resize', computeScale);
       document.removeEventListener('fullscreenchange', computeScale);
+      window.visualViewport?.removeEventListener('resize', computeScale);
     };
   }, []);
 
@@ -148,12 +191,15 @@ function App() {
     const mobile = isMobileRef.current;
     isMobileRef.current = mobile;
     touchControlsRef.current.visible = mobile;
+    requestAnimationFrame(syncTouchLayout);
 
     const enableTouchOnFirst = () => {
       if (!isMobileRef.current) {
         isMobileRef.current = true;
         setIsMobile(true);
         touchControlsRef.current.visible = true;
+        isPortraitMobileRef.current = window.innerHeight > window.innerWidth;
+        requestAnimationFrame(syncTouchLayout);
       }
       window.removeEventListener('touchstart', enableTouchOnFirst);
     };
@@ -192,10 +238,7 @@ function App() {
           Audio.initAudio();
           Audio.playMenuSelect();
           s.screen = 'levelSelect';
-          // Request fullscreen when entering the game
-          if (!document.fullscreenElement) {
-            containerRef.current?.requestFullscreen().catch(() => { });
-          }
+          enterMobileImmersive();
           return;
         }
 
@@ -206,10 +249,7 @@ function App() {
           Audio.initAudio();
           Audio.playMenuSelect();
           Audio.startMusic(15);
-          // Request fullscreen
-          if (!document.fullscreenElement) {
-            containerRef.current?.requestFullscreen().catch(() => { });
-          }
+          enterMobileImmersive();
           return;
         }
 
@@ -271,6 +311,7 @@ function App() {
               assignState(buildPlayingState(index, saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.startMusic(index);
+              enterMobileImmersive();
               return;
             }
             // Locked level — show selection highlight only
@@ -581,6 +622,8 @@ function App() {
       e.preventDefault();
       const s = stateRef.current;
       const controls = touchControlsRef.current;
+      enterMobileImmersive();
+      syncTouchLayout();
 
       if (s.screen === 'shop') {
         const rect = canvas.getBoundingClientRect();
@@ -654,6 +697,7 @@ function App() {
             Audio.initAudio();
             Audio.playMenuSelect();
             s.screen = 'levelSelect';
+            enterMobileImmersive();
             return;
           }
 
@@ -664,6 +708,7 @@ function App() {
             Audio.initAudio();
             Audio.playMenuSelect();
             Audio.startMusic(15);
+            enterMobileImmersive();
             return;
           }
 
@@ -756,6 +801,13 @@ function App() {
       handleTouchEnd(endedTouches, controls, stateRef.current);
     };
 
+    const onTouchCancel = (e: TouchEvent) => {
+      e.preventDefault();
+      const controls = touchControlsRef.current;
+      const endedTouches = Array.from(e.changedTouches);
+      handleTouchEnd(endedTouches, controls, stateRef.current);
+    };
+
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
@@ -765,6 +817,7 @@ function App() {
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onTouchCancel, { passive: false });
     window.addEventListener('error', onWindowError);
     window.addEventListener('unhandledrejection', onUnhandledRejection);
 
@@ -781,10 +834,11 @@ function App() {
         for (let i = 0; i < steps; i++) {
           update(currentState);
         }
-        render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current);
+        render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current, isPortraitMobileRef.current);
 
         // Render touch controls on top
         if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
+          syncTouchLayout();
           renderTouchControls(ctx, touchControlsRef.current, currentState);
         }
 
@@ -809,6 +863,7 @@ function App() {
       canvas.removeEventListener('touchstart', onTouchStart);
       canvas.removeEventListener('touchmove', onTouchMove);
       canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('touchcancel', onTouchCancel);
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
