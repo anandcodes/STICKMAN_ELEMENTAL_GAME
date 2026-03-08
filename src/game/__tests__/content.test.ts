@@ -35,3 +35,23 @@ test('applyContentPack overrides existing level metadata and appends new levels'
   assert.equal(next[2].name, 'C');
   assert.equal(base[1].name, 'B');
 });
+
+test('applyContentPack ignores malformed overrides and malformed appended levels', () => {
+  const base = [makeLevel('A'), makeLevel('B')];
+  const next = applyContentPack(base, {
+    levelOverrides: [
+      { index: -1, data: { name: 'InvalidIndex' } },
+      { index: 99, data: { name: 'TooHigh' } },
+      { index: 1, data: { name: 'B3', worldWidth: Number.NaN } },
+    ],
+    appendedLevels: [
+      makeLevel('C'),
+      { bad: 'shape' } as unknown as LevelDef,
+    ],
+  });
+
+  assert.equal(next.length, 3);
+  assert.equal(next[1].name, 'B3');
+  assert.equal(next[1].worldWidth, 1200);
+  assert.equal(next[2].name, 'C');
+});

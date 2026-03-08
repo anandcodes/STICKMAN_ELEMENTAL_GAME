@@ -37,7 +37,7 @@
 - Add structured content pipeline for new levels/enemies without code edits.
 
 ### Phase 5 Status
-- In progress: cloud-save/account service scaffold and best-effort sync hook.
-- In progress: endless leaderboard local ranking + optional remote submit endpoint.
-- In progress: achievements and daily challenge progression service with persistence.
-- In progress: JSON content pack pipeline (`src/game/content-pack.json`) for level overrides/appends.
+- Done: cloud save now supports pull-on-start hydration, deterministic merge, and durable retry queue.
+- Done: leaderboard now supports local + remote merge, remote refresh, and durable retry queue for submissions.
+- Done: achievements and daily challenge system now exposes menu-ready progression snapshot and localized UI surfacing.
+- Done: content pack pipeline now validates/sanitizes malformed overrides/appended levels before applying.

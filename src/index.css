@@ -1,6 +1,6 @@
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
-/* Global resets for mobile compatibility */
 * {
   margin: 0;
   padding: 0;
@@ -8,12 +8,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background-color: #050510;
+  background:
+    radial-gradient(1200px 800px at 20% 20%, #183568 0%, transparent 60%),
+    radial-gradient(1000px 700px at 85% 15%, #3a1d4f 0%, transparent 55%),
+    linear-gradient(160deg, #040811 0%, #07122a 45%, #060a18 100%);
+  color: #e9f2ff;
+  font-family: "Rajdhani", "Trebuchet MS", sans-serif;
 }
 
 #root {
@@ -21,33 +27,37 @@ html, body {
   height: 100%;
 }
 
-/* Prevent text selection on game elements */
 #game-container {
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
 }
 
-/* Canvas crisp rendering */
 #game-canvas {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(125, 191, 255, 0.28),
+    0 18px 60px rgba(7, 22, 44, 0.7),
+    inset 0 0 80px rgba(0, 0, 0, 0.3);
 }
 
-/* Landscape orientation hint for mobile portrait */
 @media screen and (max-width: 768px) and (orientation: portrait) {
   #game-container::before {
-    content: '📱 Rotate for best experience';
+    content: "Rotate for best experience";
     position: fixed;
     bottom: 8px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: #aaa;
+    background: rgba(5, 13, 28, 0.88);
+    color: #d5e7ff;
+    border: 1px solid rgba(130, 194, 255, 0.4);
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 11px;
-    font-family: sans-serif;
+    font-family: "Rajdhani", "Trebuchet MS", sans-serif;
+    letter-spacing: 0.4px;
     z-index: 100;
     white-space: nowrap;
     pointer-events: none;
@@ -56,6 +66,11 @@ html, body {
 }
 
 @keyframes fadeOut {
-  0%, 60% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }

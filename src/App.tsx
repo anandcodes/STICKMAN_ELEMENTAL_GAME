@@ -4,11 +4,12 @@ import { render } from './game/renderer';
 import type { Difficulty, Element, GameSettings, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
-import { loadSave, saveProgress } from './game/persistence';
+import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
 import { advanceLoopClock, createLoopClock } from './game/loop';
 import { initTelemetrySession, trackError } from './game/telemetry';
 import { loadSettings, saveSettings } from './game/settings';
 import { t } from './game/i18n';
+import { refreshRemoteLeaderboard } from './game/services/leaderboard';
 import {
   buildEndlessState,
   buildMenuState,
@@ -78,6 +79,7 @@ function App() {
   const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
+  const lastLeaderboardRefreshRef = useRef(0);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
@@ -119,6 +121,28 @@ function App() {
     Audio.setMusicVolume(settings.musicVolume);
     Audio.setSfxVolume(settings.sfxVolume);
   }, [settings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void hydrateSaveFromCloud().then((hydrated) => {
+      if (cancelled) return;
+
+      const s = stateRef.current;
+      s.highScore = Math.max(s.highScore, hydrated.highScore);
+      s.furthestLevel = Math.max(s.furthestLevel, hydrated.furthestLevel);
+      s.totalGemsEver = Math.max(s.totalGemsEver, hydrated.totalGemsEver);
+      s.gemsCurrency = Math.max(s.gemsCurrency, hydrated.gemsCurrency);
+      s.enemiesDefeated = Math.max(s.enemiesDefeated, hydrated.totalEnemiesDefeated);
+      s.upgrades = { ...hydrated.upgrades };
+      if (s.screen === 'menu' && hydrated.difficulty) {
+        s.difficulty = hydrated.difficulty;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const mobile = isMobileRef.current;
@@ -748,6 +772,11 @@ function App() {
     const gameLoop = (nowMs: number) => {
       try {
         const currentState = stateRef.current;
+        if (currentState.screen === 'menu' && nowMs - lastLeaderboardRefreshRef.current > 30000) {
+          lastLeaderboardRefreshRef.current = nowMs;
+          void refreshRemoteLeaderboard(20);
+        }
+
         const steps = advanceLoopClock(loopClockRef.current, nowMs);
         for (let i = 0; i < steps; i++) {
           update(currentState);
@@ -796,7 +825,7 @@ function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: 'monospace',
+          fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
           padding: 24,
         }}
       >
@@ -858,7 +887,7 @@ function App() {
           color: '#e8f2ff',
           borderRadius: 8,
           padding: '8px 12px',
-          fontFamily: 'monospace',
+          fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
           fontSize: `${Math.round(12 * settings.textScale)}px`,
           cursor: 'pointer',
         }}
@@ -907,7 +936,7 @@ function App() {
               background: settings.highContrast ? '#000000' : '#071120',
               color: '#e9f3ff',
               padding: 18,
-              fontFamily: 'monospace',
+              fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
               fontSize: `${Math.round(13 * settings.textScale)}px`,
             }}
           >
@@ -1076,5 +1105,4 @@ function App() {
 }
 
 export default App;
-
 

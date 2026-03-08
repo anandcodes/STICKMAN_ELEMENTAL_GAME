@@ -22,6 +22,18 @@ export interface ProgressionUpdate {
   dailyJustCompleted: boolean;
 }
 
+export interface DailyChallengeProgress extends DailyChallenge {
+  current: number;
+  progress: number;
+  completed: boolean;
+}
+
+export interface ProgressionSnapshot {
+  achievementsUnlocked: AchievementId[];
+  totalAchievements: number;
+  daily: DailyChallengeProgress;
+}
+
 const PROGRESSION_KEY = 'elemental_stickman_progression';
 
 const DEFAULT_STORE: ProgressionStore = {
@@ -44,6 +56,10 @@ const DAILY_CHALLENGES: DailyChallenge[] = [
   { id: 'reach_level_5', title: 'Reach level 5 in campaign', target: 5 },
 ];
 
+function isDailyChallengeId(value: unknown): value is DailyChallengeId {
+  return value === 'gems_20' || value === 'kills_50' || value === 'reach_wave_5' || value === 'reach_level_5';
+}
+
 function loadStore(): ProgressionStore {
   try {
     const raw = localStorage.getItem(PROGRESSION_KEY);
@@ -54,7 +70,10 @@ function loadStore(): ProgressionStore {
         ? parsed.achievements.filter((v): v is AchievementId => typeof v === 'string' && v in ACHIEVEMENT_LABELS)
         : [],
       dailyCompletedByDate: parsed.dailyCompletedByDate && typeof parsed.dailyCompletedByDate === 'object'
-        ? parsed.dailyCompletedByDate as Record<string, DailyChallengeId>
+        ? Object.fromEntries(
+          Object.entries(parsed.dailyCompletedByDate)
+            .filter(([dateKey, value]) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && isDailyChallengeId(value)),
+        ) as Record<string, DailyChallengeId>
         : {},
     };
   } catch {
@@ -81,7 +100,10 @@ function evaluateAchievements(state: GameState): AchievementId[] {
 }
 
 function todayKey(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function getDailyChallenge(now = new Date()): DailyChallenge {
@@ -96,8 +118,33 @@ function isDailyChallengeComplete(challenge: DailyChallenge, state: GameState): 
   return state.furthestLevel + 1 >= challenge.target;
 }
 
+function getDailyChallengeCurrent(challenge: DailyChallenge, state: GameState): number {
+  if (challenge.id === 'gems_20') return state.totalGemsEver;
+  if (challenge.id === 'kills_50') return state.enemiesDefeated;
+  if (challenge.id === 'reach_wave_5') return state.endlessWave ?? 0;
+  return state.furthestLevel + 1;
+}
+
 export function getAchievementLabel(id: AchievementId): string {
   return ACHIEVEMENT_LABELS[id];
+}
+
+export function getProgressionSnapshot(state: GameState): ProgressionSnapshot {
+  const store = loadStore();
+  const challenge = getDailyChallenge();
+  const current = Math.max(0, getDailyChallengeCurrent(challenge, state));
+  const completed = isDailyChallengeComplete(challenge, state) || store.dailyCompletedByDate[todayKey()] === challenge.id;
+
+  return {
+    achievementsUnlocked: [...store.achievements],
+    totalAchievements: Object.keys(ACHIEVEMENT_LABELS).length,
+    daily: {
+      ...challenge,
+      current,
+      progress: Math.min(1, current / Math.max(1, challenge.target)),
+      completed,
+    },
+  };
 }
 
 export function updateProgression(state: GameState): ProgressionUpdate {

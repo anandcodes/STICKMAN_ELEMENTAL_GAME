@@ -1,6 +1,6 @@
 import type { Difficulty, GameState, SaveData } from './types';
 import { TOTAL_LEVELS } from './levels';
-import { syncCloudSave } from './services/cloud';
+import { hydrateCloudSave, syncCloudSave } from './services/cloud';
 
 export const SAVE_KEY = 'elemental_stickman_save';
 export const SAVE_SCHEMA_VERSION = 2;
@@ -186,5 +186,18 @@ export function saveProgress(state: GameState): void {
     });
   } catch {
     // localStorage unavailable
+  }
+}
+
+export async function hydrateSaveFromCloud(): Promise<SaveData> {
+  const local = loadSave();
+
+  try {
+    const merged = await hydrateCloudSave(local);
+    const normalized = normalizeSaveData(merged);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(normalized));
+    return normalized;
+  } catch {
+    return local;
   }
 }
