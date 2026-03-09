@@ -47,6 +47,8 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     x: def.playerStart.x, y: def.playerStart.y,
     vx: 0, vy: 0, width: 24, height: 50,
     onGround: false, facing: 1 as const,
+    jumpsUsed: 0,
+    jumpBufferTimer: 0, coyoteTimer: 0,
     animFrame: 0, animTimer: 0,
     walking: false, jumping: false,
     casting: false, castTimer: 0,
@@ -113,6 +115,8 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     totalGemsEver: savedData.totalGemsEver || 0,
     gemsCurrency: savedData.gemsCurrency,
     enemiesDefeated: savedData.totalEnemiesDefeated || 0,
+    activeDialog: [],
+    dialogCharIndex: 0,
     paused: false,
     screenShake: 0,
     floatingTexts: [],
@@ -132,6 +136,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     endlessWave: level === 15 ? 1 : undefined,
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
+    selectedMenuButton: 0,
   };
 }
 
@@ -199,6 +204,22 @@ export function update(state: GameState): void {
   // IMP-1: Pause check
   if (state.paused) return;
 
+  // Dialog active check
+  if (state.activeDialog.length > 0) {
+    state.dialogCharIndex += 0.5; // Typewriter speed
+    // Allow Visuals to continue updating
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
+      p.vx *= 0.98; p.life--;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+    updateFloatingTexts(state);
+    for (const star of state.backgroundStars) star.twinkle += 0.03;
+    return; // Pause game object logic
+  }
+
   // Level intro
   if (state.showLevelIntro) {
     state.levelIntroTimer--;
@@ -218,31 +239,66 @@ export function update(state: GameState): void {
 
   // Input handling
   s.walking = false;
+  let targetVx = 0;
   if (state.keys.has('a') || state.keys.has('arrowleft')) {
-    s.vx -= MOVE_SPEED;
+    targetVx -= MOVE_SPEED;
     s.facing = -1;
     s.walking = true;
   }
   if (state.keys.has('d') || state.keys.has('arrowright')) {
-    s.vx += MOVE_SPEED;
+    targetVx += MOVE_SPEED;
     s.facing = 1;
     s.walking = true;
   }
-  if ((state.keys.has('w') || state.keys.has('arrowup') || state.keys.has(' ')) && s.onGround) {
+
+  if (s.walking) {
+    if (targetVx > 0 && s.vx < MAX_SPEED) {
+      s.vx = Math.min(MAX_SPEED, s.vx + targetVx);
+    } else if (targetVx < 0 && s.vx > -MAX_SPEED) {
+      s.vx = Math.max(-MAX_SPEED, s.vx + targetVx);
+    }
+  }
+  // Jump buffering
+  if (state.keys.has('w') || state.keys.has('arrowup') || state.keys.has(' ')) {
+    s.jumpBufferTimer = 6;
+    state.keys.delete('w'); state.keys.delete('arrowup'); state.keys.delete(' ');
+  } else if (s.jumpBufferTimer > 0) {
+    s.jumpBufferTimer--;
+  }
+
+  // Coyote timer
+  if (s.onGround) {
+    s.coyoteTimer = 6;
+    s.jumpsUsed = 0;
+  } else {
+    if (s.coyoteTimer > 0) s.coyoteTimer--;
+    else if (s.jumpsUsed === 0) s.jumpsUsed = 1; // walk off ledge
+  }
+
+  const maxJumps = 1 + (state.upgrades.doubleJumpLevel > 0 ? 1 : 0);
+  const canJump = (s.coyoteTimer > 0 && s.jumpsUsed === 0) || (!s.onGround && s.jumpsUsed < maxJumps);
+
+  if (s.jumpBufferTimer > 0 && canJump) {
     s.vy = JUMP_FORCE;
     s.onGround = false;
     s.jumping = true;
+    s.coyoteTimer = 0;
+    s.jumpBufferTimer = 0;
+    if (s.jumpsUsed >= 1) {
+      spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'wind', 8);
+    }
+    s.jumpsUsed++;
     Audio.playJump();
   }
 
   // DASH ABILITY - press shift to dash
   if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= 5) {
     s.isDashing = true;
-    s.dashTimer = 8;
+    s.dashTimer = 8 + Math.floor(state.upgrades.dashDistanceLevel * 1.5);
     s.dashCooldown = 90;
     s.mana -= 5;
-    s.vx = s.facing * 12;
-    s.invincibleTimer = Math.max(s.invincibleTimer, 8);
+    s.vx = s.facing * (12 + state.upgrades.dashDistanceLevel * 1.5);
+    s.invincibleTimer = Math.max(s.invincibleTimer, 8 + Math.floor(state.upgrades.dashDistanceLevel * 1.5));
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 12);
     state.screenShake = 3;
     Audio.playJump();
@@ -272,19 +328,13 @@ export function update(state: GameState): void {
   // Physics
   s.vy += GRAVITY;
 
-  // Base friction (modified later by ice)
-  const currentFriction = FRICTION;
+  // Ice slippery physics (based on onIce state from previous frame's collision)
+  const currentFriction = state.onIce ? 0.98 : FRICTION;
   // Apply friction
   s.vx *= currentFriction;
 
   // Apply velocity
-  s.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, s.vx));
   s.x += s.vx;
-
-  // Late-apply ice friction (since onGround calculation happens lower down)
-  if (state.onIce) {
-    s.vx /= (FRICTION * 0.90); // Counteracts some friction
-  }
 
   s.y += s.vy;
 
@@ -298,6 +348,7 @@ export function update(state: GameState): void {
 
   // Platform collision
   s.onGround = false;
+  state.onIce = false;
   for (const p of state.platforms) {
     if (p.melting && (p.meltTimer ?? 1) <= 0) continue;
     if (
@@ -308,9 +359,11 @@ export function update(state: GameState): void {
       s.y = p.y - s.height;
       s.vy = 0;
       s.onGround = true;
+      s.jumpsUsed = 0;
       s.jumping = false;
-      // BUG-6 FIX: Ice should be SLIPPERY (less friction), not stickier
-      if (p.type === 'ice') s.vx /= (FRICTION * 0.88);
+      if (p.type === 'ice') {
+        state.onIce = true;
+      }
     }
   }
 
@@ -326,6 +379,7 @@ export function update(state: GameState): void {
       s.y = obj.y - s.height;
       s.vy = 0;
       s.onGround = true;
+      s.jumpsUsed = 0;
       s.jumping = false;
     }
     // Side collision
@@ -342,7 +396,7 @@ export function update(state: GameState): void {
   // Collectibles and environment zones
   for (const obj of state.envObjects) {
     // Wind zone / water current effect check (doesn't need to be solid or uncollected)
-    if (obj.type === 'wind_zone' || obj.type === 'water_current') {
+    if (obj.type === 'wind_zone' || obj.type === 'water_current' || obj.type === 'anti_gravity_zone') {
       const touchingZone = s.x + s.width > obj.x && s.x < obj.x + obj.width &&
         s.y + s.height > obj.y && s.y < obj.y + obj.height;
 
@@ -376,6 +430,56 @@ export function update(state: GameState): void {
             });
           }
         }
+        if (obj.type === 'anti_gravity_zone') {
+          s.vy += (-4 - s.vy) * 0.15; // Smoothly approach -4 velocity upwards (terminal anti-gravity check)
+          s.onGround = false;
+          s.jumping = false;
+          if (Math.random() < 0.3) {
+            state.particles.push({
+              x: obj.x + Math.random() * obj.width,
+              y: obj.y + Math.random() * obj.height,
+              vx: (Math.random() - 0.5),
+              vy: -2 - Math.random() * 2,
+              life: 40, maxLife: 40, element: 'wind', // reuse element typing for render style
+              size: 2, color: '#8a2be2'
+            });
+          }
+        }
+      }
+    }
+
+    // Corrupted Crystal global pulse logic
+    if (obj.type === 'corrupted_crystal' && obj.state !== 'destroyed') {
+      obj.energyTimer = (obj.energyTimer || 0) + 1;
+      if (obj.energyTimer === 121) {
+        // Boom! 1-frame explosive radius
+        for (let j = 0; j < 15; j++) {
+          state.particles.push({
+            x: obj.x + Math.random() * obj.width,
+            y: obj.y + Math.random() * obj.height,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
+            life: 40, maxLife: 40, element: 'earth',
+            size: 4, color: '#39ff14' // Neon green
+          });
+        }
+        // Radius check for damage
+        const cx = obj.x + obj.width / 2;
+        const cy = obj.y + obj.height / 2;
+        const dist = Math.sqrt(Math.pow((s.x + s.width / 2) - cx, 2) + Math.pow((s.y + s.height / 2) - cy, 2));
+        if (dist < 100) {
+          s.health -= 25;
+          s.mana = Math.max(0, s.mana - 30); // Bypasses invincibility and drains mana!
+          s.vy = -6;
+          s.vx = (s.x < cx ? -6 : 6);
+          s.invincibleTimer = 40;
+          state.redFlash = 15;
+          state.screenShake = 15;
+          Audio.playHit();
+        }
+      }
+      if (obj.energyTimer > 180) {
+        obj.energyTimer = 0; // Reset pulse
       }
     }
 
@@ -411,6 +515,13 @@ export function update(state: GameState): void {
       spawnParticles(state, obj.x + 8, obj.y + 10, 'fire', 10);
       addScore(state, 10);
       Audio.playPotionCollect();
+    }
+    if (obj.type === 'lore_tome' && obj.dialogue) {
+      obj.state = 'collected';
+      state.activeDialog = [...obj.dialogue];
+      state.dialogCharIndex = 0;
+      spawnParticles(state, obj.x + 8, obj.y + 10, 'wind', 20);
+      Audio.playGemCollect();
     }
     if (obj.type === 'mana_crystal') {
       obj.state = 'collected';
@@ -448,11 +559,13 @@ export function update(state: GameState): void {
       });
       saveProgress(state);
       const progression = updateProgression(state);
+      let offset = 85;
       for (const achievementId of progression.unlockedAchievements) {
-        spawnFloatingText(state, s.x + s.width / 2, s.y - 85, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+        offset += 20;
       }
       if (progression.dailyJustCompleted) {
-        spawnFloatingText(state, s.x + s.width / 2, s.y - 110, `DAILY COMPLETE: ${progression.dailyChallenge.title}`, '#66ffcc', 12);
+        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `DAILY COMPLETE: ${progression.dailyChallenge.title}`, '#66ffcc', 12);
       }
     }
     if (obj.type === 'spike' && s.invincibleTimer <= 0) {
@@ -643,8 +756,10 @@ export function update(state: GameState): void {
       }, { force: true });
       saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
       const progression = updateProgression(state);
+      let offset = 85;
       for (const achievementId of progression.unlockedAchievements) {
-        spawnFloatingText(state, s.x + s.width / 2, s.y - 85, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+        offset += 20;
       }
       if (state.endlessWave !== undefined) {
         void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {
@@ -663,21 +778,59 @@ export function update(state: GameState): void {
   if (state.endlessWave !== undefined && state.endlessTimer !== undefined) {
     state.endlessTimer++;
     const aliveEnemies = state.enemies.filter(e => e.state !== 'dead').length;
+
+    // Timer logic: Advance wave 180 frames (3s) after the last enemy dies
     if (aliveEnemies === 0 && state.endlessTimer > 180) {
-      state.endlessWave++; state.endlessTimer = 0;
+      state.endlessWave++;
+      state.endlessTimer = 0;
       s.health = Math.min(s.health + 25, s.maxHealth);
       spawnFloatingText(state, s.x + s.width / 2, s.y - 20, 'WAVE ' + state.endlessWave, '#ffff00', 24);
+
       const isBossWave = state.endlessWave % 5 === 0;
-      const numEnemies = isBossWave ? 1 : Math.min(10, 2 + Math.floor(state.endlessWave * 0.8));
+      const isTitanWave = state.endlessWave % 15 === 0;
+
+      // Significantly increase enemy count scaling, capping at 20 enemies for perf
+      const numEnemies = isBossWave
+        ? (isTitanWave ? 1 : 1 + Math.floor(state.endlessWave / 10))
+        : Math.min(20, 3 + Math.floor(state.endlessWave * 1.2));
+
       for (let i = 0; i < numEnemies; i++) {
-        const spawnX = Math.random() > 0.5 ? 100 + Math.random() * 200 : 900 - Math.random() * 200;
-        if (isBossWave && i === 0) {
-          const bType = state.endlessWave % 10 === 0 ? 'boss2' : 'boss1';
-          state.enemies.push(makeEnemy(bType, spawnX, 530, 'water', 'earth', 200, 30 + state.endlessWave * 2, 1.5, bType === 'boss2' ? 1500 + state.endlessWave * 100 : 800 + state.endlessWave * 50));
+        // Spawn across entire arena to prevent immediate clump deaths
+        const spawnX = 100 + Math.random() * 1000;
+
+        if (isBossWave && i < (isTitanWave ? 1 : 1 + Math.floor(state.endlessWave / 10))) {
+          const bType = isTitanWave ? 'void_titan' : (state.endlessWave % 10 === 0 ? 'boss2' : 'boss1');
+          const maxHpMod = (bType === 'void_titan') ? 3000 : (bType === 'boss2' ? 1500 : 800);
+          state.enemies.push(makeEnemy(
+            bType,
+            spawnX,
+            530,
+            'water',
+            'earth',
+            200,
+            30 + state.endlessWave * 3,
+            1.5,
+            maxHpMod + state.endlessWave * 150
+          ));
         } else {
-          const types = ['slime', 'bat', 'golem', 'fire_spirit', 'ice_spirit', 'shadow_wolf', 'lava_crab', 'thunder_hawk'] as const;
-          const type = types[Math.floor(Math.random() * types.length)];
-          state.enemies.push(makeEnemy(type, spawnX, 580, 'water', 'fire', 150, 15 + state.endlessWave, 1.5, 50 + state.endlessWave * 10));
+          let availableTypes: import('./types').Enemy['type'][] = ['slime', 'bat', 'golem', 'fire_spirit', 'ice_spirit'];
+          if (state.endlessWave > 2) availableTypes = [...availableTypes, 'shadow_wolf'];
+          if (state.endlessWave > 4) availableTypes = [...availableTypes, 'lava_crab', 'thunder_hawk'];
+          if (state.endlessWave > 7) availableTypes = [...availableTypes, 'void_brute', 'corrupted_wraith'];
+
+          const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+
+          state.enemies.push(makeEnemy(
+            type,
+            spawnX,
+            580 - (Math.random() * 100), // Slight vertical variance so fliers don't clip
+            'water',
+            'fire',
+            150,
+            15 + state.endlessWave * 1.5,
+            1.5 + (state.endlessWave * 0.05), // speed scaling 
+            50 + state.endlessWave * 20
+          ));
         }
       }
     }

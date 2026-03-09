@@ -2,7 +2,7 @@ import type { GameState } from '../types';
 import { DIFFICULTY_SETTINGS } from '../engine';
 import { spawnFloatingText, spawnParticles } from './utils';
 
-const FLYING_TYPES = new Set(['bat', 'boss2', 'thunder_hawk']);
+const FLYING_TYPES = new Set(['bat', 'boss2', 'thunder_hawk', 'corrupted_wraith', 'void_titan']);
 
 export function updateEnemies(state: GameState) {
     const s = state.stickman;
@@ -29,7 +29,8 @@ export function updateEnemies(state: GameState) {
         const chaseRadius = enemy.type === 'shadow_wolf' ? 350
             : enemy.type === 'thunder_hawk' ? 300
                 : enemy.type === 'lava_crab' ? 180
-                    : 250;
+                    : enemy.type === 'corrupted_wraith' ? 400
+                        : 250;
 
         if (dist < chaseRadius) {
             enemy.state = 'chase';
@@ -43,12 +44,12 @@ export function updateEnemies(state: GameState) {
 
             if (FLYING_TYPES.has(enemy.type)) {
                 // Flying movement: accelerate toward player
-                const ax = enemy.type === 'boss2' ? 0.05
-                    : enemy.type === 'thunder_hawk' ? 0.18  // faster dive
+                const ax = enemy.type === 'boss2' || enemy.type === 'void_titan' ? 0.05
+                    : enemy.type === 'thunder_hawk' || enemy.type === 'corrupted_wraith' ? 0.18  // faster dive
                         : 0.1;
                 enemy.vx += dir * enemy.speed * ax;
                 // thunder_hawk: dive steeply at player
-                const vyFactor = enemy.type === 'thunder_hawk' ? 0.25 : (dy > 0 ? 1 : -1) * ax;
+                const vyFactor = (enemy.type === 'thunder_hawk' || enemy.type === 'corrupted_wraith') ? 0.25 : (dy > 0 ? 1 : -1) * ax;
                 enemy.vy += typeof vyFactor === 'number' ? vyFactor : 0;
                 enemy.vx *= 0.95;
                 enemy.vy *= 0.95;
@@ -59,20 +60,25 @@ export function updateEnemies(state: GameState) {
                 if (dist < 120 && Math.abs(dy) < 60 && (enemy.animTimer % 80 === 0)) {
                     enemy.vy = -10; // leap
                 }
-            } else if (enemy.type === 'lava_crab') {
-                // Slow heavy charge
-                enemy.vx = dir * enemy.speed * 0.8;
-                // Charge attack when close
-                if (dist < 150 && (enemy.attackTimer || 0) === 0) {
-                    enemy.attackTimer = 90;
-                    enemy.vx = dir * enemy.speed * 3;
+            } else if (enemy.type === 'lava_crab' || enemy.type === 'void_brute') {
+                const isBrute = enemy.type === 'void_brute';
+                if ((enemy.chargeTimer || 0) > 0) {
+                    enemy.chargeTimer! -= 1;
+                    enemy.vx = dir * enemy.speed * (isBrute ? 4 : 3);
+                } else {
+                    enemy.vx = dir * enemy.speed * (isBrute ? 1.0 : 0.8);
+                    // Trigger charge attack when close
+                    if (dist < (isBrute ? 250 : 150) && (enemy.attackTimer || 0) === 0) {
+                        enemy.chargeTimer = isBrute ? 45 : 30;
+                        enemy.attackTimer = isBrute ? 120 : 90;
+                    }
                 }
             } else {
                 enemy.vx = dir * enemy.speed;
             }
 
             // BOSS & SPECIAL ATTACK LOGIC
-            if (enemy.type === 'boss1' || enemy.type === 'boss2') {
+            if (enemy.type === 'boss1' || enemy.type === 'boss2' || enemy.type === 'void_titan') {
                 enemy.attackTimer = (enemy.attackTimer || 0) + 1;
                 if (enemy.type === 'boss1' && enemy.attackTimer >= 100) {
                     enemy.attackTimer = 0;
@@ -97,6 +103,28 @@ export function updateEnemies(state: GameState) {
                         isEnemy: true, size: 8,
                     });
                     spawnParticles(state, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, randomEl, 15);
+                }
+                // Void Titan cycles weakness/shield every 200 frames and fires dark energy
+                if (enemy.type === 'void_titan' && enemy.attackTimer >= 200) {
+                    enemy.attackTimer = 0;
+                    const elements: import('../types').Element[] = ['fire', 'water', 'earth', 'wind'];
+                    const curIndex = elements.indexOf(enemy.resistance);
+                    const nextIndex = (curIndex + 1) % elements.length;
+
+                    enemy.resistance = elements[nextIndex];
+                    enemy.weakness = elements[(nextIndex + 2) % elements.length]; // Opposite weakness
+                    spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 20, "SHIELD SHIFT: " + enemy.resistance.toUpperCase(), "#8a2be2", 18);
+                    spawnParticles(state, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.resistance, 30);
+
+                    // Fire homing projectiles
+                    const angle = Math.atan2(dy, dx);
+                    state.projectiles.push({
+                        x: enemy.x + enemy.width / 2,
+                        y: enemy.y + enemy.height / 2,
+                        vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6,
+                        element: enemy.resistance, life: 120, // matching elements
+                        isEnemy: true, size: 12,
+                    });
                 }
             }
 
@@ -139,6 +167,23 @@ export function updateEnemies(state: GameState) {
                 }
             }
 
+            // Corrupted wraith teleport capability
+            if (enemy.type === 'corrupted_wraith') {
+                enemy.attackTimer = (enemy.attackTimer || 0) + 1;
+                if (enemy.attackTimer >= 150) {
+                    enemy.attackTimer = 0;
+                    // Teleport behind player
+                    enemy.x = Math.max(0, Math.min(state.worldWidth - enemy.width, s.x - (dir * 90)));
+                    enemy.y = Math.max(50, s.y - 40);
+                    spawnParticles(state, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 'wind', 20);
+                }
+            }
+
+            // Void Brute decrement timer
+            if (enemy.type === 'void_brute' && (enemy.attackTimer || 0) > 0) {
+                enemy.attackTimer! -= 1;
+            }
+
         } else {
             // Patrol
             const distFromOrigin = enemy.x - enemy.originX;
@@ -147,12 +192,12 @@ export function updateEnemies(state: GameState) {
             }
             if (FLYING_TYPES.has(enemy.type)) {
                 enemy.vx = enemy.facing * enemy.speed * 0.5;
-                const bobSpeed = enemy.type === 'thunder_hawk' ? 0.06 : 0.05;
-                const bobAmp = enemy.type === 'boss2' ? 0.4 : 0.8;
+                const bobSpeed = enemy.type === 'thunder_hawk' || enemy.type === 'corrupted_wraith' ? 0.06 : 0.05;
+                const bobAmp = enemy.type === 'boss2' || enemy.type === 'void_titan' ? 0.4 : 0.8;
                 enemy.vy = Math.sin(enemy.animTimer * bobSpeed) * bobAmp;
             } else if (enemy.type === 'shadow_wolf') {
                 enemy.vx = enemy.facing * enemy.speed * 0.6;
-            } else if (enemy.type === 'lava_crab') {
+            } else if (enemy.type === 'lava_crab' || enemy.type === 'void_brute') {
                 enemy.vx = enemy.facing * enemy.speed * 0.3; // slow patrol
             } else {
                 enemy.vx = enemy.facing * enemy.speed * 0.5;

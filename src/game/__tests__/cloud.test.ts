@@ -21,7 +21,7 @@ function makeSave(overrides: Partial<SaveData> = {}): SaveData {
     gemsCurrency: 20,
     totalEnemiesDefeated: 12,
     difficulty: 'normal',
-    upgrades: { healthLevel: 1, manaLevel: 1, regenLevel: 0, damageLevel: 0 },
+    upgrades: { healthLevel: 1, manaLevel: 1, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 },
     bestTimes: { 0: 120, 1: 140 },
     ...overrides,
   };
@@ -71,7 +71,7 @@ test('hydrateCloudSave merges local and remote progress', async () => {
     totalGemsEver: 220,
     gemsCurrency: 90,
     totalEnemiesDefeated: 99,
-    upgrades: { healthLevel: 2, manaLevel: 2, regenLevel: 1, damageLevel: 1 },
+    upgrades: { healthLevel: 2, manaLevel: 2, regenLevel: 1, damageLevel: 1, doubleJumpLevel: 0, dashDistanceLevel: 0 },
     bestTimes: { 0: 110, 2: 190 },
   });
 

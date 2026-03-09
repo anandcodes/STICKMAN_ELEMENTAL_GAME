@@ -51,7 +51,7 @@ export function level6(): LevelDef {
     ];
 
     return {
-        name: 'Forgotten Ruins',
+        name: 'Ch 2 - Forgotten Ruins',
         subtitle: 'Move massive stones to proceed',
         worldWidth: 2700, worldHeight: 700,
         bgColors: ['#3a2a1a', '#4a3a2a', '#2a4a3a', '#1a2a1a'],
@@ -103,7 +103,7 @@ export function level7(): LevelDef {
     ];
 
     return {
-        name: 'Frozen Archipelago',
+        name: 'Ch 2 - The Sky Temple',
         subtitle: 'Don\'t fall in the freezing water',
         worldWidth: 2900, worldHeight: 700,
         bgColors: ['#0a1a3e', '#1a3a5e', '#5e7a9e', '#3a5a7e'],
@@ -162,10 +162,10 @@ export function level8(): LevelDef {
     ];
 
     return {
-        name: 'Infernal Core',
+        name: 'Ch 2 - The Shadowed Courtyard',
         subtitle: 'Burn obstacles, extinguish paths',
         worldWidth: 2400, worldHeight: 700,
-        bgColors: ['#3e0a0a', '#5e1a0a', '#7e2a0a', '#4e1a0a'],
+        bgColors: ['#2e1a2e', '#4e1a4e', '#5e1a3e', '#3e1a3e'], // Dark purples/reds
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 10,
@@ -213,7 +213,7 @@ export function level9(): LevelDef {
     ];
 
     return {
-        name: 'Hurricane Valley',
+        name: 'Ch 2 - The High Bridges',
         subtitle: 'Ride the drafts, fight the ravens',
         worldWidth: 2800, worldHeight: 700,
         bgColors: ['#1a2a4e', '#3a4a6e', '#5a6a8e', '#7a8aae'],
@@ -273,7 +273,7 @@ export function level10(): LevelDef {
     ];
 
     return {
-        name: 'The Grand Trial',
+        name: 'Ch 2 - The Storm Apex (Boss)',
         subtitle: 'Everything you\'ve learned culminates here!',
         worldWidth: 3600, worldHeight: 700,
         bgColors: ['#100520', '#250535', '#3f1055', '#250535'],

@@ -334,7 +334,7 @@ export function render(
 
   // Pass 2: Global Lights (Screen space)
   if (!lowQuality) {
-    drawLights(ctx, state, W, H);
+    drawLights(ctx, state, W);
   }
 
   // Slightly follow camera movement and hit shake to keep HUD/score visually cohesive.
@@ -374,13 +374,18 @@ export function render(
     drawLevelIntro(ctx, state, W, H);
   }
 
+  // Active Dialog
+  if (state.activeDialog.length > 0) {
+    drawDialogSystem(ctx, state, W, H, isPortraitMobile);
+  }
+
   // IMP-1: Pause overlay with full menu
   if (state.paused) {
     ctx.fillStyle = 'rgba(4, 8, 16, 0.82)';
     ctx.fillRect(0, 0, W, H);
 
     if (!lowQuality) {
-      drawLights(ctx, state, W, H);
+      drawLights(ctx, state, W);
     }
 
     drawPanel(ctx, W / 2 - 260, H / 2 - 170, 520, 340, 18, '#8cd7ff');
@@ -481,6 +486,36 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
   const t = nowMs * 0.005;
 
   switch (obj.type) {
+    case 'lore_tome': {
+      ctx.save();
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2 + Math.sin(t * 3) * 3; // Float effect
+
+      ctx.shadowColor = '#7ae8ff';
+      ctx.shadowBlur = 15 + Math.sin(t * 5) * 5;
+
+      // Book cover (spine and pages)
+      ctx.fillStyle = '#102545';
+      roundRect(ctx, cx - 12, cy - 14, 24, 28, 3);
+      ctx.fill();
+
+      // Pages
+      ctx.fillStyle = '#fdf8e1';
+      ctx.fillRect(cx - 10, cy - 12, 20, 24);
+
+      // Bookmark / Ribbons
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(cx - 3, cy - 14, 6, 34);
+
+      // Book border / details
+      ctx.strokeStyle = '#7ae8ff';
+      ctx.lineWidth = 2;
+      roundRect(ctx, cx - 12, cy - 14, 24, 28, 3);
+      ctx.stroke();
+
+      ctx.restore();
+      break;
+    }
     case 'crate': {
       // Detailed wooden crate
       const burning = obj.state === 'burning';
@@ -838,6 +873,68 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       ctx.restore();
       break;
     }
+    case 'anti_gravity_zone': {
+      ctx.save();
+      const grad = ctx.createLinearGradient(obj.x, obj.y + obj.height, obj.x, obj.y);
+      grad.addColorStop(0, 'rgba(138, 43, 226, 0.4)'); // Purple
+      grad.addColorStop(1, 'rgba(138, 43, 226, 0.05)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+
+      // Floating arrow particles
+      ctx.fillStyle = 'rgba(200, 150, 255, 0.5)';
+      const arrows = 4;
+      for (let i = 0; i < arrows; i++) {
+        const hOffset = (t * 20 + i * (obj.height / arrows)) % obj.height;
+        ctx.beginPath();
+        ctx.moveTo(obj.x + obj.width / 2, obj.y + obj.height - hOffset - 10);
+        ctx.lineTo(obj.x + obj.width / 2 - 5, obj.y + obj.height - hOffset);
+        ctx.lineTo(obj.x + obj.width / 2 + 5, obj.y + obj.height - hOffset);
+        ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'corrupted_crystal': {
+      ctx.save();
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      const pulse = obj.energyTimer ? (obj.energyTimer / 120) : 0;
+
+      ctx.shadowColor = '#39ff14';
+      ctx.shadowBlur = 10 + pulse * 20;
+
+      // Base crystal shape
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.moveTo(cx, obj.y);
+      ctx.lineTo(obj.x + obj.width, cy);
+      ctx.lineTo(cx, obj.y + obj.height);
+      ctx.lineTo(obj.x, cy);
+      ctx.fill();
+
+      // Corrupted veins
+      ctx.strokeStyle = `rgba(57, 255, 20, ${0.5 + pulse * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, obj.y);
+      ctx.lineTo(cx, obj.y + obj.height);
+      ctx.moveTo(obj.x, cy);
+      ctx.lineTo(obj.x + obj.width, cy);
+      ctx.stroke();
+
+      // Pulse ring when about to erupt
+      if (pulse > 0.8) {
+        ctx.strokeStyle = '#39ff14';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (pulse - 0.8) * 5 * 100, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+      break;
+    }
   }
 }
 
@@ -1042,6 +1139,86 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
         ctx.fillStyle = '#4c5c7e';
         ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
       }
+      break;
+    }
+    case 'corrupted_wraith': {
+      ctx.save();
+      // Glitchy wraith appearance
+      ctx.fillStyle = Math.random() > 0.9 ? '#111' : '#4a0e4e';
+      ctx.globalAlpha = 0.8 + Math.sin(t * 15) * 0.2;
+
+      const glitchX = (Math.random() - 0.5) * 4;
+      const glitchY = (Math.random() - 0.5) * 4;
+
+      ctx.fillRect(enemy.x + glitchX, enemy.y + glitchY, enemy.width, enemy.height);
+
+      // Neon green eyes
+      ctx.fillStyle = '#39ff14';
+      ctx.fillRect(enemy.x + (enemy.facing === 1 ? enemy.width - 6 : 2) + glitchX, enemy.y + 6 + glitchY, 4, 4);
+
+      ctx.restore();
+      break;
+    }
+    case 'void_brute': {
+      ctx.save();
+      ctx.shadowColor = '#8a2be2';
+      ctx.shadowBlur = 10;
+
+      ctx.fillStyle = '#1e0521';
+      ctx.beginPath();
+      ctx.moveTo(enemy.x, enemy.y + enemy.height);
+      ctx.lineTo(enemy.x + enemy.width / 2, enemy.y);
+      ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+      ctx.fill();
+
+      // Armor plates
+      ctx.fillStyle = '#4a0e4e';
+      ctx.fillRect(enemy.x + 2, enemy.y + enemy.height / 2, enemy.width - 4, enemy.height / 3);
+
+      // Charge aura
+      if ((enemy.attackTimer || 0) > 0) {
+        ctx.strokeStyle = '#39ff14';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(enemy.x - 2, enemy.y - 2, enemy.width + 4, enemy.height + 4);
+      }
+      ctx.restore();
+      break;
+    }
+    case 'void_titan': {
+      ctx.save();
+      // Hovering dark monolith
+      const hover = Math.sin(t * 5) * 10;
+
+      const shieldGradient = ctx.createRadialGradient(cx, cy + hover, 20, cx, cy + hover, 60);
+      const resColor = ELEMENT_COLORS[enemy.resistance];
+      shieldGradient.addColorStop(0, '#111');
+      shieldGradient.addColorStop(0.8, `${resColor}88`); // tinted edge
+      shieldGradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.fillStyle = shieldGradient;
+      ctx.fillRect(enemy.x - 20, enemy.y - 20 + hover, enemy.width + 40, enemy.height + 40);
+
+      // Core
+      ctx.fillStyle = '#8a2be2';
+      ctx.fillRect(enemy.x + 10, enemy.y + 10 + hover, enemy.width - 20, enemy.height - 20);
+
+      // Eye
+      ctx.fillStyle = '#39ff14';
+      ctx.beginPath();
+      ctx.arc(cx, cy + hover, 8 + Math.sin(t * 10) * 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Weakness Telegraph
+      const weakColor = ELEMENT_COLORS[enemy.weakness];
+      ctx.fillStyle = weakColor;
+      ctx.beginPath();
+      ctx.arc(cx, enemy.y - 20 + hover, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.restore();
       break;
     }
     default: {
@@ -1305,6 +1482,17 @@ function drawHUD(
 
   const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
   const healthColor = healthRatio > 0.55 ? '#6bffb6' : healthRatio > 0.25 ? '#ffd97a' : '#ff7b89';
+
+  // HP Bar Pulse for low health
+  const lowHPPulse = (healthRatio < 0.25 && !state.reducedMotion) ? 1 + Math.sin(tSec * 15) * 0.05 : 1;
+
+  ctx.save();
+  if (lowHPPulse !== 1) {
+    ctx.translate(148, 46);
+    ctx.scale(lowHPPulse, lowHPPulse);
+    ctx.translate(-148, -46);
+  }
+
   ctx.fillStyle = 'rgba(255,255,255,0.08)';
   roundRect(ctx, 22, 38, 252, 16, 6); ctx.fill();
   const hpGrad = ctx.createLinearGradient(22, 0, 274, 0);
@@ -1312,6 +1500,7 @@ function drawHUD(
   hpGrad.addColorStop(1, '#ffffff');
   ctx.fillStyle = hpGrad;
   roundRect(ctx, 22, 38, 252 * healthRatio, 16, 6); ctx.fill();
+  ctx.restore();
   ctx.fillStyle = '#10213d';
   setUiFont(ctx, state, 10, '800');
   ctx.textAlign = 'center';
@@ -1325,6 +1514,17 @@ function drawHUD(
   manaGrad.addColorStop(1, '#82ecff');
   ctx.fillStyle = manaGrad;
   roundRect(ctx, 22, 60, 252 * manaRatio, 12, 5); ctx.fill();
+
+  // Mana Shine Effect when full
+  if (manaRatio >= 1 && !state.reducedMotion) {
+    const shinePos = (state.screenTimer * 4) % 600;
+    const shineGrad = ctx.createLinearGradient(22 + shinePos - 60, 0, 22 + shinePos + 60, 0);
+    shineGrad.addColorStop(0, 'rgba(255,255,255,0)');
+    shineGrad.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+    shineGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shineGrad;
+    roundRect(ctx, 22, 60, 252, 12, 5); ctx.fill();
+  }
   ctx.fillStyle = '#d7e8ff';
   setUiFont(ctx, state, 9, '700');
   ctx.fillText(tr(state, 'hud_mana', { mana: Math.ceil(s.mana), maxMana: s.maxMana }), 148, 70);
@@ -1374,13 +1574,24 @@ function drawHUD(
     const selected = state.selectedElement === entry.elem;
     const color = ELEMENT_COLORS[entry.elem];
 
+    // Pulsing background for selected element
+    const selectorPulse = (selected && !state.reducedMotion) ? 1 + Math.sin(tSec * 6) * 0.04 : 1;
+
+    ctx.save();
+    if (selectorPulse !== 1) {
+      ctx.translate(x + tileW / 2, 18 + 28);
+      ctx.scale(selectorPulse, selectorPulse);
+      ctx.translate(-(x + tileW / 2), -(18 + 28));
+    }
+
     ctx.fillStyle = selected ? color + '66' : 'rgba(255,255,255,0.06)';
     roundRect(ctx, x, 18, tileW, 56, 9); ctx.fill();
     if (selected) {
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     }
+    ctx.restore();
 
     ctx.fillStyle = '#e7f4ff';
     setUiFont(ctx, state, 11, '700');
@@ -1599,14 +1810,26 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   const progress = 1 - state.levelIntroTimer / 180;
   const alpha = progress < 0.1 ? progress / 0.1 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
 
+  // Juicy scale-pop effect at the start
+  const scale = state.reducedMotion ? 1 : progress < 0.4 ? (0.8 + Math.sin(progress * 1.5 * Math.PI) * 0.2) : 1;
+
   ctx.save();
-  ctx.globalAlpha = Math.min(0.78, alpha);
+  ctx.globalAlpha = Math.min(0.85, alpha);
   ctx.fillStyle = 'rgba(3, 7, 15, 0.95)';
   ctx.fillRect(0, 0, W, H);
 
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(scale, scale);
+  ctx.translate(-W / 2, -H / 2);
+
   drawPanel(ctx, W / 2 - 320, H / 2 - 130, 640, 260, 20, '#78cfff');
 
-  ctx.globalAlpha = alpha;
+  // Staggered element alphas
+  const alphaTitle = Math.min(alpha, progress > 0.15 ? (progress - 0.15) / 0.1 : 0);
+  const alphaSubtitle = Math.min(alpha, progress > 0.25 ? (progress - 0.25) / 0.1 : 0);
+  const alphaHint = Math.min(alpha, progress > 0.45 ? (progress - 0.45) / 0.1 : 0);
+
+  ctx.globalAlpha = alphaTitle;
   ctx.fillStyle = UI_THEME.accentStrong;
   setUiFont(ctx, state, 14, '700');
   ctx.textAlign = 'center';
@@ -1616,6 +1839,7 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   setDisplayFont(ctx, state, 36, '800');
   ctx.fillText(state.levelName, W / 2, H / 2 - 14);
 
+  ctx.globalAlpha = alphaSubtitle;
   ctx.fillStyle = '#a7b9d8';
   setUiFont(ctx, state, 14, '600');
   ctx.fillText(state.levelSubtitle, W / 2, H / 2 + 20);
@@ -1624,6 +1848,7 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   setUiFont(ctx, state, 13, '700');
   ctx.fillText(tr(state, 'level_intro_objective', { gems: state.gemsRequired }), W / 2, H / 2 + 55);
 
+  ctx.globalAlpha = alphaHint;
   ctx.fillStyle = '#9fcbff';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(state.elementHint, W / 2, H / 2 + 82);
@@ -1646,20 +1871,21 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.globalAlpha = 1;
 
   ctx.shadowColor = '#49c8ff';
-  ctx.shadowBlur = 26;
+  ctx.shadowBlur = Math.sin(tSec * 2) * 5 + 15;
   ctx.fillStyle = '#e8f3ff';
-  setDisplayFont(ctx, state, 60, '800');
-  ctx.fillText(tr(state, 'menu_title_line_1'), W / 2, 145 + Math.sin(tSec) * 4);
+  setDisplayFont(ctx, state, 64, '800');
+  ctx.fillText(tr(state, 'menu_title_line_1'), W / 2, 140 + Math.sin(tSec) * 4);
 
   ctx.shadowColor = '#74f0d4';
+  ctx.shadowBlur = Math.sin(tSec * 2 + 1) * 5 + 15;
   ctx.fillStyle = '#95e9ff';
-  setDisplayFont(ctx, state, 54, '800');
-  ctx.fillText(tr(state, 'menu_title_line_2'), W / 2, 206 + Math.sin(tSec + 0.7) * 4);
+  setDisplayFont(ctx, state, 58, '800');
+  ctx.fillText(tr(state, 'menu_title_line_2'), W / 2, 205 + Math.sin(tSec + 0.7) * 4);
   ctx.restore();
 
-  ctx.fillStyle = UI_THEME.muted;
+  ctx.fillStyle = '#a1b6d1';
   setUiFont(ctx, state, 16, '600');
-  ctx.fillText(tr(state, 'menu_subtitle'), W / 2, 246);
+  ctx.fillText(tr(state, 'menu_subtitle'), W / 2, 250);
 
   const elements: Element[] = ['fire', 'water', 'earth', 'wind'];
   const colors = ['#ff845f', '#61b9ff', '#8de67f', '#d5e3ff'];
@@ -1677,27 +1903,45 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   const campX = W / 2 - btnW - gap / 2;
   const waveX = W / 2 + gap / 2;
 
-  drawPanel(ctx, campX, baseY, btnW, btnH, 16, '#75f2b4');
-  ctx.fillStyle = '#cbffe9';
+  // Draw Campaign Button
+  const isCampHovered = state.selectedMenuButton === 0;
+  ctx.save();
+  if (isCampHovered && !state.reducedMotion) {
+    ctx.shadowColor = '#75f2b4';
+    ctx.shadowBlur = 25;
+  }
+  drawPanel(ctx, campX, baseY, btnW, btnH, 16, isCampHovered ? '#8dfbcc' : '#64e5a4');
+  ctx.restore();
+
+  ctx.fillStyle = isCampHovered ? '#ffffff' : '#cbffe9';
   setDisplayFont(ctx, state, 22, '700');
   ctx.textAlign = 'center';
   ctx.fillText(tr(state, 'menu_campaign'), campX + btnW / 2, baseY + 35);
-  ctx.fillStyle = '#88d9b7';
+  ctx.fillStyle = isCampHovered ? '#aaffde' : '#88d9b7';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(tr(state, 'menu_campaign_subtitle'), campX + btnW / 2, baseY + 56);
-  ctx.fillStyle = '#4e8f75';
-  setUiFont(ctx, state, 11, '700');
+  ctx.fillStyle = isCampHovered ? '#2d654f' : '#3e765f';
+  setUiFont(ctx, state, 11, '800');
   ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_campaign'), campX + btnW / 2, baseY + 74);
 
-  drawPanel(ctx, waveX, baseY, btnW, btnH, 16, '#ff9e7b');
-  ctx.fillStyle = '#ffe5db';
+  // Draw Wave Button
+  const isWaveHovered = state.selectedMenuButton === 1;
+  ctx.save();
+  if (isWaveHovered && !state.reducedMotion) {
+    ctx.shadowColor = '#ff9e7b';
+    ctx.shadowBlur = 25;
+  }
+  drawPanel(ctx, waveX, baseY, btnW, btnH, 16, isWaveHovered ? '#ffaa8b' : '#f08964');
+  ctx.restore();
+
+  ctx.fillStyle = isWaveHovered ? '#ffffff' : '#ffe5db';
   setDisplayFont(ctx, state, 22, '700');
   ctx.fillText(tr(state, 'menu_wave'), waveX + btnW / 2, baseY + 35);
-  ctx.fillStyle = '#ffc3af';
+  ctx.fillStyle = isWaveHovered ? '#ffded1' : '#ffc3af';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(tr(state, 'menu_wave_subtitle'), waveX + btnW / 2, baseY + 56);
-  ctx.fillStyle = '#b47b69';
-  setUiFont(ctx, state, 11, '700');
+  ctx.fillStyle = isWaveHovered ? '#693728' : '#8a4b37';
+  setUiFont(ctx, state, 11, '800');
   ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_wave'), waveX + btnW / 2, baseY + 74);
 
   const barY = baseY + btnH + 40;
@@ -1815,6 +2059,7 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
   ctx.textAlign = 'center';
   ctx.fillText(tr(state, 'level_complete_title'), W / 2, H / 2 - 92 + Math.sin(tSec) * 4);
   ctx.restore();
+  ctx.textAlign = 'center';
 
   ctx.fillStyle = UI_THEME.warning;
   setUiFont(ctx, state, 18, '700');
@@ -1856,6 +2101,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   ctx.textAlign = 'center';
   ctx.fillText(state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title'), W / 2, H / 2 - 72 + Math.sin(tSec) * 3);
   ctx.restore();
+  ctx.textAlign = 'center';
 
   ctx.fillStyle = '#f3b7c4';
   setUiFont(ctx, state, 16, '600');
@@ -1902,6 +2148,7 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
   ctx.textAlign = 'center';
   ctx.fillText(tr(state, 'victory_title'), W / 2, H / 2 - 86 + Math.sin(tSec) * 5);
   ctx.restore();
+  ctx.textAlign = 'center';
 
   ctx.fillStyle = '#d8efff';
   setUiFont(ctx, state, 18, '700');
@@ -1954,22 +2201,24 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     mana: (upg.manaLevel + 1) * 30,
     regen: (upg.regenLevel + 1) * 50,
     damage: (upg.damageLevel + 1) * 60,
+    doubleJump: (upg.doubleJumpLevel + 1) * 100,
+    dashDistance: (upg.dashDistanceLevel + 1) * 80,
   };
 
-  const spacing = 100;
-  const startY = 220;
-  setUiFont(ctx, state, 20, '700');
+  const spacing = 70;
+  const startY = 194;
+  setUiFont(ctx, state, 18, '700');
   ctx.textAlign = 'left';
 
   const drawRow = (idx: number, y: number, name: string, level: number, cost: number, maxed: boolean) => {
-    drawPanel(ctx, W / 2 - 290, y - 38, 580, 74, 12, maxed ? '#71de8f' : '#7acaff');
+    drawPanel(ctx, W / 2 - 290, y - 30, 580, 58, 12, maxed ? '#71de8f' : '#7acaff');
     ctx.fillStyle = maxed ? '#b3ffc2' : (state.gemsCurrency >= cost ? UI_THEME.paper : '#ffb6be');
-    ctx.fillText(`[${idx}] ${name}`, W / 2 - 250, y - 2);
+    ctx.fillText(`[${idx}] ${name}`, W / 2 - 250, y + 4);
 
     for (let i = 0; i < 5; i++) {
       const boxX = W / 2 + i * 35 - 24;
       ctx.fillStyle = i < level ? '#6be2ff' : 'rgba(255,255,255,0.08)';
-      roundRect(ctx, boxX, y - 24, 27, 24, 5);
+      roundRect(ctx, boxX, y - 18, 27, 24, 5);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.stroke();
@@ -1977,7 +2226,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 
     ctx.fillStyle = maxed ? '#8effaf' : '#ffe08f';
     ctx.textAlign = 'right';
-    ctx.fillText(maxed ? tr(state, 'shop_maxed') : `${cost}`, W / 2 + 252, y - 2);
+    ctx.fillText(maxed ? tr(state, 'shop_maxed') : `${cost}`, W / 2 + 252, y + 4);
     ctx.textAlign = 'left';
   };
 
@@ -1985,6 +2234,8 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   drawRow(2, startY + spacing, tr(state, 'shop_max_mana'), upg.manaLevel, costs.mana, upg.manaLevel >= 5);
   drawRow(3, startY + spacing * 2, tr(state, 'shop_mana_regen'), upg.regenLevel, costs.regen, upg.regenLevel >= 5);
   drawRow(4, startY + spacing * 3, tr(state, 'shop_spell_damage'), upg.damageLevel, costs.damage, upg.damageLevel >= 5);
+  drawRow(5, startY + spacing * 4, tr(state, 'shop_double_jump' as any), upg.doubleJumpLevel, costs.doubleJump, upg.doubleJumpLevel >= 5);
+  drawRow(6, startY + spacing * 5, tr(state, 'shop_dash_distance' as any), upg.dashDistanceLevel, costs.dashDistance, upg.dashDistanceLevel >= 5);
 
   drawPanel(ctx, W / 2 - 325, H - 104, 650, 74, 12, '#89d6ff');
   ctx.fillStyle = UI_THEME.muted;
@@ -2006,7 +2257,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     ctx.fillText(tr(state, 'shop_press_back'), W / 2, H - 52);
   }
 }
-function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) {
   const cam = state.camera;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -2020,7 +2271,9 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, 
   pGrad.addColorStop(0, pColor + '44');
   pGrad.addColorStop(1, 'transparent');
   ctx.fillStyle = pGrad;
-  ctx.fillRect(0, 0, W, H);
+  ctx.beginPath();
+  ctx.arc(px, py, 120, 0, Math.PI * 2);
+  ctx.fill();
 
   // 2. Projectile lights
   for (const p of state.projectiles) {
@@ -2139,5 +2392,102 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
   ctx.fillStyle = UI_THEME.muted;
   setUiFont(ctx, state, 11, '600');
   ctx.fillText(tr(state, 'level_select_locked_hint'), W / 2, H - 39);
+}
+
+function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isPortraitMobile: boolean) {
+  const dialog = state.activeDialog[0];
+  if (!dialog) return;
+
+  const panelH = isPortraitMobile ? 180 : 160;
+  const panelW = isPortraitMobile ? W - 40 : Math.min(W - 80, 800);
+  const panelX = W / 2 - panelW / 2;
+  const panelY = H - panelH - (isPortraitMobile ? 40 : 60);
+
+  ctx.save();
+  // Semi-transparent overlay to focus attention
+  ctx.fillStyle = 'rgba(4, 8, 16, 0.5)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Dialog Box Background
+  drawPanel(ctx, panelX, panelY, panelW, panelH, 12, '#ffffff');
+
+  // Speaker Name Plate
+  const nameW = Math.max(140, ctx.measureText(dialog.speaker).width + 60);
+  drawPanel(ctx, panelX + 20, panelY - 18, nameW, 36, 6, '#7ae8ff');
+  ctx.fillStyle = '#102545';
+  setDisplayFont(ctx, state, 18, '800');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(dialog.speaker.toUpperCase(), panelX + 20 + nameW / 2, panelY);
+
+  // Speaker Portrait Box
+  const portraitSize = isPortraitMobile ? 80 : 100;
+  const portraitX = panelX + 20;
+  const portraitY = panelY + 30;
+
+  // Enhanced Portrait Container
+  drawPanel(ctx, portraitX, portraitY, portraitSize, portraitSize, 12, 'rgba(16, 37, 69, 0.85)');
+  ctx.strokeStyle = 'rgba(122, 232, 255, 0.5)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 12);
+  ctx.stroke();
+
+  // Draw portrait placeholder or color if provided
+  if (dialog.portrait) {
+    if (Object.values(ELEMENT_COLORS).includes(dialog.portrait)) {
+      ctx.fillStyle = dialog.portrait;
+    } else {
+      ctx.fillStyle = '#6d89ae'; // fallback
+    }
+    roundRect(ctx, portraitX + 4, portraitY + 4, portraitSize - 8, portraitSize - 8, 8);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    setDisplayFont(ctx, state, 30, '800');
+    // Draw initial if no sprite is present
+    ctx.fillText(dialog.speaker[0]?.toUpperCase() || '?', portraitX + portraitSize / 2, portraitY + portraitSize / 2);
+  }
+
+  // Typewriter Text
+  const textX = portraitX + portraitSize + 20;
+  const textY = panelY + 40;
+  const maxWidth = panelW - (portraitSize + 60);
+  const textToDraw = dialog.text.substring(0, Math.floor(state.dialogCharIndex));
+
+  ctx.fillStyle = '#e9f2ff';
+  setUiFont(ctx, state, isPortraitMobile ? 14 : 18, '600');
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // Word wrap for dialog
+  const words = textToDraw.split(' ');
+  let line = '';
+  let lineY = textY;
+  const lineHeight = isPortraitMobile ? 22 : 28;
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && n > 0) {
+      ctx.fillText(line, textX, lineY);
+      line = words[n] + ' ';
+      lineY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, textX, lineY);
+
+  // Blink indicator when fully typed
+  if (Math.floor(state.dialogCharIndex) >= dialog.text.length) {
+    const blinkAlpha = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
+    ctx.globalAlpha = blinkAlpha;
+    ctx.fillStyle = '#7ae8ff';
+    ctx.beginPath();
+    ctx.arc(panelX + panelW - 24, panelY + panelH - 24, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
 }
 

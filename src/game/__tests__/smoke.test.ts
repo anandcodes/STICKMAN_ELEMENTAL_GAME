@@ -63,7 +63,7 @@ test('loadSave sanitizes malformed legacy save payloads', () => {
   assert.equal(save.gemsCurrency, 0);
   assert.equal(save.totalEnemiesDefeated, 12);
   assert.equal(save.difficulty, 'normal');
-  assert.deepEqual(save.upgrades, { healthLevel: 1, manaLevel: 0, regenLevel: 0, damageLevel: 0 });
+  assert.deepEqual(save.upgrades, { healthLevel: 1, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
   assert.deepEqual(save.bestTimes, { 0: 123 });
 });
 
@@ -87,7 +87,9 @@ test('loadSave clamps impossible progression values and economy budget', () => {
     (save.upgrades.healthLevel * (save.upgrades.healthLevel + 1) * 30) / 2 +
     (save.upgrades.manaLevel * (save.upgrades.manaLevel + 1) * 30) / 2 +
     (save.upgrades.regenLevel * (save.upgrades.regenLevel + 1) * 50) / 2 +
-    (save.upgrades.damageLevel * (save.upgrades.damageLevel + 1) * 60) / 2;
+    (save.upgrades.damageLevel * (save.upgrades.damageLevel + 1) * 60) / 2 +
+    (save.upgrades.doubleJumpLevel * (save.upgrades.doubleJumpLevel + 1) * 100) / 2 +
+    (save.upgrades.dashDistanceLevel * (save.upgrades.dashDistanceLevel + 1) * 80) / 2;
 
   assert.ok(save.furthestLevel <= TOTAL_LEVELS - 1);
   assert.ok(save.gemsCurrency <= save.totalGemsEver);
@@ -113,7 +115,7 @@ test('loadSave resets economy fields when integrity hash is tampered', () => {
 
   const save = loadSave();
   assert.equal(save.gemsCurrency, 0);
-  assert.deepEqual(save.upgrades, { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 });
+  assert.deepEqual(save.upgrades, { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
   assert.ok(typeof save.integrity === 'string' && save.integrity.length > 0);
 });
 

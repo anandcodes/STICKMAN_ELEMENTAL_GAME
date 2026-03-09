@@ -114,6 +114,7 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
     enemy.health -= dmg;
     enemy.state = 'hurt';
     enemy.hurtTimer = 15;
+    state.screenShake = Math.max(state.screenShake, elem === enemy.weakness ? 6 : 3);
     enemy.vx = (proj.vx > 0 ? 1 : -1) * 3;
     Audio.playEnemyHit();
 
@@ -129,7 +130,7 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
             Audio.playSuperEffective();
         }
         Audio.playEnemyDeath();
-        state.screenShake = 8; // Screen shake on death
+        state.screenShake = 12; // Increased screen shake on death
         state.enemiesDefeated++;
 
         // Chance to drop mana crystal

@@ -16,7 +16,7 @@ const DEFAULT_SAVE: SaveData = {
   totalEnemiesDefeated: 0,
   difficulty: 'normal',
   gemsCurrency: 0,
-  upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0 },
+  upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 },
   bestTimes: {},
 };
 
@@ -59,7 +59,9 @@ function totalUpgradeSpend(upgrades: SaveData['upgrades']): number {
     upgradeSpendForLevel(upgrades.healthLevel, 30) +
     upgradeSpendForLevel(upgrades.manaLevel, 30) +
     upgradeSpendForLevel(upgrades.regenLevel, 50) +
-    upgradeSpendForLevel(upgrades.damageLevel, 60)
+    upgradeSpendForLevel(upgrades.damageLevel, 60) +
+    upgradeSpendForLevel(upgrades.doubleJumpLevel, 100) +
+    upgradeSpendForLevel(upgrades.dashDistanceLevel, 80)
   );
 }
 
@@ -82,6 +84,8 @@ function computeIntegrity(save: Omit<SaveData, 'integrity'>): string {
     save.upgrades.manaLevel,
     save.upgrades.regenLevel,
     save.upgrades.damageLevel,
+    save.upgrades.doubleJumpLevel,
+    save.upgrades.dashDistanceLevel,
     ...Object.entries(save.bestTimes).sort((a, b) => Number(a[0]) - Number(b[0])).flat(),
   ].join('|');
 
@@ -99,7 +103,9 @@ function clampImpossibleEconomy(save: SaveData): SaveData {
 
   let spend = totalUpgradeSpend(next.upgrades);
   while (spend + next.gemsCurrency > next.totalGemsEver) {
-    if (next.upgrades.damageLevel > 0) next.upgrades.damageLevel--;
+    if (next.upgrades.dashDistanceLevel > 0) next.upgrades.dashDistanceLevel--;
+    else if (next.upgrades.doubleJumpLevel > 0) next.upgrades.doubleJumpLevel--;
+    else if (next.upgrades.damageLevel > 0) next.upgrades.damageLevel--;
     else if (next.upgrades.regenLevel > 0) next.upgrades.regenLevel--;
     else if (next.upgrades.healthLevel > 0) next.upgrades.healthLevel--;
     else if (next.upgrades.manaLevel > 0) next.upgrades.manaLevel--;
@@ -129,6 +135,8 @@ function normalizeSaveData(raw: unknown): SaveData {
       manaLevel: Math.min(5, coerceNonNegativeInt(upgrades.manaLevel, DEFAULT_SAVE.upgrades.manaLevel)),
       regenLevel: Math.min(5, coerceNonNegativeInt(upgrades.regenLevel, DEFAULT_SAVE.upgrades.regenLevel)),
       damageLevel: Math.min(5, coerceNonNegativeInt(upgrades.damageLevel, DEFAULT_SAVE.upgrades.damageLevel)),
+      doubleJumpLevel: Math.min(5, coerceNonNegativeInt(upgrades.doubleJumpLevel, DEFAULT_SAVE.upgrades.doubleJumpLevel)),
+      dashDistanceLevel: Math.min(5, coerceNonNegativeInt(upgrades.dashDistanceLevel, DEFAULT_SAVE.upgrades.dashDistanceLevel)),
     },
     bestTimes: sanitizeBestTimes(data.bestTimes),
   };

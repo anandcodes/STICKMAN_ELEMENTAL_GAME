@@ -28,11 +28,11 @@ export function level11(): LevelDef {
         makeEnemy('shadow_wolf', 600, 580, 'fire', 'wind', 150, 18, 2.2, 70),
     ];
     return {
-        name: 'The Steam Pits', subtitle: 'Fire and Water create blinding steam!',
+        name: 'Ch 3 - The Shattered Rift', subtitle: 'Void crystals drain your mana!',
         worldWidth: 2200, worldHeight: 700,
-        bgColors: ['#1a2a2a', '#2a3a3a', '#3a4a4a', '#2a3a3a'],
+        bgColors: ['#100020', '#200040', '#400060', '#100020'],
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 5, totalGems: 6, elementHint: 'Combine 🔥 & 💧 for Steam!', timeLimit: 0,
+        gemsRequired: 5, totalGems: 6, elementHint: 'Watch out for Corrupted Crystals!', timeLimit: 0,
     };
 }
 
@@ -58,11 +58,11 @@ export function level12(): LevelDef {
         makeEnemy('thunder_hawk', 2000, 200, 'earth', 'wind', 200, 15, 2.5, 60),
     ];
     return {
-        name: 'Dust Storm Desert', subtitle: 'Wind and Earth stir up blinding sand!',
+        name: 'Ch 3 - Corrupted Citadel', subtitle: 'Teleporting wraiths roam the void',
         worldWidth: 2500, worldHeight: 700,
-        bgColors: ['#3a2a0a', '#4a3a1a', '#5a4a2a', '#3a2a0a'],
+        bgColors: ['#150025', '#250045', '#450065', '#150025'],
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 4, totalGems: 5, elementHint: 'Combine 🌪️ & 🌱 for Sandstorm!', timeLimit: 0,
+        gemsRequired: 4, totalGems: 5, elementHint: 'Stay mobile to dodge the Wraiths.', timeLimit: 0,
     };
 }
 
@@ -84,11 +84,11 @@ export function level13(): LevelDef {
         makeEnemy('boss1', 1500, 580, 'fire', 'water', 200, 35, 1.5, 1000),
     ];
     return {
-        name: 'The Glacial Core', subtitle: 'The colossus guards the frozen heart',
+        name: 'Ch 3 - The Lava Caldera', subtitle: 'Magma pools and Void Brutes abound',
         worldWidth: 2600, worldHeight: 700,
-        bgColors: ['#000022', '#000044', '#111166', '#000022'],
+        bgColors: ['#200000', '#400010', '#600020', '#200000'],
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 3, totalGems: 4, elementHint: 'The colossus is weak to 🔥 Fire!', timeLimit: 0,
+        gemsRequired: 3, totalGems: 4, elementHint: 'Dodge the charging Brutes!', timeLimit: 0,
     };
 }
 
@@ -116,11 +116,11 @@ export function level14(): LevelDef {
         makeEnemy('lava_crab', 1300, 580, 'water', 'fire', 120, 22, 0.9, 140),
     ];
     return {
-        name: 'Magma Labyrinth', subtitle: 'Heat and Earth form deadly pools',
+        name: 'Ch 3 - The Convergence Zone', subtitle: 'All elements collide in the void',
         worldWidth: 2500, worldHeight: 700,
-        bgColors: ['#300', '#510', '#720', '#300'],
+        bgColors: ['#201040', '#401060', '#601080', '#201040'],
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 4, totalGems: 5, elementHint: 'Combine 🔥 & 🌱 for Magma!', timeLimit: 0,
+        gemsRequired: 4, totalGems: 5, elementHint: 'Use elemental synergies to survive.', timeLimit: 0,
     };
 }
 
@@ -143,10 +143,10 @@ export function level15(): LevelDef {
         makeEnemy('boss2', 1700, 580, 'wind', 'water', 400, 50, 2.0, 2500),
     ];
     return {
-        name: 'The Final Singularity', subtitle: 'Witness the end of elements',
+        name: 'Ch 3 - The Void Titan (Final Boss)', subtitle: 'The end of the campaign',
         worldWidth: 3000, worldHeight: 700,
-        bgColors: ['#000', '#102', '#204', '#000'],
+        bgColors: ['#050010', '#150020', '#250040', '#050010'],
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 3, totalGems: 3, elementHint: 'Use all Synergies to defeat the Overlord!', timeLimit: 0,
+        gemsRequired: 3, totalGems: 3, elementHint: 'Match your magic to the Titan\'s glowing orb weakness!', timeLimit: 0,
     };
 }

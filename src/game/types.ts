@@ -21,7 +21,7 @@ export interface Projectile {
 
 export interface EnvObject {
   id: number;
-  type: 'crate' | 'ice' | 'plant' | 'rock' | 'puddle' | 'fire_pit' | 'gem' | 'health_potion' | 'mana_crystal' | 'portal' | 'spike' | 'moving_platform' | 'wind_zone' | 'water_current' | 'synergy_zone' | 'magma_pool' | 'mud_trap' | 'steam_cloud' | 'dust_devil';
+  type: 'crate' | 'ice' | 'plant' | 'rock' | 'puddle' | 'fire_pit' | 'gem' | 'health_potion' | 'mana_crystal' | 'portal' | 'spike' | 'moving_platform' | 'wind_zone' | 'water_current' | 'synergy_zone' | 'magma_pool' | 'mud_trap' | 'steam_cloud' | 'dust_devil' | 'lore_tome' | 'anti_gravity_zone' | 'corrupted_crystal';
   x: number; y: number; width: number; height: number;
   health: number; maxHealth: number;
   state: 'normal' | 'burning' | 'frozen' | 'grown' | 'destroyed' | 'melted' | 'extinguished' | 'collected' | 'active' | 'magma' | 'mud' | 'lightning' | 'steam' | 'sand';
@@ -33,11 +33,13 @@ export interface EnvObject {
   windDirection?: number; // for wind_zone: -1 left, 1 right
   windStrength?: number;  // for wind_zone
   currentSpeed?: number;  // for water_current
+  dialogue?: DialogNode[]; // for lore_tome
+  energyTimer?: number; // for corrupted_crystal pulse
 }
 
 export interface Enemy {
   id: number;
-  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk';
+  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk' | 'corrupted_wraith' | 'void_brute' | 'void_titan';
   x: number; y: number; width: number; height: number;
   vx: number; vy: number;
   health: number; maxHealth: number;
@@ -52,6 +54,7 @@ export interface Enemy {
   damage: number;
   speed: number;
   attackTimer?: number; // For boss attacks
+  chargeTimer?: number; // For brute dashes
   phase?: number;       // For boss phases
 }
 
@@ -65,6 +68,9 @@ export interface Stickman {
   x: number; y: number; vx: number; vy: number;
   width: number; height: number;
   onGround: boolean; facing: 1 | -1;
+  jumpsUsed: number;
+  jumpBufferTimer: number;
+  coyoteTimer: number;
   animFrame: number; animTimer: number;
   walking: boolean; jumping: boolean;
   casting: boolean; castTimer: number;
@@ -106,6 +112,8 @@ export interface Upgrades {
   manaLevel: number;
   regenLevel: number;
   damageLevel: number;
+  doubleJumpLevel: number;
+  dashDistanceLevel: number;
 }
 
 export interface SaveData {
@@ -139,6 +147,12 @@ export interface TutorialHint {
   triggerRadius: number;
 }
 
+export interface DialogNode {
+  speaker: string;
+  text: string;
+  portrait?: string; // Optional element icon name or specific color
+}
+
 export interface GameSettings {
   version?: number;
   locale: Locale;
@@ -159,6 +173,7 @@ export interface GameState {
   currentLevel: number;
   furthestLevel: number;
   levelSelectionIndex: number;
+  selectedMenuButton: number;
   totalLevels: number;
   stickman: Stickman;
   platforms: Platform[];
@@ -194,6 +209,8 @@ export interface GameState {
   elementHint: string;
   showLevelIntro: boolean;
   levelIntroTimer: number;
+  activeDialog: DialogNode[];
+  dialogCharIndex: number; // for typewriter effect
   comboCount: number;
   comboTimer: number;
   highScore: number;

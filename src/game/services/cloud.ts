@@ -64,6 +64,8 @@ function sanitizeSaveForCloud(save: SaveData): SaveData {
       manaLevel: Math.max(0, Math.min(5, Math.floor(save.upgrades?.manaLevel || 0))),
       regenLevel: Math.max(0, Math.min(5, Math.floor(save.upgrades?.regenLevel || 0))),
       damageLevel: Math.max(0, Math.min(5, Math.floor(save.upgrades?.damageLevel || 0))),
+      doubleJumpLevel: Math.max(0, Math.min(5, Math.floor(save.upgrades?.doubleJumpLevel || 0))),
+      dashDistanceLevel: Math.max(0, Math.min(5, Math.floor(save.upgrades?.dashDistanceLevel || 0))),
     },
     bestTimes: save.bestTimes && typeof save.bestTimes === 'object'
       ? Object.fromEntries(
@@ -85,7 +87,9 @@ function totalUpgradeSpend(save: SaveData): number {
     upgradeSpendForLevel(save.upgrades.healthLevel, 30) +
     upgradeSpendForLevel(save.upgrades.manaLevel, 30) +
     upgradeSpendForLevel(save.upgrades.regenLevel, 50) +
-    upgradeSpendForLevel(save.upgrades.damageLevel, 60)
+    upgradeSpendForLevel(save.upgrades.damageLevel, 60) +
+    upgradeSpendForLevel(save.upgrades.doubleJumpLevel, 100) +
+    upgradeSpendForLevel(save.upgrades.dashDistanceLevel, 80)
   );
 }
 
@@ -132,6 +136,8 @@ export function mergeCloudSave(local: SaveData, remote: SaveData): SaveData {
       manaLevel: Math.max(a.upgrades.manaLevel, b.upgrades.manaLevel),
       regenLevel: Math.max(a.upgrades.regenLevel, b.upgrades.regenLevel),
       damageLevel: Math.max(a.upgrades.damageLevel, b.upgrades.damageLevel),
+      doubleJumpLevel: Math.max(a.upgrades.doubleJumpLevel, b.upgrades.doubleJumpLevel),
+      dashDistanceLevel: Math.max(a.upgrades.dashDistanceLevel, b.upgrades.dashDistanceLevel),
     },
     bestTimes: mergeBestTimes(a.bestTimes, b.bestTimes),
   };
@@ -268,6 +274,8 @@ function hasMeaningfulSaveDelta(a: SaveData, b: SaveData): boolean {
     a.upgrades.manaLevel !== b.upgrades.manaLevel ||
     a.upgrades.regenLevel !== b.upgrades.regenLevel ||
     a.upgrades.damageLevel !== b.upgrades.damageLevel ||
+    a.upgrades.doubleJumpLevel !== b.upgrades.doubleJumpLevel ||
+    a.upgrades.dashDistanceLevel !== b.upgrades.dashDistanceLevel ||
     bestTimesDiffer
   );
 }

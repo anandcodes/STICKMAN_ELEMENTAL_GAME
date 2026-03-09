@@ -155,12 +155,11 @@ export function updateProjectiles(state: GameState) {
                 const dist = Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
                 if (dist < p.size + o.size + 10) {
                     createSynergyZone(state, (p.x + o.x) / 2, (p.y + o.y) / 2, p.element, o.element);
-                    // BUG-FIX: Remove higher index first to avoid shifting issues,
                     // then remove lower. Both projectiles are consumed by the synergy.
                     state.projectiles.splice(Math.max(i, j), 1);
                     state.projectiles.splice(Math.min(i, j), 1);
                     // Adjust i so the outer loop doesn't revisit or over-skip
-                    i = Math.min(i, j) - 1;
+                    if (j < i) i--;
                     synergyHit = true; break;
                 }
             }

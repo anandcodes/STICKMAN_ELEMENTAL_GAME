@@ -222,6 +222,21 @@ function App() {
     initTelemetrySession();
     containerRef.current?.focus();
 
+    const handleDialogAdvance = (): boolean => {
+      const s = stateRef.current;
+      if (s.screen === 'playing' && s.activeDialog.length > 0 && !s.paused) {
+        const textLen = s.activeDialog[0].text.length;
+        if (s.dialogCharIndex < textLen) {
+          s.dialogCharIndex = textLen; // Skip typewriter
+        } else {
+          s.activeDialog.shift();
+          s.dialogCharIndex = 0;
+        }
+        return true;
+      }
+      return false;
+    };
+
     const handleScreenTransition = (tx?: number, ty?: number) => {
       const s = stateRef.current;
 
@@ -391,15 +406,15 @@ function App() {
       if (s.screen !== 'playing') {
         // Menu-specific keys
         if (s.screen === 'menu') {
-          // [D] Cycle Difficulty
-          if (keyLower === 'd') {
-            s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
+          // [A/D] or [Left/Right] Cycle Buttons
+          if (keyLower === 'a' || key === 'ArrowLeft' || keyLower === 'd' || key === 'ArrowRight') {
+            s.selectedMenuButton = s.selectedMenuButton === 0 ? 1 : 0;
             Audio.playMenuSelect();
             return;
           }
 
           // [1] Go to Level Select
-          if (key === '1' || key === 'Enter' || key === ' ') {
+          if (key === '1' || (s.selectedMenuButton === 0 && (key === 'Enter' || key === ' '))) {
             Audio.initAudio();
             Audio.playMenuSelect();
             s.screen = 'levelSelect';
@@ -408,13 +423,29 @@ function App() {
           }
 
           // [2] or [E] Start Wave Survival
-          if (key === '2' || keyLower === 'e') {
+          if (key === '2' || keyLower === 'e' || (s.selectedMenuButton === 1 && (key === 'Enter' || key === ' '))) {
             const saved = loadSave();
             assignState(buildEndlessState(saved.highScore, s.difficulty));
             Audio.initAudio();
             Audio.playMenuSelect();
             Audio.startMusic(15);
             e.preventDefault();
+            return;
+          }
+
+          // [D] Cycle Difficulty
+          if (keyLower === 'm') { // Moved to M if we want to avoid D overlap, but original was D
+            // s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
+            // Audio.playMenuSelect();
+            // return;
+          }
+
+          if (keyLower === 'd') {
+            // Only cycle difficulty if NOT using D to navigate
+            // Actually D is mapped to MOVE_SPEED in playing, but in menu we can use it.
+            // Let's keep D for difficulty if we don't have better key.
+            s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
+            Audio.playMenuSelect();
             return;
           }
 
@@ -472,6 +503,8 @@ function App() {
           const costMana = (s.upgrades.manaLevel + 1) * 30;
           const costRegen = (s.upgrades.regenLevel + 1) * 50;
           const costDamage = (s.upgrades.damageLevel + 1) * 60;
+          const costDoubleJump = (s.upgrades.doubleJumpLevel + 1) * 100;
+          const costDashDistance = (s.upgrades.dashDistanceLevel + 1) * 80;
 
           if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
             s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
@@ -484,6 +517,12 @@ function App() {
           }
           if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
             s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
+          }
+          if (key === '5' && s.gemsCurrency >= costDoubleJump && s.upgrades.doubleJumpLevel < 5) {
+            s.gemsCurrency -= costDoubleJump; s.upgrades.doubleJumpLevel++; bought = true;
+          }
+          if (key === '6' && s.gemsCurrency >= costDashDistance && s.upgrades.dashDistanceLevel < 5) {
+            s.gemsCurrency -= costDashDistance; s.upgrades.dashDistanceLevel++; bought = true;
           }
 
           if (bought) {
@@ -503,6 +542,12 @@ function App() {
           e.preventDefault();
           handleScreenTransition();
         }
+        return;
+      }
+
+      if (s.activeDialog.length > 0 && (key === 'Enter' || key === ' ')) {
+        handleDialogAdvance();
+        e.preventDefault();
         return;
       }
 
@@ -542,15 +587,34 @@ function App() {
       const rect = canvas.getBoundingClientRect();
       const scaleX = CANVAS_W / rect.width;
       const scaleY = CANVAS_H / rect.height;
-      stateRef.current.mousePos = {
+      const s = stateRef.current;
+      s.mousePos = {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY,
       };
+
+      if (s.screen === 'menu') {
+        const tx = s.mousePos.x;
+        const ty = s.mousePos.y;
+        const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
+        const campX = CANVAS_W / 2 - btnW - gap / 2;
+        const waveX = CANVAS_W / 2 + gap / 2;
+
+        if (ty >= baseY && ty <= baseY + btnH) {
+          if (tx >= campX && tx <= campX + btnW) s.selectedMenuButton = 0;
+          else if (tx >= waveX && tx <= waveX + btnW) s.selectedMenuButton = 1;
+          else s.selectedMenuButton = -1;
+        } else {
+          s.selectedMenuButton = -1;
+        }
+      }
     };
 
     const onMouseDown = (e: MouseEvent) => {
       e.preventDefault();
       const s = stateRef.current;
+
+      if (handleDialogAdvance()) return;
 
       if (s.screen !== 'playing') {
         handleScreenTransition(s.mousePos.x, s.mousePos.y);
@@ -625,6 +689,8 @@ function App() {
       enterMobileImmersive();
       syncTouchLayout();
 
+      if (handleDialogAdvance()) return;
+
       if (s.screen === 'shop') {
         const rect = canvas.getBoundingClientRect();
         const scaleX = CANVAS_W / rect.width;
@@ -639,10 +705,10 @@ function App() {
           return;
         }
 
-        // Check Upgrade Rows (startY = 220, spacing = 100)
-        const startY = 220;
-        const spacing = 100;
-        for (let i = 0; i < 4; i++) {
+        // Check Upgrade Rows
+        const startY = 194;
+        const spacing = 70;
+        for (let i = 0; i < 6; i++) {
           const rowY = startY + i * spacing;
           if (ty > rowY - 30 && ty < rowY + 30) {
             // Replicate shop buy logic
@@ -652,6 +718,8 @@ function App() {
             const costMana = (s.upgrades.manaLevel + 1) * 30;
             const costRegen = (s.upgrades.regenLevel + 1) * 50;
             const costDamage = (s.upgrades.damageLevel + 1) * 60;
+            const costDoubleJump = (s.upgrades.doubleJumpLevel + 1) * 100;
+            const costDashDistance = (s.upgrades.dashDistanceLevel + 1) * 80;
 
             if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
               s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
@@ -661,6 +729,10 @@ function App() {
               s.gemsCurrency -= costRegen; s.upgrades.regenLevel++; bought = true;
             } else if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
               s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
+            } else if (key === '5' && s.gemsCurrency >= costDoubleJump && s.upgrades.doubleJumpLevel < 5) {
+              s.gemsCurrency -= costDoubleJump; s.upgrades.doubleJumpLevel++; bought = true;
+            } else if (key === '6' && s.gemsCurrency >= costDashDistance && s.upgrades.dashDistanceLevel < 5) {
+              s.gemsCurrency -= costDashDistance; s.upgrades.dashDistanceLevel++; bought = true;
             }
 
             if (bought) {

@@ -14,6 +14,7 @@ export function makeEnemy(
     fire_spirit: [26, 30], ice_spirit: [26, 30],
     boss1: [90, 110], boss2: [70, 90],
     shadow_wolf: [38, 28], lava_crab: [40, 30], thunder_hawk: [34, 24],
+    corrupted_wraith: [32, 40], void_brute: [50, 60], void_titan: [100, 120],
   };
   const [w, h] = sizes[type];
   return {

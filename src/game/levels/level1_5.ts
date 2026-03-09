@@ -23,6 +23,14 @@ export function level1(): LevelDef {
         // Plants
         { id: nid(), type: 'plant', x: 650, y: 560, width: 20, height: 20, health: 100, maxHealth: 100, state: 'normal', solid: false, growthLevel: 0 },
         { id: nid(), type: 'plant', x: 1200, y: 560, width: 20, height: 20, health: 100, maxHealth: 100, state: 'normal', solid: false, growthLevel: 0 },
+        // Lore tome
+        {
+            id: nid(), type: 'lore_tome', x: 200, y: 540, width: 30, height: 40, health: 100, maxHealth: 100, state: 'normal', solid: false,
+            dialogue: [
+                { speaker: 'Ancient Guide', text: 'Welcome to the Elemental Realm. Your journey starts here.', portrait: '#7ae8ff' },
+                { speaker: 'Ancient Guide', text: 'Gather the gems scattered throughout to awaken the gateway.', portrait: '#7ae8ff' }
+            ]
+        },
         // Fire pits
         { id: nid(), type: 'fire_pit', x: 900, y: 560, width: 40, height: 20, health: 100, maxHealth: 100, state: 'burning', solid: false },
         // Gems
@@ -40,8 +48,8 @@ export function level1(): LevelDef {
     ];
 
     return {
-        name: 'Forest Awakening',
-        subtitle: 'Learn the basics of elemental magic',
+        name: 'Ch 1 - Forest Awakening',
+        subtitle: 'Learn the basics of primal magic',
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#0a1a2e', '#0a2a1e', '#1a3a1e', '#0a1a1e'],
         platforms, envObjects, enemies,
@@ -106,10 +114,10 @@ export function level2(): LevelDef {
     ];
 
     return {
-        name: 'Ice Caverns',
+        name: 'Ch 1 - The Glacial Pass',
         subtitle: 'Melt the ice, freeze the puddles',
         worldWidth: 2800, worldHeight: 700,
-        bgColors: ['#0a0a3e', '#1a1a5e', '#2d3b6e', '#1a2a4e'],
+        bgColors: ['#0a2e3e', '#1a3e5e', '#2d5b6e', '#1a4a4e'], // More turquoise/glacial
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 7, totalGems: 10,
@@ -178,10 +186,10 @@ export function level3(): LevelDef {
     ];
 
     return {
-        name: 'Volcanic Forge',
-        subtitle: 'Extinguish the flames, defeat the fire spirits',
+        name: 'Ch 1 - Deep Caverns',
+        subtitle: 'Extinguish the subterranean flames',
         worldWidth: 3000, worldHeight: 700,
-        bgColors: ['#2a0a0a', '#3a1a0a', '#4a1a0a', '#2a0a0a'],
+        bgColors: ['#2a1a0a', '#3a2a0a', '#4a2a0a', '#2a1a0a'], // Deep earth tones
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 12,
@@ -243,10 +251,10 @@ export function level4(): LevelDef {
     ];
 
     return {
-        name: 'Sky Fortress',
-        subtitle: 'Use wind to soar and earth to build bridges',
+        name: 'Ch 1 - River\'s Edge',
+        subtitle: 'Navigate the currents to proceed',
         worldWidth: 3200, worldHeight: 700,
-        bgColors: ['#0a0a4e', '#1a2a6e', '#3a4a8e', '#2a3a6e'],
+        bgColors: ['#0a1a4e', '#1a2a4e', '#3a4a5e', '#2a3a4e'], // Watery blue-greens
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 10, totalGems: 14,
@@ -324,10 +332,10 @@ export function level5(): LevelDef {
     ];
 
     return {
-        name: 'Elemental Nexus',
-        subtitle: 'The final challenge — master all elements!',
+        name: 'Ch 1 - The Overgrowth (Boss)',
+        subtitle: 'Defeat the Earth Guardian to escape the forest',
         worldWidth: 3500, worldHeight: 700,
-        bgColors: ['#1a0a2e', '#2a1a4e', '#3a2a5e', '#2a1a3e'],
+        bgColors: ['#0a2e1e', '#1a4e2e', '#2a5e3e', '#1a3e1e'], // Deep forest greens
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 12, totalGems: 16,

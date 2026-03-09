@@ -1,7 +1,7 @@
 import { TOTAL_LEVELS } from '../levels';
 import type { GameState } from '../types';
 
-export type AchievementId = 'first_blood' | 'collector_100' | 'campaign_clear' | 'wave_10' | 'score_10k';
+export type AchievementId = 'first_blood' | 'collector_100' | 'collector_500' | 'campaign_clear' | 'wave_10' | 'wave_30' | 'score_10k' | 'score_50k';
 export type DailyChallengeId = 'gems_20' | 'kills_50' | 'reach_wave_5' | 'reach_level_5';
 
 interface ProgressionStore {
@@ -44,9 +44,12 @@ const DEFAULT_STORE: ProgressionStore = {
 const ACHIEVEMENT_LABELS: Record<AchievementId, string> = {
   first_blood: 'First Blood',
   collector_100: 'Gem Hoarder',
+  collector_500: 'Gem Lord',
   campaign_clear: 'Campaign Conqueror',
   wave_10: 'Wave Slayer',
+  wave_30: 'Void Survivor',
   score_10k: 'Score Legend',
+  score_50k: 'Score Master',
 };
 
 const DAILY_CHALLENGES: DailyChallenge[] = [
@@ -93,9 +96,12 @@ function evaluateAchievements(state: GameState): AchievementId[] {
   const out: AchievementId[] = [];
   if (state.enemiesDefeated >= 1) out.push('first_blood');
   if (state.totalGemsEver >= 100) out.push('collector_100');
+  if (state.totalGemsEver >= 500) out.push('collector_500');
   if (state.furthestLevel >= Math.max(TOTAL_LEVELS - 1, 0)) out.push('campaign_clear');
   if ((state.endlessWave ?? 0) >= 10) out.push('wave_10');
+  if ((state.endlessWave ?? 0) >= 30) out.push('wave_30');
   if (state.score >= 10_000) out.push('score_10k');
+  if (state.score >= 50_000) out.push('score_50k');
   return out;
 }
 
