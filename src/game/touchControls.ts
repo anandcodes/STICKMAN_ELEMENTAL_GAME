@@ -378,7 +378,7 @@ export function renderTouchControls(
   ctx.fill();
 
   const jb = controls.jumpButton;
-  ctx.globalAlpha = jb.active ? 0.45 : 0.18;
+  ctx.globalAlpha = jb.active ? 0.6 : 0.25;
   ctx.fillStyle = jb.active ? '#44ff44' : '#ffffff';
   ctx.beginPath();
   ctx.arc(jb.x, jb.y, jb.radius, 0, Math.PI * 2);
@@ -392,7 +392,7 @@ export function renderTouchControls(
   const elemColor = {
     fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
   }[state.selectedElement];
-  ctx.globalAlpha = cb.active ? 0.46 : 0.2;
+  ctx.globalAlpha = cb.active ? 0.6 : 0.25;
   ctx.fillStyle = elemColor;
   ctx.beginPath();
   ctx.arc(cb.x, cb.y, cb.radius, 0, Math.PI * 2);
@@ -428,7 +428,7 @@ export function renderTouchControls(
 
   const db = controls.dashButton;
   const dashReady = state.stickman.dashCooldown <= 0;
-  ctx.globalAlpha = db.active ? 0.44 : (dashReady ? 0.2 : 0.1);
+  ctx.globalAlpha = db.active ? 0.6 : (dashReady ? 0.25 : 0.15);
   ctx.fillStyle = dashReady ? '#44ffaa' : '#555555';
   ctx.beginPath();
   ctx.arc(db.x, db.y, db.radius, 0, Math.PI * 2);
@@ -453,7 +453,7 @@ export function renderTouchControls(
     if (!state.unlockedElements.includes(btn.id as Element)) continue;
     const isSelected = state.selectedElement === btn.id;
 
-    ctx.globalAlpha = isSelected ? 0.52 : 0.18;
+    ctx.globalAlpha = isSelected ? 0.6 : 0.25;
     ctx.fillStyle = btn.color;
     ctx.beginPath();
     ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);

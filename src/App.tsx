@@ -138,8 +138,7 @@ function App() {
       const vh = window.visualViewport?.height ?? window.innerHeight;
       const scaleX = vw / CANVAS_W;
       const scaleY = vh / CANVAS_H;
-      // Allow a bit more filling in landscape mobile
-      const s = isMobileRef.current && vw > vh ? Math.max(scaleX, scaleY * 0.9) : Math.min(scaleX, scaleY);
+      const s = Math.min(scaleX, scaleY);
       setScale(s);
       scaleRef.current = s;
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
