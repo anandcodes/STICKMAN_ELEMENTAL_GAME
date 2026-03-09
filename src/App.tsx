@@ -76,11 +76,10 @@ function App() {
   const touchControlsRef = useRef<TouchControlsState>(createTouchControlsState(CANVAS_W, CANVAS_H));
   const [isMobile, setIsMobile] = useState<boolean>(() => isMobileDevice());
   const isMobileRef = useRef(isMobile);
-  const [scale, setScale] = useState(1);
-  const scaleRef = useRef(1);
   const isPortraitMobileRef = useRef(false);
   const loopClockRef = useRef(createLoopClock());
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [windowSize, setWindowSize] = useState({ w: 1200, h: 700 });
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
@@ -137,6 +136,7 @@ function App() {
     const computeScale = () => {
       const vw = window.visualViewport?.width ?? window.innerWidth;
       const vh = window.visualViewport?.height ?? window.innerHeight;
+      setWindowSize({ w: vw, h: vh });
       let s;
       let w = 1200;
       if (isMobileRef.current) {
@@ -157,8 +157,6 @@ function App() {
       CANVAS_W = w;
       setEngineCanvasSize(w, CANVAS_H);
       setCanvasWidth(w);
-      setScale(s);
-      scaleRef.current = s;
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
       requestAnimationFrame(syncTouchLayout);
     };
@@ -1098,7 +1096,10 @@ function App() {
       role="application"
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        width: windowSize.w,
+        height: windowSize.h,
         backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
@@ -1139,10 +1140,11 @@ function App() {
         aria-label="Game canvas"
         style={{
           display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
           cursor: isMobile ? 'default' : 'crosshair',
           touchAction: 'none',
-          transformOrigin: 'center center',
-          transform: `scale(${scale})`,
           imageRendering: 'auto',
         }}
       />
