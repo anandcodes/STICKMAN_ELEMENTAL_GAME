@@ -38,7 +38,7 @@ function uiScale(state: GameState): number {
   return Math.min(1.5, Math.max(0.85, state.textScale || 1));
 }
 
-function setUiFont(
+export function setUiFont(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   size: number,
@@ -49,7 +49,7 @@ function setUiFont(
   ctx.font = `${weight ? `${weight} ` : ''}${px}px ${family}`;
 }
 
-function setDisplayFont(
+export function setDisplayFont(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   size: number,
@@ -58,7 +58,7 @@ function setDisplayFont(
   setUiFont(ctx, state, size, weight, FONT_DISPLAY);
 }
 
-function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>): string {
+export function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>): string {
   return t(state.locale, key, vars);
 }
 
@@ -318,12 +318,30 @@ export function render(
       ctx.strokeStyle = 'rgba(160,220,255,0.3)'; ctx.lineWidth = 1;
       ctx.strokeRect(p.x, p.y, p.width, p.height);
     } else if (p.type === 'earth') {
-      ctx.fillStyle = '#6a5a3a';
-      ctx.fillRect(p.x, p.y, p.width, p.height);
-      ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1;
-      ctx.strokeRect(p.x, p.y, p.width, p.height);
-      ctx.fillStyle = 'rgba(100, 170, 50, 0.3)';
-      ctx.fillRect(p.x - 2, p.y - 2, p.width + 4, p.height + 4);
+      // Modern Rock Slab with Moss
+      const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+      grad.addColorStop(0, '#5a4d36');
+      grad.addColorStop(1, '#3a2e1d');
+      ctx.fillStyle = grad;
+      roundRect(ctx, p.x, p.y, p.width, p.height, 6);
+      ctx.fill();
+
+      // Jagged edge detail
+      ctx.strokeStyle = '#7a6a4a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = p.x; x <= p.x + p.width; x += 12) {
+        ctx.lineTo(x, p.y + Math.sin(x * 0.5) * 2);
+      }
+      ctx.stroke();
+
+      // Mossy Top
+      ctx.fillStyle = 'rgba(120, 190, 60, 0.6)';
+      ctx.beginPath();
+      for (let x = p.x; x <= p.x + p.width; x += 10) {
+        const mh = 3 + Math.sin(x * 0.4) * 2;
+        ctx.fillRect(x, p.y - 1, 8, mh);
+      }
     } else {
       const sGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
       sGrad.addColorStop(0, '#7a7a8a'); sGrad.addColorStop(1, '#5a5a6a');
@@ -398,25 +416,35 @@ export function render(
       ctx.stroke();
 
     } else if (p.element === 'earth') {
-      // Earth: Jagged Rock
-      ctx.fillStyle = color;
+      // Earth: Detailed Rotating Boulder
       ctx.save();
       ctx.translate(p.x, p.y);
-      ctx.rotate(t * (p.vx > 0 ? 1 : -1));
+      ctx.rotate(t * (p.vx > 0 ? 1.5 : -1.5));
+
+      // Main Rock Body
+      const rockGrad = ctx.createRadialGradient(-p.size * 0.3, -p.size * 0.3, 0, 0, 0, p.size);
+      rockGrad.addColorStop(0, '#8d7b5b');
+      rockGrad.addColorStop(1, '#3e3422');
+      ctx.fillStyle = rockGrad;
+
       ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const ang = (i / 6) * Math.PI * 2;
-        const r = p.size * (0.8 + Math.sin(i * 1.5) * 0.4);
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        const r = p.size * (0.85 + Math.sin(i * 2.3) * 0.25);
         ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
       }
       ctx.closePath();
       ctx.fill();
-      // Rock cracks
-      ctx.strokeStyle = '#3a2a1a';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
 
+      // Cracks and Highlights
+      ctx.strokeStyle = '#2d2215';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-p.size * 0.4, -p.size * 0.2);
+      ctx.lineTo(p.size * 0.2, p.size * 0.3);
+      ctx.stroke();
+
+      ctx.restore();
     } else if (p.element === 'wind') {
       // Wind: Whirling air rings
       ctx.strokeStyle = 'rgba(220, 240, 255, 0.8)';
@@ -1617,6 +1645,23 @@ function drawHUD(
     return;
   }
 
+  // Fullscreen Prompt for Mobile (Landscape)
+  if (!document.fullscreenElement && W < 1000) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.12)';
+    const fW = 180; const fH = 42;
+    roundRect(ctx, W - fW - 20, 20, fW, fH, 20);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd97a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffd97a';
+    setUiFont(ctx, state, 11, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText("GO FULLSCREEN ⛶", W - fW / 2 - 20, 46);
+    ctx.restore();
+  }
+
   const vignette = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.28, W / 2, _H / 2, _H * 0.9);
   vignette.addColorStop(0, 'rgba(0,0,0,0)');
   vignette.addColorStop(1, state.highContrast ? 'rgba(0,0,0,0.68)' : 'rgba(0,0,0,0.46)');
@@ -1771,7 +1816,33 @@ function drawHUD(
   ctx.fillText(tr(state, 'hud_best', { best: state.highScore }), W - 20, 60);
   ctx.fillText(tr(state, 'hud_kills', { kills: state.enemiesDefeated }), W - 20, 77);
 
-  const dashReady = s.dashCooldown <= 0;
+  // Mobile Fullscreen Toggle
+  const isCurrentlyFull = !!document.fullscreenElement;
+  if (!isCurrentlyFull && (isPortraitMobile || (W < 1000))) {
+    ctx.save();
+    const btnSize = 44;
+    const bx = W - btnSize - 15;
+    const by = 130;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    roundRect(ctx, bx, by, btnSize, btnSize, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Icon (4 corners)
+    const p = 12;
+    ctx.beginPath();
+    ctx.moveTo(bx + p, by + p + 8); ctx.lineTo(bx + p, by + p); ctx.lineTo(bx + p + 8, by + p);
+    ctx.moveTo(bx + btnSize - p - 8, by + p); ctx.lineTo(bx + btnSize - p, by + p); ctx.lineTo(bx + btnSize - p, by + p + 8);
+    ctx.moveTo(bx + p, by + btnSize - p - 8); ctx.lineTo(bx + p, by + btnSize - p); ctx.lineTo(bx + p + 8, by + btnSize - p);
+    ctx.moveTo(bx + btnSize - p - 8, by + btnSize - p); ctx.lineTo(bx + btnSize - p, by + btnSize - p); ctx.lineTo(bx + btnSize - p, by + btnSize - p - 8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const s2 = state.stickman;
+  const dashReady = s2.dashCooldown <= 0;
   ctx.fillStyle = dashReady ? '#8bf4c7' : '#ffb0ba';
   setUiFont(ctx, state, 11, '700');
   ctx.fillText(dashReady ? tr(state, 'hud_dash_ready') : tr(state, 'hud_dash_cd', { seconds: Math.ceil(s.dashCooldown / 6) }), W - 20, 96);

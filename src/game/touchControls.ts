@@ -1,4 +1,5 @@
 import type { Element, GameState } from './types';
+import { setUiFont, tr } from './renderer';
 
 export interface TouchControl {
   id: string;
@@ -28,6 +29,8 @@ export interface TouchControlsState {
   dashButton: TouchControl;
   dashActive: boolean;
   dashTouchId: number | null;
+  castDragActive: boolean;
+  castDragPos: { x: number; y: number };
 }
 
 const DPAD_RADIUS = 55;
@@ -72,6 +75,8 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
     },
     dashActive: false,
     dashTouchId: null,
+    castDragActive: false,
+    castDragPos: { x: 0, y: 0 },
   };
 }
 
@@ -88,10 +93,11 @@ export function updateTouchControlsLayout(
 
   const logicalPerPixelX = canvasW / safeViewW;
   const logicalPerPixelY = canvasH / safeViewH;
-  const scale = clamp(Math.max(logicalPerPixelX, logicalPerPixelY), 0.8, 5);
+  // Reduce scale for landscape to keep controls smaller
+  const scale = clamp(Math.max(logicalPerPixelX, logicalPerPixelY), 0.7, portrait ? 4 : 1.2);
 
-  const margin = (portrait ? 18 : 14) * scale;
-  const dpadRadius = clamp((portrait ? 72 : 58) * scale, 44, 230);
+  const margin = (portrait ? 18 : 10) * scale;
+  const dpadRadius = clamp((portrait ? 72 : 48) * scale, 40, portrait ? 230 : 120);
   controls.dpadRadius = dpadRadius;
   if (controls.dpadTouchId === null) {
     controls.dpadCenter = {
@@ -100,18 +106,22 @@ export function updateTouchControlsLayout(
     };
   }
 
-  const actionRadius = clamp((portrait ? 54 : 42) * scale, 34, 180);
+  const actionRadius = clamp((portrait ? 54 : 36) * scale, 30, portrait ? 180 : 100);
   controls.jumpButton.radius = actionRadius;
   controls.castButton.radius = actionRadius;
-  controls.dashButton.radius = clamp(actionRadius * 0.76, 26, 140);
+  controls.dashButton.radius = clamp(actionRadius * 0.72, 22, 90);
 
   const actionX = canvasW - margin - actionRadius;
   controls.jumpButton.x = actionX;
   controls.jumpButton.y = canvasH - margin - actionRadius;
-  controls.castButton.x = actionX;
-  controls.castButton.y = controls.jumpButton.y - (actionRadius * 2 + 18 * scale);
+  controls.castButton.x = actionX - (portrait ? 0 : actionRadius * 2.2 + 10 * scale);
+  controls.castButton.y = portrait ? controls.jumpButton.y - (actionRadius * 2 + 18 * scale) : controls.jumpButton.y;
   controls.dashButton.x = actionX;
-  controls.dashButton.y = controls.castButton.y - (controls.dashButton.radius + actionRadius + 14 * scale);
+  controls.dashButton.y = controls.castButton.y - (portrait ? (controls.dashButton.radius + actionRadius + 14 * scale) : (actionRadius * 2.2 + 10 * scale));
+  if (!portrait) {
+    controls.dashButton.y = controls.jumpButton.y;
+    controls.dashButton.x = controls.castButton.x - (actionRadius + controls.dashButton.radius + 15 * scale);
+  }
 
   const elementRadius = clamp((portrait ? 30 : 24) * scale, 18, 120);
   const gap = 10 * scale;
@@ -189,10 +199,13 @@ export function handleTouchStart(
       controls.castActive = true;
       controls.castButton.active = true;
       controls.castTouchId = touch.identifier;
+      controls.castDragActive = true;
+      controls.castDragPos = { x: tx, y: ty };
       const s = state.stickman;
+      // Initial aim
       state.mousePos = {
-        x: s.x + s.facing * 200 - state.camera.x,
-        y: s.y - 40 - state.camera.y,
+        x: s.x + s.facing * 220 - state.camera.x,
+        y: s.y - 20 - state.camera.y,
       };
       state.mouseDown = true;
       continue;
@@ -236,7 +249,21 @@ export function handleTouchMove(
     }
 
     if (touch.identifier === controls.castTouchId && controls.castActive) {
-      state.mousePos = { x: tx, y: ty };
+      if (controls.castDragActive) {
+        const dx = tx - controls.castDragPos.x;
+        const dy = ty - controls.castDragPos.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          const s = state.stickman;
+          const mag = Math.sqrt(dx * dx + dy * dy);
+          const range = 260;
+          state.mousePos = {
+            x: s.x + s.width / 2 + (dx / mag) * range - state.camera.x,
+            y: s.y + s.height / 2 + (dy / mag) * range - state.camera.y,
+          };
+        }
+      } else {
+        state.mousePos = { x: tx, y: ty };
+      }
     }
   }
 }
@@ -260,6 +287,7 @@ export function handleTouchEnd(
       controls.castTouchId = null;
       controls.castActive = false;
       controls.castButton.active = false;
+      controls.castDragActive = false;
       state.mouseDown = false;
     }
 
@@ -311,13 +339,13 @@ export function renderTouchControls(
 
   const dpc = controls.dpadCenter;
 
-  ctx.globalAlpha = 0.25;
+  ctx.globalAlpha = 0.15;
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(dpc.x, dpc.y, controls.dpadRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.globalAlpha = 0.15;
+  ctx.globalAlpha = 0.08;
   ctx.fillStyle = '#000000';
   ctx.beginPath();
   ctx.arc(dpc.x, dpc.y, controls.dpadRadius - 4, 0, Math.PI * 2);
@@ -325,7 +353,7 @@ export function renderTouchControls(
 
   const arrowOffset = controls.dpadRadius * 0.62;
   const arrowFont = Math.max(16, Math.round(controls.dpadRadius * 0.34));
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = 0.35;
   ctx.fillStyle = '#ffffff';
   ctx.font = `700 ${arrowFont}px sans-serif`;
   ctx.textAlign = 'center';
@@ -350,7 +378,7 @@ export function renderTouchControls(
   ctx.fill();
 
   const jb = controls.jumpButton;
-  ctx.globalAlpha = jb.active ? 0.65 : 0.34;
+  ctx.globalAlpha = jb.active ? 0.45 : 0.18;
   ctx.fillStyle = jb.active ? '#44ff44' : '#ffffff';
   ctx.beginPath();
   ctx.arc(jb.x, jb.y, jb.radius, 0, Math.PI * 2);
@@ -358,25 +386,49 @@ export function renderTouchControls(
   ctx.globalAlpha = jb.active ? 1 : 0.8;
   ctx.fillStyle = jb.active ? '#ffffff' : '#cccccc';
   ctx.font = `700 ${Math.max(10, Math.round(jb.radius * 0.36))}px sans-serif`;
-  ctx.fillText('JUMP', jb.x, jb.y);
+  ctx.fillText(tr(state, 'jump_label' as any).toUpperCase() || 'JUMP', jb.x, jb.y);
 
   const cb = controls.castButton;
   const elemColor = {
     fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
   }[state.selectedElement];
-  ctx.globalAlpha = cb.active ? 0.66 : 0.34;
+  ctx.globalAlpha = cb.active ? 0.46 : 0.2;
   ctx.fillStyle = elemColor;
   ctx.beginPath();
   ctx.arc(cb.x, cb.y, cb.radius, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = cb.active ? 1 : 0.8;
+  ctx.globalAlpha = cb.active ? 1 : 0.6;
   ctx.fillStyle = '#ffffff';
-  ctx.font = `700 ${Math.max(10, Math.round(cb.radius * 0.34))}px sans-serif`;
-  ctx.fillText('CAST', cb.x, cb.y);
+  setUiFont(ctx, state, Math.max(9, Math.round(cb.radius * 0.34)), '800');
+  ctx.fillText(tr(state, 'cast_label' as any).toUpperCase() || 'CAST', cb.x, cb.y);
+
+  if (controls.castDragActive) {
+    const s = state.stickman;
+    const px = s.x + s.width / 2 - state.camera.x;
+    const py = s.y + s.height / 2 - state.camera.y;
+    const mx = state.mousePos.x;
+    const my = state.mousePos.y;
+
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = elemColor;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 12]);
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(mx, my);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = elemColor;
+    ctx.beginPath();
+    ctx.arc(mx, my, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
   const db = controls.dashButton;
   const dashReady = state.stickman.dashCooldown <= 0;
-  ctx.globalAlpha = db.active ? 0.64 : (dashReady ? 0.4 : 0.18);
+  ctx.globalAlpha = db.active ? 0.44 : (dashReady ? 0.2 : 0.1);
   ctx.fillStyle = dashReady ? '#44ffaa' : '#555555';
   ctx.beginPath();
   ctx.arc(db.x, db.y, db.radius, 0, Math.PI * 2);
@@ -395,13 +447,13 @@ export function renderTouchControls(
   ctx.globalAlpha = dashReady ? 1 : 0.58;
   ctx.fillStyle = '#ffffff';
   ctx.font = `700 ${Math.max(9, Math.round(db.radius * 0.38))}px sans-serif`;
-  ctx.fillText('DASH', db.x, db.y);
+  ctx.fillText(tr(state, 'dash_label' as any).toUpperCase() || 'DASH', db.x, db.y);
 
   for (const btn of controls.elementButtons) {
     if (!state.unlockedElements.includes(btn.id as Element)) continue;
     const isSelected = state.selectedElement === btn.id;
 
-    ctx.globalAlpha = isSelected ? 0.72 : 0.34;
+    ctx.globalAlpha = isSelected ? 0.52 : 0.18;
     ctx.fillStyle = btn.color;
     ctx.beginPath();
     ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);

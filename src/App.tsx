@@ -138,7 +138,8 @@ function App() {
       const vh = window.visualViewport?.height ?? window.innerHeight;
       const scaleX = vw / CANVAS_W;
       const scaleY = vh / CANVAS_H;
-      const s = Math.min(scaleX, scaleY);
+      // Allow a bit more filling in landscape mobile
+      const s = isMobileRef.current && vw > vh ? Math.max(scaleX, scaleY * 0.9) : Math.min(scaleX, scaleY);
       setScale(s);
       scaleRef.current = s;
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
@@ -284,6 +285,12 @@ function App() {
           Audio.initAudio();
           Audio.playMenuSelect();
           s.screen = 'levelSelect';
+          enterMobileImmersive();
+          return;
+        }
+
+        // Fullscreen Toggle on Mobile
+        if (isMobile && tx > CANVAS_W - 100 && ty < 80) {
           enterMobileImmersive();
           return;
         }
