@@ -80,6 +80,7 @@ function App() {
   const loopClockRef = useRef(createLoopClock());
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
+  const [canvasScale, setCanvasScale] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
@@ -137,6 +138,7 @@ function App() {
       CANVAS_W = w;
       setEngineCanvasSize(w, CANVAS_H);
       setCanvasWidth(w);
+      setCanvasScale(s);
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
       requestAnimationFrame(syncTouchLayout);
     };
@@ -371,9 +373,9 @@ function App() {
 
       if (s.screen === 'levelSelect') {
         if (tx === undefined || ty === undefined) return;
-        const cardW = 180; const cardH = 120; const gap = 20; const cols = 5;
+        const cardW = 194; const cardH = 130; const gap = 16; const cols = 5;
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = 150;
+        const startY = 140;
 
         // Precise hit test - only count clicks within card bounds, not in gaps
         const relX = tx - startX;
@@ -868,11 +870,11 @@ function App() {
           const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
           const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
 
-          const btnW = 180; const btnH = 50; const gap = 30; const baseY = CANVAS_H / 2 + 80;
+          const btnW = 194; const btnH = 56; const gap = 30; const baseY = CANVAS_H / 2 + 85;
           const retryX = CANVAS_W / 2 - btnW - gap / 2;
           const quitX = CANVAS_W / 2 + gap / 2;
 
-          if (ty >= baseY - 15 && ty <= baseY + btnH - 15) {
+          if (ty >= baseY && ty <= baseY + btnH) {
             if (tx >= retryX && tx <= retryX + btnW) {
               const saved = loadSave();
               assignState(buildRestartLevelState(s, saved.highScore));
@@ -1118,9 +1120,8 @@ function App() {
         aria-label="Game canvas"
         style={{
           display: 'block',
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
+          width: Math.floor(canvasWidth * canvasScale),
+          height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',
           touchAction: 'none',
           imageRendering: 'auto',
