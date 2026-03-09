@@ -199,7 +199,7 @@ export function handleTouchStart(
       controls.castActive = true;
       controls.castButton.active = true;
       controls.castTouchId = touch.identifier;
-      controls.castDragActive = true;
+      controls.castDragActive = false;
       controls.castDragPos = { x: tx, y: ty };
       const s = state.stickman;
       // Initial aim
@@ -207,6 +207,7 @@ export function handleTouchStart(
         x: s.x + s.facing * 220 - state.camera.x,
         y: s.y - 20 - state.camera.y,
       };
+      // Start shooting only if not dragging yet
       state.mouseDown = true;
       continue;
     }
@@ -249,20 +250,24 @@ export function handleTouchMove(
     }
 
     if (touch.identifier === controls.castTouchId && controls.castActive) {
-      if (controls.castDragActive) {
-        const dx = tx - controls.castDragPos.x;
-        const dy = ty - controls.castDragPos.y;
-        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-          const s = state.stickman;
-          const mag = Math.sqrt(dx * dx + dy * dy);
-          const range = 260;
-          state.mousePos = {
-            x: s.x + s.width / 2 + (dx / mag) * range - state.camera.x,
-            y: s.y + s.height / 2 + (dy / mag) * range - state.camera.y,
-          };
-        }
+      const dx = tx - controls.castDragPos.x;
+      const dy = ty - controls.castDragPos.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        controls.castDragActive = true;
+        // User is aiming; stop rapid firing
+        state.mouseDown = false;
+        const s = state.stickman;
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        const range = 260;
+        state.mousePos = {
+          x: s.x + s.width / 2 + (dx / mag) * range - state.camera.x,
+          y: s.y + s.height / 2 + (dy / mag) * range - state.camera.y,
+        };
       } else {
+        // User moved back to center or didn't move far enough
+        controls.castDragActive = false;
         state.mousePos = { x: tx, y: ty };
+        state.mouseDown = true; // resume rapid fire if in center
       }
     }
   }
@@ -284,11 +289,19 @@ export function handleTouchEnd(
     }
 
     if (touch.identifier === controls.castTouchId) {
+      if (controls.castDragActive) {
+        // Trigger a shot on release since they were aiming
+        state.mouseDown = true;
+        setTimeout(() => {
+          state.mouseDown = false;
+        }, 50);
+      } else {
+        state.mouseDown = false;
+      }
       controls.castTouchId = null;
       controls.castActive = false;
       controls.castButton.active = false;
       controls.castDragActive = false;
-      state.mouseDown = false;
     }
 
     if (touch.identifier === controls.jumpTouchId) {

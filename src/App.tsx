@@ -109,25 +109,6 @@ function App() {
     if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
       void host.requestFullscreen().catch(() => { });
     }
-
-    try {
-      const orientation = screen.orientation as ScreenOrientation & {
-        lock?: (orientation:
-          | 'any'
-          | 'natural'
-          | 'landscape'
-          | 'portrait'
-          | 'portrait-primary'
-          | 'portrait-secondary'
-          | 'landscape-primary'
-          | 'landscape-secondary') => Promise<void>;
-      };
-      if (orientation && typeof orientation.lock === 'function') {
-        void orientation.lock('landscape').catch(() => { });
-      }
-    } catch {
-      // orientation lock unsupported
-    }
   };
 
   // Compute scale to fill screen while preserving aspect ratio
