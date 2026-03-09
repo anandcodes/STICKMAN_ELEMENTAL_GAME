@@ -153,6 +153,9 @@ const TRANSLATIONS = {
     hud_boss_wraith: 'ELEMENTAL WRAITH',
     hud_bottom_hint: '{element} | {hint} | [SHIFT] Dash',
     hud_map: 'MAP',
+    jump_label: 'JUMP',
+    cast_label: 'CAST',
+    dash_label: 'DASH',
   },
   hi: {
     app_runtime_error_title: 'Runtime Error',
@@ -304,6 +307,9 @@ const TRANSLATIONS = {
     hud_boss_wraith: 'ELEMENTAL WRAITH',
     hud_bottom_hint: '{element} | {hint} | [SHIFT] Dash',
     hud_map: 'MAP',
+    jump_label: 'JUMP',
+    cast_label: 'CAST',
+    dash_label: 'DASH',
   },
 } as const;
 

@@ -336,8 +336,33 @@ function App() {
 
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
+
+        if (isMobile && tx !== undefined && ty !== undefined) {
+          const btnW = 194; const btnH = 56; const gap = 30;
+          const retryX = CANVAS_W / 2 - btnW - gap / 2;
+          const quitX = CANVAS_W / 2 + gap / 2;
+          const baseY = CANVAS_H / 2 + 85;
+
+          // Hit Test Retry
+          if (tx >= retryX && tx <= retryX + btnW && ty >= baseY && ty <= baseY + btnH) {
+            assignState(buildRestartLevelState(s, saved.highScore));
+            Audio.playMenuSelect();
+            Audio.startMusic(s.currentLevel);
+            enterMobileImmersive();
+            return;
+          }
+          // Hit Test Quit
+          if (tx >= quitX && tx <= quitX + btnW && ty >= baseY && ty <= baseY + btnH) {
+            assignState(buildMenuState(saved.highScore, s.difficulty));
+            Audio.playMenuSelect();
+            Audio.stopMusic();
+            return;
+          }
+          // Fallback if click missed buttons
+          return;
+        }
+
         if (s.screen === 'gameOver' && s.endlessWave === undefined) {
-          // Replicate 'Retry' logic: restart current level
           assignState(buildRestartLevelState(s, saved.highScore));
           Audio.playMenuSelect();
           Audio.startMusic(s.currentLevel);

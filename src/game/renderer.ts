@@ -1551,7 +1551,7 @@ function drawHUD(
     ctx.fillStyle = '#d8eeff';
     setUiFont(ctx, state, 11, '700');
     ctx.textAlign = 'left';
-    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: state.levelName.toUpperCase() }), 20, 28);
+    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), 20, 28);
 
     const healthRatioCompact = Math.max(0, s.health / Math.max(1, s.maxHealth));
     const manaRatioCompact = Math.max(0, s.mana / Math.max(1, s.maxMana));
@@ -1673,7 +1673,7 @@ function drawHUD(
   ctx.fillStyle = '#d8eeff';
   setUiFont(ctx, state, 12, '700');
   ctx.textAlign = 'left';
-  ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: state.levelName.toUpperCase() }), 22, 30);
+  ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), 22, 30);
 
   const bestTime = state.bestTimes[state.currentLevel];
   if (bestTime) {
@@ -1799,7 +1799,7 @@ function drawHUD(
     ctx.fillStyle = '#e7f4ff';
     setUiFont(ctx, state, 11, '700');
     ctx.textAlign = 'center';
-    ctx.fillText(elementName(state.locale, entry.elem).toUpperCase(), x + tileW / 2, 42);
+    ctx.fillText((elementName(state.locale, entry.elem) || '').toUpperCase(), x + tileW / 2, 42);
     ctx.fillStyle = UI_THEME.muted;
     setUiFont(ctx, state, 10, '700');
     ctx.fillText(`[${entry.key}]`, x + tileW / 2, 61);
@@ -2122,7 +2122,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     drawPanel(ctx, W / 2 - 245 + i * 122, 265, 112, 36, 10, colors[i]);
     ctx.fillStyle = colors[i];
     setUiFont(ctx, state, 13, '700');
-    ctx.fillText(elementName(state.locale, elements[i]).toUpperCase(), W / 2 - 189 + i * 122, 288);
+    ctx.fillText((elementName(state.locale, elements[i]) || '').toUpperCase(), W / 2 - 189 + i * 122, 288);
   }
 
   const btnW = 280;
@@ -2178,7 +2178,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   drawPanel(ctx, W / 2 - 255, barY - 24, 230, 58, 12, diffColors[state.difficulty] || '#ffd56e');
   ctx.fillStyle = diffColors[state.difficulty] || '#ffd56e';
   setUiFont(ctx, state, 14, '700');
-  ctx.fillText(tr(state, 'menu_difficulty', { difficulty: state.difficulty.toUpperCase() }), W / 2 - 140, barY - 2);
+  ctx.fillText(tr(state, 'menu_difficulty', { difficulty: (state.difficulty || '').toUpperCase() }), W / 2 - 140, barY - 2);
   ctx.fillStyle = UI_THEME.muted;
   setUiFont(ctx, state, 11, '600');
   ctx.fillText(isMobile ? tr(state, 'menu_tap_cycle') : tr(state, 'menu_key_cycle'), W / 2 - 140, barY + 18);
@@ -2199,7 +2199,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.fillStyle = '#def3ff';
   setUiFont(ctx, state, 14, '800');
   ctx.textAlign = 'left';
-  ctx.fillText(tr(state, 'menu_daily_title').toUpperCase(), dailyX + 15, dailyY + 28);
+  ctx.fillText((tr(state, 'menu_daily_title') || '').toUpperCase(), dailyX + 15, dailyY + 28);
 
   ctx.fillStyle = '#aac4e7';
   setUiFont(ctx, state, 11, '600');
@@ -2234,7 +2234,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Achievements Progress
   ctx.fillStyle = '#def3ff';
   setUiFont(ctx, state, 12, '800');
-  ctx.fillText(tr(state, 'menu_achievements_title').toUpperCase(), dailyX + 15, dailyY + 104);
+  ctx.fillText((tr(state, 'menu_achievements_title') || '').toUpperCase(), dailyX + 15, dailyY + 104);
   ctx.fillStyle = '#8fdcbf';
   setUiFont(ctx, state, 11, '700');
   ctx.fillText(tr(state, 'menu_achievements_progress', {
@@ -2245,7 +2245,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Mini Leaderboard
   ctx.fillStyle = '#def3ff';
   setUiFont(ctx, state, 12, '800');
-  ctx.fillText(tr(state, 'menu_leaderboard_title').toUpperCase(), dailyX + 15, dailyY + 148);
+  ctx.fillText((tr(state, 'menu_leaderboard_title') || '').toUpperCase(), dailyX + 15, dailyY + 148);
   if (leaderboard.length === 0) {
     ctx.fillStyle = '#8ca6ca';
     setUiFont(ctx, state, 11, '600');
@@ -2282,7 +2282,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Best Score
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 13, '800');
-  ctx.fillText(tr(state, 'hud_best', { best: state.highScore }).toUpperCase(), W / 2 - 200, statsY + 32);
+  ctx.fillText((tr(state, 'hud_best', { best: state.highScore }) || '').toUpperCase(), W / 2 - 200, statsY + 32);
 
   // Gems in the middle with icon
   const gemX = W / 2;
@@ -2318,13 +2318,13 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 46, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'level_complete_title').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 4);
+  ctx.fillText((tr(state, 'level_complete_title') || '').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 4);
   ctx.restore();
 
   // Level Info Subtitle
   ctx.fillStyle = '#64f0c0';
   setUiFont(ctx, state, 20, '800');
-  ctx.fillText(tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }).toUpperCase(), W / 2, H / 2 - 68);
+  ctx.fillText((tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }) || '').toUpperCase(), W / 2, H / 2 - 68);
 
   // Stats Grid
   const gridY = H / 2 - 25;
@@ -2388,7 +2388,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   setDisplayFont(ctx, state, 48, '800');
   ctx.textAlign = 'center';
   const title = state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title');
-  ctx.fillText(title.toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 3);
+  ctx.fillText((title || '').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 3);
   ctx.restore();
 
   // Stats Layout
@@ -2480,13 +2480,13 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 56, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'victory_title').toUpperCase(), W / 2, H / 2 - 110 + Math.sin(tSec) * 6);
+  ctx.fillText((tr(state, 'victory_title') || '').toUpperCase(), W / 2, H / 2 - 110 + Math.sin(tSec) * 6);
   ctx.restore();
 
   ctx.fillStyle = '#8ce8ff';
   setUiFont(ctx, state, 22, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'victory_subtitle').toUpperCase(), W / 2, H / 2 - 68);
+  ctx.fillText((tr(state, 'victory_subtitle') || '').toUpperCase(), W / 2, H / 2 - 68);
 
   // Modern Stat Cards
   const gridY = H / 2 - 12;
@@ -2845,7 +2845,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   setDisplayFont(ctx, state, 18, '800');
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(dialog.speaker.toUpperCase(), panelX + 20 + nameW / 2, panelY);
+  ctx.fillText((dialog.speaker || '').toUpperCase(), panelX + 20 + nameW / 2, panelY);
 
   // Speaker Portrait Box
   const portraitSize = isPortraitMobile ? 80 : 100;

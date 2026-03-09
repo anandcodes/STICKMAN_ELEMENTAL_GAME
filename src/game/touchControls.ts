@@ -386,7 +386,7 @@ export function renderTouchControls(
   ctx.globalAlpha = jb.active ? 1 : 0.8;
   ctx.fillStyle = jb.active ? '#ffffff' : '#cccccc';
   ctx.font = `700 ${Math.max(10, Math.round(jb.radius * 0.36))}px sans-serif`;
-  ctx.fillText(tr(state, 'jump_label' as any).toUpperCase() || 'JUMP', jb.x, jb.y);
+  ctx.fillText((tr(state, 'jump_label' as any) || 'JUMP').toUpperCase(), jb.x, jb.y);
 
   const cb = controls.castButton;
   const elemColor = {
@@ -400,7 +400,7 @@ export function renderTouchControls(
   ctx.globalAlpha = cb.active ? 1 : 0.6;
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, Math.max(9, Math.round(cb.radius * 0.34)), '800');
-  ctx.fillText(tr(state, 'cast_label' as any).toUpperCase() || 'CAST', cb.x, cb.y);
+  ctx.fillText((tr(state, 'cast_label' as any) || 'CAST').toUpperCase(), cb.x, cb.y);
 
   if (controls.castDragActive) {
     const s = state.stickman;
@@ -447,7 +447,7 @@ export function renderTouchControls(
   ctx.globalAlpha = dashReady ? 1 : 0.58;
   ctx.fillStyle = '#ffffff';
   ctx.font = `700 ${Math.max(9, Math.round(db.radius * 0.38))}px sans-serif`;
-  ctx.fillText(tr(state, 'dash_label' as any).toUpperCase() || 'DASH', db.x, db.y);
+  ctx.fillText((tr(state, 'dash_label' as any) || 'DASH').toUpperCase(), db.x, db.y);
 
   for (const btn of controls.elementButtons) {
     if (!state.unlockedElements.includes(btn.id as Element)) continue;
