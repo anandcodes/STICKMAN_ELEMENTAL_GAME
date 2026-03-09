@@ -137,7 +137,6 @@ const TRANSLATIONS = {
 
     hud_best_time: 'BEST {time}',
     hud_level: 'LEVEL {level}  {name}',
-    hud_lives: 'Lives: {lives}',
     hud_health: 'HP {health} / {maxHealth}',
     hud_mana: 'MP {mana} / {maxMana}',
     hud_wave: 'WAVE {wave} | KILLS {kills}',
@@ -291,7 +290,6 @@ const TRANSLATIONS = {
 
     hud_best_time: 'BEST {time}',
     hud_level: 'LEVEL {level}  {name}',
-    hud_lives: 'Lives: {lives}',
     hud_health: 'HP {health} / {maxHealth}',
     hud_mana: 'MP {mana} / {maxMana}',
     hud_wave: 'WAVE {wave} | KILLS {kills}',

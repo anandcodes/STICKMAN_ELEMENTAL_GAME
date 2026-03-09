@@ -1582,7 +1582,6 @@ function drawHUD(
     } else {
       ctx.fillText(tr(state, 'hud_gems', { collected: state.gemsCollected, required: state.gemsRequired }), 20, 80);
     }
-    ctx.fillText(tr(state, 'hud_lives', { lives: Math.max(0, Math.min(12, state.lives)) }), 20, 96);
 
     ctx.fillStyle = '#f3fbff';
     setDisplayFont(ctx, state, 22, '800');
@@ -1721,7 +1720,6 @@ function drawHUD(
   ctx.fillStyle = '#aac4e7';
   setUiFont(ctx, state, 11, '600');
   ctx.textAlign = 'left';
-  ctx.fillText(tr(state, 'hud_lives', { lives: Math.max(0, Math.min(12, state.lives)) }), 22, 91);
 
   if (state.endlessWave === undefined) {
     const tm = Math.floor(state.timeElapsed / 3600);

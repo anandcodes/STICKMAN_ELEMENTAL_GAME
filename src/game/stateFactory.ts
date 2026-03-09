@@ -9,7 +9,7 @@ function withPlayingIntro(state: GameState): GameState {
 }
 
 export function buildMenuState(highScore: number, difficulty: Difficulty): GameState {
-  const state = createInitialState(0, 0, 3, highScore, difficulty);
+  const state = createInitialState(0, 0, highScore, difficulty);
   state.screen = 'menu';
   return state;
 }
@@ -19,13 +19,12 @@ export function buildPlayingState(
   highScore: number,
   difficulty: Difficulty,
   score = 0,
-  lives = 3,
 ): GameState {
-  return withPlayingIntro(createInitialState(level, score, lives, highScore, difficulty));
+  return withPlayingIntro(createInitialState(level, score, highScore, difficulty));
 }
 
 export function buildEndlessState(highScore: number, difficulty: Difficulty): GameState {
-  return buildPlayingState(15, highScore, difficulty, 0, 3);
+  return buildPlayingState(15, highScore, difficulty, 0);
 }
 
 export function buildNextLevelState(current: GameState, highScore: number): GameState {
@@ -34,7 +33,6 @@ export function buildNextLevelState(current: GameState, highScore: number): Game
     highScore,
     current.difficulty,
     current.score,
-    current.lives,
   );
   state.totalGemsEver = current.totalGemsEver;
   state.enemiesDefeated = current.enemiesDefeated;
@@ -42,5 +40,5 @@ export function buildNextLevelState(current: GameState, highScore: number): Game
 }
 
 export function buildRestartLevelState(current: GameState, highScore: number): GameState {
-  return buildPlayingState(current.currentLevel, highScore, current.difficulty, 0, current.lives);
+  return buildPlayingState(current.currentLevel, highScore, current.difficulty, 0);
 }

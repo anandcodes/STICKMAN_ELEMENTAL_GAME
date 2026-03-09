@@ -8,7 +8,7 @@ import { setMockAudioContext, setMockStorage, withMockedRandom } from './testHel
 
 test('plant grows upward consistently after repeated water hits', () => {
   setMockStorage();
-  const state = createInitialState(0, 0, 3, 0, 'normal');
+  const state = createInitialState(0, 0, 0, 'normal');
   const plant = {
     id: 1001,
     type: 'plant' as const,
@@ -37,7 +37,7 @@ test('plant grows upward consistently after repeated water hits', () => {
 
 test('water + earth projectile synergy creates mud trap and consumes both projectiles', () => {
   setMockStorage();
-  const state = createInitialState(0, 0, 3, 0, 'normal');
+  const state = createInitialState(0, 0, 0, 'normal');
   state.envObjects = [];
   state.enemies = [];
   state.platforms = [];
@@ -56,7 +56,7 @@ test('water + earth projectile synergy creates mud trap and consumes both projec
 
 test('earth projectile hitting platform creates temporary earth platform', () => {
   setMockStorage();
-  const state = createInitialState(0, 0, 3, 0, 'normal');
+  const state = createInitialState(0, 0, 0, 'normal');
   state.platforms = [{ x: 0, y: 100, width: 300, height: 20, type: 'stone' }];
   state.envObjects = [];
   state.enemies = [];
@@ -74,7 +74,7 @@ test('touching active portal transitions to levelComplete and persists progressi
   setMockStorage();
   setMockAudioContext();
 
-  const state = createInitialState(2, 0, 3, 0, 'normal');
+  const state = createInitialState(2, 0, 0, 'normal');
   state.screen = 'playing';
   state.showLevelIntro = false;
   state.paused = false;
@@ -111,7 +111,7 @@ test('dash trigger is consumed so holding shift does not auto-recast', () => {
   setMockStorage();
   setMockAudioContext();
 
-  const state = createInitialState(1, 0, 3, 0, 'normal');
+  const state = createInitialState(1, 0, 0, 'normal');
   state.screen = 'playing';
   state.showLevelIntro = false;
   state.paused = false;
@@ -141,7 +141,7 @@ test('dashing into an enemy deals dash impact damage and can secure a kill', () 
   setMockStorage();
   setMockAudioContext();
 
-  const state = createInitialState(1, 0, 3, 0, 'normal');
+  const state = createInitialState(1, 0, 0, 'normal');
   state.screen = 'playing';
   state.showLevelIntro = false;
   state.paused = false;

@@ -21,7 +21,7 @@ test('loadSave returns defaults when storage is empty', () => {
 
 test('saveProgress persists furthest unlocked level from state.furthestLevel', () => {
   const storage = setMockStorage();
-  const state = createInitialState(2, 120, 3, 120, 'normal');
+  const state = createInitialState(2, 120, 120, 'normal');
   state.currentLevel = 2;
   state.furthestLevel = 7;
   state.totalGemsEver = 50;
@@ -134,14 +134,13 @@ test('stateFactory produces expected menu/endless states', () => {
 
 test('stateFactory next/restart transitions preserve intended fields', () => {
   setMockStorage();
-  const current = createInitialState(4, 555, 2, 1000, 'hard');
+  const current = createInitialState(4, 555, 1000, 'hard');
   current.totalGemsEver = 70;
   current.enemiesDefeated = 30;
 
   const next = buildNextLevelState(current, 1000);
   assert.equal(next.currentLevel, 5);
   assert.equal(next.score, 555);
-  assert.equal(next.lives, 2);
   assert.equal(next.totalGemsEver, 70);
   assert.equal(next.enemiesDefeated, 30);
   assert.equal(next.difficulty, 'hard');
@@ -149,6 +148,5 @@ test('stateFactory next/restart transitions preserve intended fields', () => {
   const restart = buildRestartLevelState(current, 1000);
   assert.equal(restart.currentLevel, 4);
   assert.equal(restart.score, 0);
-  assert.equal(restart.lives, 2);
   assert.equal(restart.difficulty, 'hard');
 });

@@ -132,7 +132,6 @@ export interface SaveData {
 export interface DifficultySettings {
   playerHealth: number;
   playerMana: number;
-  lives: number;
   enemyDamageMult: number;
   enemySpeedMult: number;
   manaRegenRate: number;
@@ -191,7 +190,6 @@ export interface GameState {
   worldWidth: number;
   worldHeight: number;
   score: number;
-  lives: number;
   gemsCollected: number;
   gemsRequired: number;
   totalGems: number;

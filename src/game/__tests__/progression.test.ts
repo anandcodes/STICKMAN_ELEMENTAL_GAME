@@ -7,7 +7,7 @@ import { setMockStorage } from './testHelpers';
 
 test('updateProgression unlocks achievements based on state milestones', () => {
   setMockStorage();
-  const state = createInitialState(0, 12000, 3, 12000, 'normal');
+  const state = createInitialState(0, 12000, 12000, 'normal');
   state.enemiesDefeated = 80;
   state.totalGemsEver = 200;
   state.furthestLevel = 99;
@@ -30,7 +30,7 @@ test('getDailyChallenge is deterministic for same date', () => {
 
 test('getProgressionSnapshot returns challenge progress and achievement totals', () => {
   setMockStorage();
-  const state = createInitialState(0, 5000, 3, 5000, 'normal');
+  const state = createInitialState(0, 5000, 5000, 'normal');
   state.totalGemsEver = 12;
   state.enemiesDefeated = 6;
   state.furthestLevel = 3;

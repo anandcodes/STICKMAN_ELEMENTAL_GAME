@@ -30,9 +30,9 @@ export function setEngineCanvasSize(w: number, h: number) {
 
 // IMP-14: Difficulty presets
 export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
-  easy: { playerHealth: 150, playerMana: 150, lives: 5, enemyDamageMult: 0.5, enemySpeedMult: 0.8, manaRegenRate: 0.15, label: 'Easy', color: '#44cc44' },
-  normal: { playerHealth: 100, playerMana: 100, lives: 3, enemyDamageMult: 1.0, enemySpeedMult: 1.0, manaRegenRate: 0.08, label: 'Normal', color: '#ffcc00' },
-  hard: { playerHealth: 75, playerMana: 80, lives: 2, enemyDamageMult: 1.5, enemySpeedMult: 1.3, manaRegenRate: 0.04, label: 'Hard', color: '#ff4444' },
+  easy: { playerHealth: 150, playerMana: 150, enemyDamageMult: 0.5, enemySpeedMult: 0.8, manaRegenRate: 0.15, label: 'Easy', color: '#44cc44' },
+  normal: { playerHealth: 100, playerMana: 100, enemyDamageMult: 1.0, enemySpeedMult: 1.0, manaRegenRate: 0.08, label: 'Normal', color: '#ffcc00' },
+  hard: { playerHealth: 75, playerMana: 80, enemyDamageMult: 1.5, enemySpeedMult: 1.3, manaRegenRate: 0.04, label: 'Hard', color: '#ff4444' },
 };
 
 function createTutorialHints(level: number): TutorialHint[] {
@@ -45,7 +45,7 @@ function createTutorialHints(level: number): TutorialHint[] {
   ];
 }
 
-export function createInitialState(level = 0, score = 0, lives = 3, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
+export function createInitialState(level = 0, score = 0, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
   const def = getLevel(level);
   const ds = DIFFICULTY_SETTINGS[difficulty];
 
@@ -101,7 +101,6 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     worldWidth: def.worldWidth,
     worldHeight: def.worldHeight,
     score,
-    lives: lives === 3 ? ds.lives : lives,
     gemsCollected: 0,
     gemsRequired: def.gemsRequired,
     totalGems: def.totalGems,
@@ -766,39 +765,31 @@ export function update(state: GameState): void {
 
   // Death
   if (s.health <= 0) {
-    state.lives--; state.screenShake = 20;
+    state.screenShake = 20;
     trackEvent('player_death', {
       mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
       level: state.currentLevel + 1,
-      livesRemaining: state.lives,
       score: state.score,
     });
-    if (state.lives <= 0) {
-      state.screen = 'gameOver'; state.screenTimer = 0;
-      trackEvent('game_over', {
-        mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
-        level: state.currentLevel + 1,
-        score: state.score,
-        enemiesDefeated: state.enemiesDefeated,
-        endlessWave: state.endlessWave ?? null,
-      }, { force: true });
-      saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
-      const progression = updateProgression(state);
-      let offset = 85;
-      for (const achievementId of progression.unlockedAchievements) {
-        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
-        offset += 20;
-      }
-      if (state.endlessWave !== undefined) {
-        void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {
-          // leaderboard submission is best-effort
-        });
-      }
-    } else {
-      const def = getLevel(state.currentLevel);
-      s.x = def.playerStart.x; s.y = def.playerStart.y;
-      s.vx = 0; s.vy = 0; s.health = s.maxHealth; s.mana = s.maxMana;
-      s.invincibleTimer = 120; Audio.playDeath();
+    state.screen = 'gameOver'; state.screenTimer = 0;
+    trackEvent('game_over', {
+      mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+      level: state.currentLevel + 1,
+      score: state.score,
+      enemiesDefeated: state.enemiesDefeated,
+      endlessWave: state.endlessWave ?? null,
+    }, { force: true });
+    saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
+    const progression = updateProgression(state);
+    let offset = 85;
+    for (const achievementId of progression.unlockedAchievements) {
+      spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+      offset += 20;
+    }
+    if (state.endlessWave !== undefined) {
+      void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {
+        // leaderboard submission is best-effort
+      });
     }
   }
 
