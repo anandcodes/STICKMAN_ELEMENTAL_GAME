@@ -300,14 +300,89 @@ export function render(
   }
 
   // Projectiles
+  // Overhauled Projectile Rendering
   for (const p of state.projectiles) {
     ctx.save();
-    ctx.fillStyle = ELEMENT_COLORS[p.element];
-    ctx.shadowColor = ELEMENT_COLORS[p.element];
-    ctx.shadowBlur = 15;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2); ctx.fill();
+    const color = ELEMENT_COLORS[p.element];
+    const t = nowMs * 0.01;
+
+    // 1. Dynamic Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 15 + Math.sin(t * 2) * 5;
+
+    if (p.element === 'fire') {
+      // Fire: Flame-like trail and core
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.3, '#ffcc00');
+      grad.addColorStop(0.6, color);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+
+      // Flickering size
+      const fSize = p.size * (1 + Math.sin(t * 5) * 0.2);
+      ctx.beginPath(); ctx.arc(p.x, p.y, fSize, 0, Math.PI * 2); ctx.fill();
+
+      // Tail
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - fSize);
+      ctx.lineTo(p.x - p.vx * 3, p.y);
+      ctx.lineTo(p.x, p.y + fSize);
+      ctx.fill();
+
+    } else if (p.element === 'water') {
+      // Water: Bubble-like with shine
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+
+      // Highlight shine
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.beginPath(); ctx.arc(p.x - p.size * 0.3, p.y - p.size * 0.3, p.size * 0.3, 0, Math.PI * 2); ctx.fill();
+
+      // Droplet trail
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 2, p.y - p.vy * 2);
+      ctx.stroke();
+
+    } else if (p.element === 'earth') {
+      // Earth: Jagged Rock
+      ctx.fillStyle = color;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(t * (p.vx > 0 ? 1 : -1));
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2;
+        const r = p.size * (0.8 + Math.sin(i * 1.5) * 0.4);
+        ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // Rock cracks
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+
+    } else if (p.element === 'wind') {
+      // Wind: Whirling air rings
+      ctx.strokeStyle = 'rgba(220, 240, 255, 0.8)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 2; i++) {
+        const r = p.size * (1 + i * 0.5 + Math.sin(t * 3 + i) * 0.2);
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, r, r * 0.4, Math.atan2(p.vy, p.vx), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // Core pulse
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+
     ctx.restore();
   }
 
@@ -1263,14 +1338,25 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.strokeStyle = '#f6fbff'; ctx.lineWidth = 3;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  // Elemental outer glow around player body
+  // PERMANENT ELEMENTAL AURA & GLYPHS
+  const t = performance.now() * 0.005;
   ctx.save();
   ctx.shadowColor = accent;
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = 12 + Math.sin(t * 3) * 6;
   ctx.strokeStyle = accent;
-  ctx.globalAlpha = 0.24;
-  ctx.beginPath(); ctx.arc(cx, headY, 12, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, bodyTop); ctx.lineTo(cx, bodyBot + 2); ctx.stroke();
+  ctx.globalAlpha = 0.28;
+
+  // Rotating Magic Glyphs
+  for (let i = 0; i < 3; i++) {
+    const angle = t * 2 + (i * Math.PI * 2 / 3);
+    const gx = cx + Math.cos(angle) * 22;
+    const gy = headY + Math.sin(angle) * 12;
+    ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Subtle Body Glow
+  ctx.beginPath(); ctx.arc(cx, headY, 14, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, bodyTop); ctx.lineTo(cx, bodyBot + 4); ctx.stroke();
   ctx.restore();
 
   // DASH AFTERIMAGE TRAIL
@@ -1310,16 +1396,39 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
     const worldMouseX = state.mousePos.x + state.camera.x;
     const worldMouseY = state.mousePos.y + state.camera.y;
     const armAngle = Math.atan2(worldMouseY - (bodyTop + 5), worldMouseX - cx);
+    const orbX = cx + Math.cos(armAngle) * 20;
+    const orbY = bodyTop + 5 + Math.sin(armAngle) * 20;
+
+    // Draw Casting Arm
     ctx.beginPath(); ctx.moveTo(cx, bodyTop + 5);
     ctx.lineTo(cx + Math.cos(armAngle) * 18, bodyTop + 5 + Math.sin(armAngle) * 18); ctx.stroke();
+    // Non-casting Arm
     ctx.beginPath(); ctx.moveTo(cx, bodyTop + 5);
     ctx.lineTo(cx - f * 12, bodyTop + 15 + walkCycle * 8); ctx.stroke();
-    // Orb
-    ctx.fillStyle = ELEMENT_COLORS[state.selectedElement];
-    ctx.shadowColor = ELEMENT_COLORS[state.selectedElement]; ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(armAngle) * 20, bodyTop + 5 + Math.sin(armAngle) * 20, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
+
+    // ENHANCED ELEMENTAL ORB
+    ctx.save();
+    const t = performance.now() * 0.01;
+    const pulse = Math.sin(t * 3) * 2;
+
+    // Outer Aura
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = accent;
+    ctx.beginPath(); ctx.arc(orbX, orbY, 12 + pulse, 0, Math.PI * 2); ctx.fill();
+
+    // Core Glow
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 15;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(orbX, orbY, 4, 0, Math.PI * 2); ctx.fill();
+
+    // Elemental Tint
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = accent;
+    ctx.beginPath(); ctx.arc(orbX, orbY, 6 + pulse * 0.5, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
   } else {
     ctx.beginPath(); ctx.moveTo(cx, bodyTop + 5);
     ctx.lineTo(cx + f * 12, bodyTop + 12 + walkCycle * 8); ctx.stroke();
@@ -2110,17 +2219,40 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
 
   ctx.fillStyle = '#ffd5a2';
   if (state.endlessWave !== undefined) {
+    ctx.fillStyle = '#ffd5a2';
     ctx.fillText(tr(state, 'game_over_survived_wave', { wave: state.endlessWave }), W / 2, H / 2 + 34);
     ctx.fillText(tr(state, 'game_over_total_kills', { kills: state.endlessKills ?? 0 }), W / 2, H / 2 + 60);
+
+    const blinkAlpha = state.reducedMotion ? 1 : 0.55 + Math.sin(state.screenTimer * 0.06) * 0.45;
+    ctx.globalAlpha = blinkAlpha;
+    ctx.fillStyle = '#ffdf9a';
+    setUiFont(ctx, state, 16, '700');
+    ctx.fillText(isMobile ? tr(state, 'game_over_tap_return') : tr(state, 'game_over_press_return'), W / 2, H / 2 + 112);
   } else {
+    // Campaign Mode - Show Retry/Quit Options
+    const btnW = 180;
+    const btnH = 50;
+    const gap = 30;
+    const baseY = H / 2 + 80;
+    const retryX = W / 2 - btnW - gap / 2;
+    const quitX = W / 2 + gap / 2;
+
+    // Retry Button
+    drawPanel(ctx, retryX, baseY - 15, btnW, btnH, 10, '#64f0c0');
+    ctx.fillStyle = '#ffffff';
+    setUiFont(ctx, state, 14, '700');
+    ctx.fillText(isMobile ? tr(state, 'game_over_mobile_retry') : tr(state, 'game_over_retry'), retryX + btnW / 2, baseY + 18);
+
+    // Quit Button
+    drawPanel(ctx, quitX, baseY - 15, btnW, btnH, 10, '#ff7b89');
+    ctx.fillStyle = '#ffffff';
+    setUiFont(ctx, state, 14, '700');
+    ctx.fillText(isMobile ? tr(state, 'game_over_mobile_quit') : tr(state, 'game_over_quit'), quitX + btnW / 2, baseY + 18);
+
+    ctx.fillStyle = '#ffd5a2';
+    setUiFont(ctx, state, 16, '600');
     ctx.fillText(tr(state, 'game_over_reached_level', { level: state.currentLevel + 1, name: state.levelName }), W / 2, H / 2 + 34);
   }
-
-  const blinkAlpha = state.reducedMotion ? 1 : 0.55 + Math.sin(state.screenTimer * 0.06) * 0.45;
-  ctx.globalAlpha = blinkAlpha;
-  ctx.fillStyle = '#ffdf9a';
-  setUiFont(ctx, state, 16, '700');
-  ctx.fillText(isMobile ? tr(state, 'game_over_tap_return') : tr(state, 'game_over_press_return'), W / 2, H / 2 + 112);
   ctx.globalAlpha = 1;
 }
 function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {

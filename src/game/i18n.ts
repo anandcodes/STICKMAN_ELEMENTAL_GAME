@@ -92,6 +92,10 @@ const TRANSLATIONS = {
     game_over_reached_level: 'Reached Level {level}: {name}',
     game_over_tap_return: 'Tap to Return to Menu',
     game_over_press_return: 'Press ENTER to Return to Menu',
+    game_over_retry: '[R] Retry Level',
+    game_over_quit: '[Q] Quit to Menu',
+    game_over_mobile_retry: 'RETRY',
+    game_over_mobile_quit: 'QUIT',
 
     victory_title: 'VICTORY!',
     victory_subtitle: 'You have mastered all the elements!',
@@ -239,6 +243,10 @@ const TRANSLATIONS = {
     game_over_reached_level: 'Pahunche Level {level}: {name}',
     game_over_tap_return: 'Menu par lautne ke liye tap karein',
     game_over_press_return: 'Menu par lautne ke liye ENTER press karein',
+    game_over_retry: '[R] Dobara koshish',
+    game_over_quit: '[Q] Menu par lautien',
+    game_over_mobile_retry: 'RETRY',
+    game_over_mobile_quit: 'QUIT',
 
     victory_title: 'VICTORY!',
     victory_subtitle: 'Aapne saare elements master kar liye!',

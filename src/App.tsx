@@ -298,9 +298,16 @@ function App() {
 
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
-        assignState(buildMenuState(saved.highScore, s.difficulty));
-        Audio.playMenuSelect();
-        Audio.stopMusic();
+        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
+          // Replicate 'Retry' logic: restart current level
+          assignState(buildRestartLevelState(s, saved.highScore));
+          Audio.playMenuSelect();
+          Audio.startMusic(s.currentLevel);
+        } else {
+          assignState(buildMenuState(saved.highScore, s.difficulty));
+          Audio.playMenuSelect();
+          Audio.stopMusic();
+        }
         return;
       }
 
@@ -537,6 +544,24 @@ function App() {
           return;
         }
 
+        // Game Over Screen (Campaign) - Retry or Quit
+        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
+          if (keyLower === 'r') {
+            const saved = loadSave();
+            assignState(buildRestartLevelState(s, saved.highScore));
+            Audio.playMenuSelect();
+            Audio.startMusic(s.currentLevel);
+            return;
+          }
+          if (keyLower === 'q' || key === 'Escape') {
+            const saved = loadSave();
+            assignState(buildMenuState(saved.highScore, s.difficulty));
+            Audio.playMenuSelect();
+            Audio.stopMusic();
+            return;
+          }
+        }
+
         // Other non-playing screens (levelComplete, gameOver, victory)
         if (key === 'Enter' || key === ' ') {
           e.preventDefault();
@@ -617,6 +642,29 @@ function App() {
       if (handleDialogAdvance()) return;
 
       if (s.screen !== 'playing') {
+        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
+          const btnW = 180; const btnH = 50; const gap = 30; const baseY = CANVAS_H / 2 + 80;
+          const retryX = CANVAS_W / 2 - btnW - gap / 2;
+          const quitX = CANVAS_W / 2 + gap / 2;
+          const tx = s.mousePos.x; const ty = s.mousePos.y;
+
+          if (ty >= baseY - 15 && ty <= baseY + btnH - 15) {
+            if (tx >= retryX && tx <= retryX + btnW) {
+              const saved = loadSave();
+              assignState(buildRestartLevelState(s, saved.highScore));
+              Audio.playMenuSelect();
+              Audio.startMusic(s.currentLevel);
+              return;
+            }
+            if (tx >= quitX && tx <= quitX + btnW) {
+              const saved = loadSave();
+              assignState(buildMenuState(saved.highScore, s.difficulty));
+              Audio.playMenuSelect();
+              Audio.stopMusic();
+              return;
+            }
+          }
+        }
         handleScreenTransition(s.mousePos.x, s.mousePos.y);
         return;
       }
@@ -800,6 +848,36 @@ function App() {
           }
 
           return; // On menu but no button hit
+        }
+
+        // Game Over Screen (Campaign)
+        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = CANVAS_W / rect.width;
+          const scaleY = CANVAS_H / rect.height;
+          const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
+          const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+
+          const btnW = 180; const btnH = 50; const gap = 30; const baseY = CANVAS_H / 2 + 80;
+          const retryX = CANVAS_W / 2 - btnW - gap / 2;
+          const quitX = CANVAS_W / 2 + gap / 2;
+
+          if (ty >= baseY - 15 && ty <= baseY + btnH - 15) {
+            if (tx >= retryX && tx <= retryX + btnW) {
+              const saved = loadSave();
+              assignState(buildRestartLevelState(s, saved.highScore));
+              Audio.playMenuSelect();
+              Audio.startMusic(s.currentLevel);
+              return;
+            }
+            if (tx >= quitX && tx <= quitX + btnW) {
+              const saved = loadSave();
+              assignState(buildMenuState(saved.highScore, s.difficulty));
+              Audio.playMenuSelect();
+              Audio.stopMusic();
+              return;
+            }
+          }
         }
 
         // Other non-playing screens
