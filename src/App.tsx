@@ -79,7 +79,6 @@ function App() {
   const isPortraitMobileRef = useRef(false);
   const loopClockRef = useRef(createLoopClock());
   const [fatalError, setFatalError] = useState<string | null>(null);
-  const [windowSize, setWindowSize] = useState({ w: 1200, h: 700 });
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
@@ -134,9 +133,9 @@ function App() {
   // Compute scale to fill screen while preserving aspect ratio
   useEffect(() => {
     const computeScale = () => {
-      const vw = window.visualViewport?.width ?? window.innerWidth;
-      const vh = window.visualViewport?.height ?? window.innerHeight;
-      setWindowSize({ w: vw, h: vh });
+      const hostRect = containerRef.current?.getBoundingClientRect();
+      const vw = hostRect?.width ?? window.visualViewport?.width ?? window.innerWidth;
+      const vh = hostRect?.height ?? window.visualViewport?.height ?? window.innerHeight;
       let s;
       let w = 1200;
       if (isMobileRef.current) {
@@ -1095,11 +1094,9 @@ function App() {
       aria-label="Elemental Stickman game"
       role="application"
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: windowSize.w,
-        height: windowSize.h,
+        position: 'relative',
+        width: '100%',
+        height: '100%',
         backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
@@ -1116,7 +1113,7 @@ function App() {
         aria-expanded={showSettings}
         onClick={() => setShowSettings(true)}
         style={{
-          position: 'fixed',
+          position: 'absolute',
           top: 12,
           left: 12,
           zIndex: 30,
@@ -1344,4 +1341,3 @@ function App() {
 }
 
 export default App;
-
