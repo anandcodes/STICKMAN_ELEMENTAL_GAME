@@ -106,3 +106,79 @@ test('touching active portal transitions to levelComplete and persists progressi
   assert.equal(state.furthestLevel, 3);
   assert.equal(loadSave().furthestLevel, 3);
 });
+
+test('dash trigger is consumed so holding shift does not auto-recast', () => {
+  setMockStorage();
+  setMockAudioContext();
+
+  const state = createInitialState(1, 0, 3, 0, 'normal');
+  state.screen = 'playing';
+  state.showLevelIntro = false;
+  state.paused = false;
+  state.enemies = [];
+  state.envObjects = [];
+  state.platforms = [];
+  state.keys = new Set(['shift']);
+  state.stickman.mana = 100;
+  state.stickman.dashCooldown = 0;
+  state.stickman.isDashing = false;
+  state.stickman.dashTimer = 0;
+
+  update(state);
+  assert.equal(state.stickman.isDashing, true);
+  assert.equal(state.keys.has('shift'), false);
+
+  // Simulate dash end + cooldown expiry while key is still physically held:
+  // since update consumed the key, it should not auto-trigger a second dash.
+  state.stickman.isDashing = false;
+  state.stickman.dashTimer = 0;
+  state.stickman.dashCooldown = 0;
+  update(state);
+  assert.equal(state.stickman.isDashing, false);
+});
+
+test('dashing into an enemy deals dash impact damage and can secure a kill', () => {
+  setMockStorage();
+  setMockAudioContext();
+
+  const state = createInitialState(1, 0, 3, 0, 'normal');
+  state.screen = 'playing';
+  state.showLevelIntro = false;
+  state.paused = false;
+  state.platforms = [];
+  state.envObjects = [];
+  state.selectedElement = 'fire';
+  state.keys = new Set(['shift']);
+  state.stickman.x = 200;
+  state.stickman.y = 200;
+  state.stickman.facing = 1;
+  state.stickman.health = state.stickman.maxHealth;
+  state.enemies = [{
+    id: 999,
+    type: 'slime',
+    x: 206,
+    y: 206,
+    width: 28,
+    height: 22,
+    vx: 0,
+    vy: 0,
+    health: 20,
+    maxHealth: 20,
+    facing: -1,
+    weakness: 'fire',
+    resistance: 'water',
+    state: 'patrol',
+    hurtTimer: 0,
+    patrolRange: 40,
+    originX: 206,
+    animTimer: 0,
+    damage: 8,
+    speed: 0,
+  }];
+
+  update(state);
+
+  assert.equal(state.enemies[0].state, 'dead');
+  assert.equal(state.enemiesDefeated, 1);
+  assert.equal(state.stickman.health, state.stickman.maxHealth);
+});

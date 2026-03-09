@@ -1,6 +1,6 @@
 import type { GameState } from '../types';
 import { DIFFICULTY_SETTINGS } from '../engine';
-import { spawnFloatingText, spawnParticles } from './utils';
+import { spawnFloatingText, spawnParticles, handleEnemyHit } from './utils';
 
 const FLYING_TYPES = new Set(['bat', 'boss2', 'thunder_hawk', 'corrupted_wraith', 'void_titan']);
 
@@ -267,11 +267,28 @@ export function updateEnemies(state: GameState) {
             enemy.y = Math.max(minY, Math.min(state.worldHeight - 150, enemy.y));
         }
 
-        // Damage player on contact
-        if (s.invincibleTimer <= 0 &&
+        const touchingPlayer =
             s.x + s.width > enemy.x && s.x < enemy.x + enemy.width &&
-            s.y + s.height > enemy.y && s.y < enemy.y + enemy.height
-        ) {
+            s.y + s.height > enemy.y && s.y < enemy.y + enemy.height;
+
+        // Dash impact: dashing through enemies deals elemental contact damage.
+        if (touchingPlayer && s.isDashing) {
+            handleEnemyHit(state, {
+                x: s.x + s.width / 2,
+                y: s.y + s.height / 2,
+                vx: s.facing * 8,
+                vy: 0,
+                element: state.selectedElement,
+                life: 1,
+                size: 10,
+            }, enemy);
+            // Small mana refund rewards aggressive dash usage without being infinite.
+            s.mana = Math.min(s.maxMana, s.mana + 1 + state.upgrades.dashDistanceLevel * 0.25);
+            continue;
+        }
+
+        // Damage player on contact
+        if (s.invincibleTimer <= 0 && touchingPlayer) {
             const ds = DIFFICULTY_SETTINGS[state.difficulty];
             const damage = Math.floor(enemy.damage * ds.enemyDamageMult);
             s.health -= damage;

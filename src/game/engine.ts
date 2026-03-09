@@ -14,6 +14,12 @@ const FRICTION = 0.88;
 const JUMP_FORCE = -13.5;
 const MOVE_SPEED = 0.9;
 const MAX_SPEED = 4.5;
+const DASH_BASE_SPEED = 13;
+const DASH_SPEED_PER_UPGRADE = 1.8;
+const DASH_BASE_DURATION = 10;
+const DASH_DURATION_PER_UPGRADE = 2;
+const DASH_BASE_COOLDOWN = 72;
+const DASH_MANA_COST = 4;
 let CANVAS_W = 1200;
 let CANVAS_H = 700;
 
@@ -297,21 +303,35 @@ export function update(state: GameState): void {
     Audio.playJump();
   }
 
-  // DASH ABILITY - press shift to dash
-  if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= 5) {
+  // DASH ABILITY - short directional burst that can be used for repositioning or aggressive engage
+  const dashSpeed = DASH_BASE_SPEED + state.upgrades.dashDistanceLevel * DASH_SPEED_PER_UPGRADE;
+  if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= DASH_MANA_COST) {
+    const movingLeft = state.keys.has('a') || state.keys.has('arrowleft');
+    const movingRight = state.keys.has('d') || state.keys.has('arrowright');
+    const dashDir = movingLeft && !movingRight ? -1 : movingRight && !movingLeft ? 1 : s.facing;
+    s.facing = dashDir;
     s.isDashing = true;
-    s.dashTimer = 8 + Math.floor(state.upgrades.dashDistanceLevel * 1.5);
-    s.dashCooldown = 90;
-    s.mana -= 5;
-    s.vx = s.facing * (12 + state.upgrades.dashDistanceLevel * 1.5);
-    s.invincibleTimer = Math.max(s.invincibleTimer, 8 + Math.floor(state.upgrades.dashDistanceLevel * 1.5));
+    s.dashTimer = DASH_BASE_DURATION + state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE;
+    s.dashCooldown = DASH_BASE_COOLDOWN;
+    s.mana -= DASH_MANA_COST;
+    s.vx = dashDir * dashSpeed;
+    s.vy *= 0.35;
+    s.invincibleTimer = Math.max(s.invincibleTimer, 10 + state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE);
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 12);
-    state.screenShake = 3;
+    state.screenShake = Math.max(state.screenShake, 4);
     Audio.playJump();
+    // Consume the trigger so holding SHIFT does not auto-chain once cooldown expires.
+    state.keys.delete('shift');
   }
   if (s.dashTimer > 0) {
+    const dashDir = s.vx === 0 ? s.facing : (s.vx > 0 ? 1 : -1);
+    s.vx = dashDir * dashSpeed;
+    s.vy = Math.min(s.vy, 1.4);
     s.dashTimer--;
-    if (s.dashTimer <= 0) s.isDashing = false;
+    if (s.dashTimer <= 0) {
+      s.isDashing = false;
+      s.vx *= 0.6;
+    }
   }
   if (s.dashCooldown > 0) s.dashCooldown--;
 
@@ -332,12 +352,14 @@ export function update(state: GameState): void {
   }
 
   // Physics
-  s.vy += GRAVITY;
+  s.vy += s.isDashing ? GRAVITY * 0.2 : GRAVITY;
 
   // Ice slippery physics (based on onIce state from previous frame's collision)
-  const currentFriction = state.onIce ? 0.98 : FRICTION;
-  // Apply friction
-  s.vx *= currentFriction;
+  if (!s.isDashing) {
+    const currentFriction = state.onIce ? 0.98 : FRICTION;
+    // Apply friction
+    s.vx *= currentFriction;
+  }
 
   // Apply velocity
   s.x += s.vx;
@@ -851,5 +873,4 @@ function updateFloatingTexts(state: GameState): void {
     if (ft.life <= 0) state.floatingTexts.splice(i, 1);
   }
 }
-
 
