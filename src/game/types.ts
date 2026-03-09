@@ -174,6 +174,7 @@ export interface GameState {
   furthestLevel: number;
   levelSelectionIndex: number;
   selectedMenuButton: number;
+  shopSelectionIndex: number;
   totalLevels: number;
   stickman: Stickman;
   platforms: Platform[];

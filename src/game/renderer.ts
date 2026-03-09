@@ -143,6 +143,55 @@ function drawPanel(
   ctx.fill();
 }
 
+/** Draws a premium-looking multi-faceted diamond gem icon */
+function drawGemIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, nowMs: number) {
+  const pulse = Math.sin(nowMs * 0.005) * 0.15 + 1;
+  const s = size * pulse;
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.shadowColor = '#49c8ff';
+  ctx.shadowBlur = 10 * pulse;
+
+  // Outer shape
+  ctx.fillStyle = '#1e90ff';
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s * 0.9, -s * 0.2);
+  ctx.lineTo(s * 0.6, s * 0.8);
+  ctx.lineTo(-s * 0.6, s * 0.8);
+  ctx.lineTo(-s * 0.9, -s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Facet 1 (Left shade)
+  ctx.fillStyle = '#104e8b';
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(0, s * 0.8);
+  ctx.lineTo(-s * 0.6, s * 0.8);
+  ctx.lineTo(-s * 0.9, -s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Facet 2 (Top shine)
+  ctx.fillStyle = '#add8e6';
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s * 0.9, -s * 0.2);
+  ctx.lineTo(-s * 0.9, -s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Highlight Sparkle
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-s * 0.3, -s * 0.3, s * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 export function render(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -2071,61 +2120,74 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   setUiFont(ctx, state, 11, '600');
   ctx.fillText(isMobile ? tr(state, 'menu_tap_open') : tr(state, 'menu_key_open'), W / 2 + 130, barY + 18);
 
-  drawPanel(ctx, W - 355, 84, 320, 236, 14, '#84cfff');
+  // MODERN DAILY CHALLENGES SECTION
+  const dailyX = W - 355;
+  const dailyY = 84;
+  drawPanel(ctx, dailyX, dailyY, 320, 236, 14, '#84cfff');
+
   ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 13, '700');
+  setUiFont(ctx, state, 14, '800');
   ctx.textAlign = 'left';
-  ctx.fillText(tr(state, 'menu_daily_title'), W - 340, 110);
+  ctx.fillText(tr(state, 'menu_daily_title').toUpperCase(), dailyX + 15, dailyY + 28);
 
   ctx.fillStyle = '#aac4e7';
   setUiFont(ctx, state, 11, '600');
-  ctx.fillText(progression.daily.title, W - 340, 130);
-  ctx.fillStyle = progression.daily.completed ? '#74f0b8' : '#ffe28f';
+  ctx.fillText(progression.daily.title, dailyX + 15, dailyY + 48);
+
+  const isDone = progression.daily.completed;
+  ctx.fillStyle = isDone ? '#74f0b8' : '#ffe28f';
+  setUiFont(ctx, state, 11, '700');
   ctx.fillText(
-    progression.daily.completed
+    isDone
       ? tr(state, 'menu_daily_complete')
       : tr(state, 'menu_daily_progress', { current: progression.daily.current, target: progression.daily.target }),
-    W - 340,
-    147,
+    dailyX + 15,
+    dailyY + 66,
   );
 
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  roundRect(ctx, W - 340, 154, 290, 10, 5);
-  ctx.fill();
-  ctx.fillStyle = progression.daily.completed ? '#66efc0' : '#84c8ff';
-  roundRect(ctx, W - 340, 154, 290 * progression.daily.progress, 10, 5);
-  ctx.fill();
+  const dailyBarW = 290;
+  const dailyBarX = dailyX + 15;
+  const dailyBarY = dailyY + 74;
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  roundRect(ctx, dailyBarX, dailyBarY, dailyBarW, 12, 6); ctx.fill();
 
+  if (progression.daily.progress > 0) {
+    const barGrad = ctx.createLinearGradient(dailyBarX, 0, dailyBarX + dailyBarW, 0);
+    barGrad.addColorStop(0, isDone ? '#66efc0' : '#84c8ff');
+    barGrad.addColorStop(1, '#ffffff');
+    ctx.fillStyle = barGrad;
+    roundRect(ctx, dailyBarX, dailyBarY, dailyBarW * progression.daily.progress, 12, 6);
+    ctx.fill();
+  }
+
+  // Achievements Progress
   ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 12, '700');
-  ctx.fillText(tr(state, 'menu_achievements_title'), W - 340, 182);
+  setUiFont(ctx, state, 12, '800');
+  ctx.fillText(tr(state, 'menu_achievements_title').toUpperCase(), dailyX + 15, dailyY + 104);
   ctx.fillStyle = '#8fdcbf';
   setUiFont(ctx, state, 11, '700');
   ctx.fillText(tr(state, 'menu_achievements_progress', {
     unlocked: progression.achievementsUnlocked.length,
     total: progression.totalAchievements,
-  }), W - 340, 199);
+  }).toUpperCase(), dailyX + 15, dailyY + 122);
 
+  // Mini Leaderboard
   ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 12, '700');
-  ctx.fillText(tr(state, 'menu_leaderboard_title'), W - 340, 222);
+  setUiFont(ctx, state, 12, '800');
+  ctx.fillText(tr(state, 'menu_leaderboard_title').toUpperCase(), dailyX + 15, dailyY + 148);
   if (leaderboard.length === 0) {
     ctx.fillStyle = '#8ca6ca';
     setUiFont(ctx, state, 11, '600');
-    ctx.fillText(tr(state, 'menu_leaderboard_empty'), W - 340, 241);
+    ctx.fillText(tr(state, 'menu_leaderboard_empty'), dailyX + 15, dailyY + 168);
   } else {
-    for (let i = 0; i < leaderboard.length; i++) {
+    for (let i = 0; i < Math.min(3, leaderboard.length); i++) {
       const row = leaderboard[i];
       ctx.fillStyle = i === 0 ? '#ffe18f' : '#a9c9ea';
       setUiFont(ctx, state, 11, '700');
       ctx.fillText(
-        tr(state, 'menu_leaderboard_row', {
-          rank: i + 1,
-          player: shortAccountId(row.accountId),
-          score: row.score,
-        }),
-        W - 340,
-        241 + i * 18,
+        `${i + 1}. ${shortAccountId(row.accountId)} - ${row.score}`,
+        dailyX + 15,
+        dailyY + 168 + i * 18,
       );
     }
   }
@@ -2137,166 +2199,259 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
       queue: cloudStatus.pending + boardStatus.pendingSubmissions,
       remote: boardStatus.remoteEnabled ? 'online' : 'local',
     }),
-    W - 340,
-    305,
+    dailyX + 15,
+    dailyY + 225,
   );
 
-  drawPanel(ctx, W / 2 - 350, H - 72, 700, 52, 12, '#6fb2ff');
-  ctx.fillStyle = UI_THEME.paper;
-  setUiFont(ctx, state, 12, '700');
-  ctx.fillText(tr(state, 'menu_stats', {
-    best: state.highScore,
-    gems: state.gemsCurrency,
-    level: state.furthestLevel + 1,
-  }), W / 2, H - 48);
+  // BOTTOM STATS BAR (Modernized with Gem Icon)
+  const statsY = H - 76;
+  drawPanel(ctx, W / 2 - 350, statsY, 700, 52, 12, '#6fb2ff');
+  ctx.textAlign = 'center';
+
+  // Best Score
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 13, '800');
+  ctx.fillText(tr(state, 'hud_best', { best: state.highScore }).toUpperCase(), W / 2 - 200, statsY + 32);
+
+  // Gems in the middle with icon
+  const gemX = W / 2;
+  drawGemIcon(ctx, gemX - 35, statsY + 28, 10, performance.now());
+  ctx.fillStyle = '#ffdf8c';
+  setUiFont(ctx, state, 20, '800');
+  ctx.textAlign = 'left';
+  ctx.fillText(String(state.gemsCurrency), gemX - 10, statsY + 36);
+
+  // Level info
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'right';
+  setUiFont(ctx, state, 13, '800');
+  ctx.fillText(`LEVEL ${state.furthestLevel + 1}`, W / 2 + 250, statsY + 32);
 
   ctx.fillStyle = UI_THEME.muted;
+  ctx.textAlign = 'center';
   setUiFont(ctx, state, 11, '600');
-  ctx.fillText(isMobile ? tr(state, 'menu_controls_mobile') : tr(state, 'menu_controls_desktop'), W / 2, H - 30);
+  ctx.fillText(isMobile ? tr(state, 'menu_controls_mobile') : tr(state, 'menu_controls_desktop'), W / 2, H - 15);
 }
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#051527', '#0f2e45', '#143e39']);
 
-  drawPanel(ctx, W / 2 - 360, H / 2 - 160, 720, 320, 20, '#64f0c0');
-  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
+  const panelW = 740;
+  const panelH = 380;
+  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 180, panelW, panelH, 22, '#64f0c0');
 
+  const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
   ctx.shadowColor = '#63ffcb';
-  ctx.shadowBlur = 26;
-  ctx.fillStyle = '#d8ffee';
-  setDisplayFont(ctx, state, 44, '800');
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 46, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'level_complete_title'), W / 2, H / 2 - 92 + Math.sin(tSec) * 4);
+  ctx.fillText(tr(state, 'level_complete_title').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 4);
   ctx.restore();
-  ctx.textAlign = 'center';
 
-  ctx.fillStyle = UI_THEME.warning;
-  setUiFont(ctx, state, 18, '700');
-  ctx.fillText(tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }), W / 2, H / 2 - 48);
+  // Level Info Subtitle
+  ctx.fillStyle = '#64f0c0';
+  setUiFont(ctx, state, 20, '800');
+  ctx.fillText(tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }).toUpperCase(), W / 2, H / 2 - 68);
 
-  ctx.fillStyle = UI_THEME.paper;
-  setUiFont(ctx, state, 15, '600');
-  ctx.fillText(tr(state, 'level_complete_gems', { collected: state.gemsCollected, total: state.totalGems }), W / 2, H / 2 - 8);
-  ctx.fillText(tr(state, 'level_complete_enemies', { count: state.enemiesDefeated }), W / 2, H / 2 + 20);
-  ctx.fillText(tr(state, 'level_complete_score', { score: state.score }), W / 2, H / 2 + 48);
+  // Stats Grid
+  const gridY = H / 2 - 25;
+  const colW = 220;
 
-  if (state.gemsCollected >= state.totalGems) {
+  const drawStat = (x: number, label: string, value: string | number, color = '#ffffff', icon?: 'gem') => {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRect(ctx, x - colW / 2 + 10, gridY - 15, colW - 20, 70, 12);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(100, 240, 192, 0.4)';
+    setUiFont(ctx, state, 10, '800');
+    ctx.fillText(label.toUpperCase(), x, gridY + 8);
+
+    ctx.fillStyle = color;
+    setUiFont(ctx, state, 24, '800');
+    if (icon === 'gem') {
+      drawGemIcon(ctx, x - 25, gridY + 32, 11, nowMs);
+      ctx.textAlign = 'left';
+      ctx.fillText(String(value), x - 5, gridY + 41);
+      ctx.textAlign = 'center';
+    } else {
+      ctx.fillText(String(value), x, gridY + 41);
+    }
+  };
+
+  drawStat(W / 2 - colW, tr(state, 'menu_daily_title'), state.gemsCollected, '#ffe08f', 'gem');
+  drawStat(W / 2, tr(state, 'game_over_total_kills', { kills: '' }).trim(), state.enemiesDefeated, '#ff8fa1');
+  drawStat(W / 2 + colW, tr(state, 'level_complete_score', { score: '' }).split(':')[0].trim(), state.score, '#8ce8ff');
+
+  if (state.gemsCollected >= state.totalGems && state.totalGems > 0) {
     ctx.fillStyle = '#ffe38a';
     setUiFont(ctx, state, 14, '700');
-    ctx.fillText(tr(state, 'level_complete_all_gems_bonus'), W / 2, H / 2 + 74);
+    ctx.fillText("✨ " + tr(state, 'level_complete_all_gems_bonus') + " ✨", W / 2, H / 2 + 82);
   }
 
-  const blinkAlpha = state.reducedMotion ? 1 : 0.55 + Math.sin(state.screenTimer * 0.07) * 0.45;
+  // Next Instructions
+  const footerY = H / 2 + 132;
+  const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.08) * 0.4;
   ctx.globalAlpha = blinkAlpha;
-  ctx.fillStyle = '#96dcff';
-  setUiFont(ctx, state, 16, '700');
-  if (state.currentLevel + 1 >= state.totalLevels) {
-    ctx.fillText(isMobile ? tr(state, 'level_complete_tap_victory') : tr(state, 'level_complete_click_victory'), W / 2, H / 2 + 116);
-  } else {
-    ctx.fillText(isMobile ? tr(state, 'level_complete_tap_next') : tr(state, 'level_complete_click_next'), W / 2, H / 2 + 116);
-  }
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 16, '800');
+  const isVictory = state.currentLevel + 1 >= state.totalLevels;
+  const nextKey = isVictory ? 'level_complete_click_victory' : 'level_complete_click_next';
+  const nextKeyMobile = isVictory ? 'level_complete_tap_victory' : 'level_complete_tap_next';
+  ctx.fillText(isMobile ? tr(state, nextKeyMobile as any) : tr(state, nextKey as any), W / 2, footerY);
   ctx.globalAlpha = 1;
 }
 function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   drawBackdrop(ctx, state, W, H, ['#220611', '#321126', '#12040b']);
-  drawPanel(ctx, W / 2 - 360, H / 2 - 160, 720, 320, 20, '#ff8fa1');
+
+  const panelW = 740;
+  const panelH = 360;
+  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 180, panelW, panelH, 22, '#ff6b81');
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#ff5a74';
+  ctx.shadowColor = '#ff3355';
   ctx.shadowBlur = 30;
-  ctx.fillStyle = '#ffdce3';
-  setDisplayFont(ctx, state, 46, '800');
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 48, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title'), W / 2, H / 2 - 72 + Math.sin(tSec) * 3);
+  const title = state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title');
+  ctx.fillText(title.toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 3);
   ctx.restore();
-  ctx.textAlign = 'center';
 
-  ctx.fillStyle = '#f3b7c4';
-  setUiFont(ctx, state, 16, '600');
-  ctx.fillText(tr(state, 'game_over_final_score', { score: state.score }), W / 2, H / 2 - 24);
-  ctx.fillText(tr(state, 'game_over_best_score', { score: state.highScore }), W / 2, H / 2 + 4);
+  // Stats Layout
+  const gridY = H / 2 - 25;
+  const colW = 220;
 
-  ctx.fillStyle = '#ffd5a2';
+  const drawStat = (x: number, label: string, value: string | number, color = '#ffffff') => {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRect(ctx, x - colW / 2 + 10, gridY - 15, colW - 20, 80, 14);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 107, 129, 0.5)';
+    setUiFont(ctx, state, 10, '800');
+    ctx.fillText(label.toUpperCase(), x, gridY + 12);
+    ctx.fillStyle = color;
+    setUiFont(ctx, state, 26, '800');
+    ctx.fillText(String(value), x, gridY + 48);
+  };
+
   if (state.endlessWave !== undefined) {
-    ctx.fillStyle = '#ffd5a2';
-    ctx.fillText(tr(state, 'game_over_survived_wave', { wave: state.endlessWave }), W / 2, H / 2 + 34);
-    ctx.fillText(tr(state, 'game_over_total_kills', { kills: state.endlessKills ?? 0 }), W / 2, H / 2 + 60);
+    drawStat(W / 2 - colW, "WAVE", state.endlessWave, '#ffe08f');
+    drawStat(W / 2, "KILLS", state.endlessKills ?? 0, '#ff8fa1');
+    drawStat(W / 2 + colW, "SCORE", state.score, '#8ce8ff');
 
-    const blinkAlpha = state.reducedMotion ? 1 : 0.55 + Math.sin(state.screenTimer * 0.06) * 0.45;
+    const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.08) * 0.4;
     ctx.globalAlpha = blinkAlpha;
-    ctx.fillStyle = '#ffdf9a';
-    setUiFont(ctx, state, 16, '700');
-    ctx.fillText(isMobile ? tr(state, 'game_over_tap_return') : tr(state, 'game_over_press_return'), W / 2, H / 2 + 112);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    setUiFont(ctx, state, 15, '800');
+    ctx.fillText(isMobile ? tr(state, 'game_over_tap_return').toUpperCase() : tr(state, 'game_over_press_return').toUpperCase(), W / 2, H / 2 + 130);
+    ctx.globalAlpha = 1;
   } else {
-    // Campaign Mode - Show Retry/Quit Options
-    const btnW = 180;
-    const btnH = 50;
+    drawStat(W / 2 - colW / 2 - 10, "FINAL SCORE", state.score, '#ffffff');
+    drawStat(W / 2 + colW / 2 + 10, "BEST SCORE", state.highScore, '#ffe08f');
+
+    // Campaign Buttons
+    const btnW = 194;
+    const btnH = 56;
     const gap = 30;
-    const baseY = H / 2 + 80;
+    const baseY = H / 2 + 85;
     const retryX = W / 2 - btnW - gap / 2;
     const quitX = W / 2 + gap / 2;
 
     // Retry Button
-    drawPanel(ctx, retryX, baseY - 15, btnW, btnH, 10, '#64f0c0');
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 14, '700');
-    ctx.fillText(isMobile ? tr(state, 'game_over_mobile_retry') : tr(state, 'game_over_retry'), retryX + btnW / 2, baseY + 18);
+    drawPanel(ctx, retryX, baseY, btnW, btnH, 12, '#ffffff');
+    ctx.fillStyle = '#ff6b81';
+    setUiFont(ctx, state, 16, '900');
+    ctx.textAlign = 'center';
+    ctx.fillText(tr(state, 'game_over_retry').toUpperCase(), retryX + btnW / 2, baseY + 36);
 
     // Quit Button
-    drawPanel(ctx, quitX, baseY - 15, btnW, btnH, 10, '#ff7b89');
+    drawPanel(ctx, quitX, baseY, btnW, btnH, 12, 'rgba(255,255,255,0.15)');
     ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 14, '700');
-    ctx.fillText(isMobile ? tr(state, 'game_over_mobile_quit') : tr(state, 'game_over_quit'), quitX + btnW / 2, baseY + 18);
+    setUiFont(ctx, state, 16, '900');
+    ctx.fillText(tr(state, 'game_over_quit').toUpperCase(), quitX + btnW / 2, baseY + 36);
 
-    ctx.fillStyle = '#ffd5a2';
-    setUiFont(ctx, state, 16, '600');
-    ctx.fillText(tr(state, 'game_over_reached_level', { level: state.currentLevel + 1, name: state.levelName }), W / 2, H / 2 + 34);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    setUiFont(ctx, state, 10, '700');
+    ctx.fillText("[ R ] RETRY    [ Q ] QUIT", W / 2, baseY + btnH + 26);
   }
-  ctx.globalAlpha = 1;
 }
 function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#0d142f', '#1e2f6f', '#163d4c']);
-  drawPanel(ctx, W / 2 - 360, H / 2 - 160, 720, 320, 20, '#8ce8ff');
 
+  // CINEMATIC ENERGY RING EFFECT
   if (!state.reducedMotion) {
-    for (let i = 0; i < 26; i++) {
-      const sx = (Math.sin(state.screenTimer * 0.024 + i * 1.37) * 0.5 + 0.5) * W;
-      const sy = (Math.cos(state.screenTimer * 0.017 + i * 0.91) * 0.5 + 0.5) * H;
-      const alpha = 0.24 + Math.sin(state.screenTimer * 0.05 + i) * 0.2;
-      ctx.fillStyle = `rgba(140, 238, 255, ${alpha})`;
+    ctx.save();
+    ctx.translate(W / 2, H / 2 - 20);
+    const ringT = nowMs * 0.001;
+    for (let i = 0; i < 3; i++) {
+      const r = 240 + i * 20 + Math.sin(ringT * 2 + i) * 10;
+      ctx.strokeStyle = `rgba(140, 238, 255, ${0.15 - i * 0.04})`;
+      ctx.lineWidth = 15;
       ctx.beginPath();
-      ctx.arc(sx, sy, 3.4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(0, 0, r, ringT * (i % 2 === 0 ? 1 : -1), ringT * (i % 2 === 0 ? 1 : -1) + Math.PI * 1.5);
+      ctx.stroke();
     }
+    ctx.restore();
   }
+
+  const panelW = 760;
+  const panelH = 400;
+  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#8ce8ff');
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#7ce4ff';
-  ctx.shadowBlur = 30;
-  ctx.fillStyle = '#ecfbff';
-  setDisplayFont(ctx, state, 48, '800');
+  ctx.shadowColor = '#00f2ff';
+  ctx.shadowBlur = 35;
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 56, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'victory_title'), W / 2, H / 2 - 86 + Math.sin(tSec) * 5);
+  ctx.fillText(tr(state, 'victory_title').toUpperCase(), W / 2, H / 2 - 110 + Math.sin(tSec) * 6);
   ctx.restore();
+
+  ctx.fillStyle = '#8ce8ff';
+  setUiFont(ctx, state, 22, '800');
   ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'victory_subtitle').toUpperCase(), W / 2, H / 2 - 68);
 
-  ctx.fillStyle = '#d8efff';
-  setUiFont(ctx, state, 18, '700');
-  ctx.fillText(tr(state, 'victory_subtitle'), W / 2, H / 2 - 36);
+  // Modern Stat Cards
+  const gridY = H / 2 - 12;
+  const colW = 220;
 
-  ctx.fillStyle = '#ffe49a';
-  setUiFont(ctx, state, 16, '600');
-  ctx.fillText(tr(state, 'victory_final_score', { score: state.score }), W / 2, H / 2 + 6);
-  ctx.fillText(tr(state, 'victory_total_gems', { gems: state.totalGemsEver }), W / 2, H / 2 + 32);
-  ctx.fillText(tr(state, 'victory_enemies', { count: state.enemiesDefeated }), W / 2, H / 2 + 58);
+  const drawStat = (x: number, label: string, value: string | number, color = '#ffffff', icon?: 'gem') => {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRect(ctx, x - colW / 2 + 10, gridY - 15, colW - 20, 80, 14);
+    ctx.fill();
 
-  const blinkAlpha = state.reducedMotion ? 1 : 0.5 + Math.sin(state.screenTimer * 0.06) * 0.5;
+    ctx.fillStyle = 'rgba(140, 238, 255, 0.5)';
+    setUiFont(ctx, state, 11, '800');
+    ctx.fillText(label.toUpperCase(), x, gridY + 12);
+
+    ctx.fillStyle = color;
+    setUiFont(ctx, state, 26, '800');
+    if (icon === 'gem') {
+      drawGemIcon(ctx, x - 25, gridY + 38, 12, nowMs);
+      ctx.textAlign = 'left';
+      ctx.fillText(String(value), x - 4, gridY + 48);
+      ctx.textAlign = 'center';
+    } else {
+      ctx.fillText(String(value), x, gridY + 48);
+    }
+  };
+
+  drawStat(W / 2 - colW, tr(state, 'level_complete_score', { score: '' }).split(':')[0].trim(), state.score, '#ffffff');
+  drawStat(W / 2, tr(state, 'victory_total_gems', { gems: '' }).split(':')[0].trim(), state.totalGemsEver, '#ffe08f', 'gem');
+  drawStat(W / 2 + colW, tr(state, 'victory_enemies', { count: '' }).split(':')[0].trim(), state.enemiesDefeated, '#ff8fa1');
+
+  // Instructions
+  const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.08) * 0.4;
   ctx.globalAlpha = blinkAlpha;
-  ctx.fillStyle = '#9ce3ff';
-  setUiFont(ctx, state, 16, '700');
-  ctx.fillText(isMobile ? tr(state, 'victory_tap_again') : tr(state, 'victory_click_again'), W / 2, H / 2 + 112);
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 16, '800');
+  ctx.fillText(isMobile ? tr(state, 'victory_tap_again') : tr(state, 'victory_click_again'), W / 2, H / 2 + 145);
   ctx.globalAlpha = 1;
 }
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -2314,18 +2469,32 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#080d1f', '#102545', '#0f1631']);
-  drawPanel(ctx, W / 2 - 370, 36, 740, 620, 22, '#75cbff');
 
+  // Outer Border Panel
+  const panelW = 760;
+  const panelH = 640;
+  drawPanel(ctx, W / 2 - panelW / 2, 26, panelW, panelH, 22, '#75cbff');
+
+  // Title
   ctx.fillStyle = UI_THEME.paper;
-  setDisplayFont(ctx, state, 40, '800');
+  setDisplayFont(ctx, state, 42, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'shop_title'), W / 2, 92);
+  ctx.fillText(tr(state, 'shop_title'), W / 2, 86);
 
-  drawPanel(ctx, W / 2 - 180, 110, 360, 56, 12, '#ffd37f');
-  ctx.fillStyle = '#ffeab7';
-  setUiFont(ctx, state, 22, '700');
-  ctx.fillText(tr(state, 'shop_currency', { gems: state.gemsCurrency }), W / 2, 146);
+  // CURRENCY DISPLAY (Modernized)
+  const gemBoxY = 104;
+  drawPanel(ctx, W / 2 - 160, gemBoxY, 320, 52, 12, '#ffd37f');
+  drawGemIcon(ctx, W / 2 - 120, gemBoxY + 26, 12, nowMs);
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 24, '800');
+  ctx.textAlign = 'left';
+  ctx.fillText(String(state.gemsCurrency), W / 2 - 95, gemBoxY + 34);
+  setUiFont(ctx, state, 12, '700');
+  ctx.fillStyle = '#694100';
+  ctx.textAlign = 'right';
+  ctx.fillText(tr(state, 'shop_currency', { gems: '' }).trim(), W / 2 + 140, gemBoxY + 32);
 
   const upg = state.upgrades;
   const costs = {
@@ -2337,55 +2506,90 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     dashDistance: (upg.dashDistanceLevel + 1) * 80,
   };
 
-  const spacing = 70;
-  const startY = 194;
-  setUiFont(ctx, state, 18, '700');
-  ctx.textAlign = 'left';
+  const spacing = 72;
+  const startY = 180;
 
-  const drawRow = (idx: number, y: number, name: string, level: number, cost: number, maxed: boolean) => {
-    drawPanel(ctx, W / 2 - 290, y - 30, 580, 58, 12, maxed ? '#71de8f' : '#7acaff');
-    ctx.fillStyle = maxed ? '#b3ffc2' : (state.gemsCurrency >= cost ? UI_THEME.paper : '#ffb6be');
-    ctx.fillText(`[${idx}] ${name}`, W / 2 - 250, y + 4);
+  const drawRow = (idx: number, y: number, name: string, level: number, cost: number) => {
+    const isSelected = state.shopSelectionIndex === idx - 1;
+    const maxed = level >= 5;
+    const canAfford = state.gemsCurrency >= cost || maxed;
 
-    for (let i = 0; i < 5; i++) {
-      const boxX = W / 2 + i * 35 - 24;
-      ctx.fillStyle = i < level ? '#6be2ff' : 'rgba(255,255,255,0.08)';
-      roundRect(ctx, boxX, y - 18, 27, 24, 5);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    // Modern Row Background
+    ctx.save();
+    if (isSelected) {
+      ctx.shadowColor = maxed ? '#8bffaf' : '#75cbff';
+      ctx.shadowBlur = 18;
+    }
+    const rowGrad = ctx.createLinearGradient(W / 2 - 320, y - 30, W / 2 + 320, y + 30);
+    rowGrad.addColorStop(0, isSelected ? 'rgba(57, 147, 255, 0.4)' : 'rgba(255,255,255,0.04)');
+    rowGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = rowGrad;
+    roundRect(ctx, W / 2 - 320, y - 28, 640, 60, 12);
+    ctx.fill();
+    if (isSelected) {
+      ctx.strokeStyle = maxed ? '#8effaf' : '#7acaff';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     }
+    ctx.restore();
 
-    ctx.fillStyle = maxed ? '#8effaf' : '#ffe08f';
-    ctx.textAlign = 'right';
-    ctx.fillText(maxed ? tr(state, 'shop_maxed') : `${cost}`, W / 2 + 252, y + 4);
+    // Icon Placeholder or Label
     ctx.textAlign = 'left';
+    ctx.fillStyle = isSelected ? '#ffffff' : '#b2d8ff';
+    setUiFont(ctx, state, 18, '700');
+    ctx.fillText(name.toUpperCase(), W / 2 - 290, y + 8);
+
+    // Modern Level pips
+    for (let i = 0; i < 5; i++) {
+      const boxX = W / 2 + 10 + i * 36;
+      const active = i < level;
+
+      ctx.save();
+      if (active) {
+        ctx.shadowColor = '#6be2ff';
+        ctx.shadowBlur = 8;
+      }
+      ctx.fillStyle = active ? '#6be2ff' : 'rgba(255,255,255,0.1)';
+      roundRect(ctx, boxX, y - 16, 28, 26, 6);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Cost side
+    ctx.textAlign = 'right';
+    if (maxed) {
+      ctx.fillStyle = '#8effaf';
+      setUiFont(ctx, state, 14, '800');
+      ctx.fillText(tr(state, 'shop_maxed').toUpperCase(), W / 2 + 300, y + 8);
+    } else {
+      ctx.fillStyle = canAfford ? '#ffe08f' : '#ff7b89';
+      setUiFont(ctx, state, 20, '800');
+      ctx.fillText(String(cost), W / 2 + 275, y + 10);
+      drawGemIcon(ctx, W / 2 + 292, y + 1, 8, nowMs);
+    }
   };
 
-  drawRow(1, startY, tr(state, 'shop_max_health'), upg.healthLevel, costs.health, upg.healthLevel >= 5);
-  drawRow(2, startY + spacing, tr(state, 'shop_max_mana'), upg.manaLevel, costs.mana, upg.manaLevel >= 5);
-  drawRow(3, startY + spacing * 2, tr(state, 'shop_mana_regen'), upg.regenLevel, costs.regen, upg.regenLevel >= 5);
-  drawRow(4, startY + spacing * 3, tr(state, 'shop_spell_damage'), upg.damageLevel, costs.damage, upg.damageLevel >= 5);
-  drawRow(5, startY + spacing * 4, tr(state, 'shop_double_jump' as any), upg.doubleJumpLevel, costs.doubleJump, upg.doubleJumpLevel >= 5);
-  drawRow(6, startY + spacing * 5, tr(state, 'shop_dash_distance' as any), upg.dashDistanceLevel, costs.dashDistance, upg.dashDistanceLevel >= 5);
+  drawRow(1, startY, tr(state, 'shop_max_health'), upg.healthLevel, costs.health);
+  drawRow(2, startY + spacing, tr(state, 'shop_max_mana'), upg.manaLevel, costs.mana);
+  drawRow(3, startY + spacing * 2, tr(state, 'shop_mana_regen'), upg.regenLevel, costs.regen);
+  drawRow(4, startY + spacing * 3, tr(state, 'shop_spell_damage'), upg.damageLevel, costs.damage);
+  drawRow(5, startY + spacing * 4, tr(state, 'shop_double_jump'), upg.doubleJumpLevel, costs.doubleJump);
+  drawRow(6, startY + spacing * 5, tr(state, 'shop_dash_distance'), upg.dashDistanceLevel, costs.dashDistance);
 
-  drawPanel(ctx, W / 2 - 325, H - 104, 650, 74, 12, '#89d6ff');
-  ctx.fillStyle = UI_THEME.muted;
+  // Footer / Instructions
+  drawPanel(ctx, W / 2 - 360, H - 98, 720, 68, 12, '#89d6ff');
   ctx.textAlign = 'center';
-  setUiFont(ctx, state, 15, '600');
 
   if (isMobile) {
-    ctx.fillText(tr(state, 'shop_tap_buy'), W / 2, H - 78);
-    ctx.fillStyle = 'rgba(11, 20, 35, 0.95)';
-    roundRect(ctx, W / 2 - 60, H - 70, 120, 40, 10);
-    ctx.fill();
-    ctx.strokeStyle = '#8cc5ff';
-    ctx.stroke();
-    ctx.fillStyle = '#d8ecff';
-    setUiFont(ctx, state, 14, '700');
-    ctx.fillText(tr(state, 'shop_back'), W / 2, H - 44);
+    ctx.fillStyle = UI_THEME.paper;
+    setUiFont(ctx, state, 16, '700');
+    ctx.fillText(tr(state, 'shop_back').toUpperCase(), W / 2, H - 65);
   } else {
-    ctx.fillText(tr(state, 'shop_press_buy'), W / 2, H - 78);
+    ctx.fillStyle = '#ffffff';
+    setUiFont(ctx, state, 14, '700');
+    ctx.fillText(tr(state, 'shop_press_buy').toUpperCase(), W / 2, H - 72);
+    ctx.fillStyle = '#a7c6e7';
+    setUiFont(ctx, state, 12, '600');
     ctx.fillText(tr(state, 'shop_press_back'), W / 2, H - 52);
   }
 }
@@ -2447,19 +2651,23 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) 
 
 function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   drawBackdrop(ctx, state, W, H, ['#0a1230', '#112755', '#14193d']);
-  drawPanel(ctx, W / 2 - 520, 36, 1040, 624, 22, '#74c8ff');
 
-  ctx.fillStyle = UI_THEME.paper;
-  setDisplayFont(ctx, state, 40, '800');
+  // Larger, modern main panel
+  const panelW = 1080;
+  const panelH = 630;
+  drawPanel(ctx, W / 2 - panelW / 2, 30, panelW, panelH, 24, '#74c8ff');
+
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 42, '800');
   ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'level_select_title'), W / 2, 92);
+  ctx.fillText(tr(state, 'level_select_title').toUpperCase(), W / 2, 86);
 
   const cols = 5;
-  const cardW = 180;
-  const cardH = 120;
-  const gap = 20;
+  const cardW = 194;
+  const cardH = 130;
+  const gap = 16;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = 150;
+  const startY = 140;
 
   for (let i = 0; i < state.totalLevels; i++) {
     const col = i % cols;
@@ -2469,61 +2677,77 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
 
     const unlocked = i <= state.furthestLevel;
     const selected = state.levelSelectionIndex === i;
+    const t = performance.now() * 0.005;
 
-    const cardGrad = ctx.createLinearGradient(lx, ly, lx + cardW, ly + cardH);
-    cardGrad.addColorStop(0, selected ? 'rgba(95, 184, 255, 0.33)' : 'rgba(11, 20, 40, 0.88)');
-    cardGrad.addColorStop(1, selected ? 'rgba(80, 227, 194, 0.24)' : 'rgba(18, 37, 70, 0.82)');
+    // CARD BACKGROUND
+    ctx.save();
+    if (selected) {
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 20 + Math.sin(t * 2) * 8;
+    }
+    const cardGrad = ctx.createLinearGradient(lx, ly, lx, ly + cardH);
+    if (!unlocked) {
+      cardGrad.addColorStop(0, 'rgba(0,0,0,0.4)');
+      cardGrad.addColorStop(1, 'rgba(255,255,255,0.02)');
+    } else {
+      cardGrad.addColorStop(0, selected ? 'rgba(95, 200, 255, 0.4)' : 'rgba(255,255,255,0.08)');
+      cardGrad.addColorStop(1, 'rgba(0,0,0,0.2)');
+    }
     ctx.fillStyle = cardGrad;
-    roundRect(ctx, lx, ly, cardW, cardH, 10);
+    roundRect(ctx, lx, ly, cardW, cardH, 14);
     ctx.fill();
 
-    if (selected) {
-      ctx.strokeStyle = '#7ad3ff';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = '#7ad3ff';
-      ctx.shadowBlur = 18;
-      roundRect(ctx, lx, ly, cardW, cardH, 10);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    } else {
-      ctx.strokeStyle = 'rgba(145, 199, 255, 0.25)';
-      ctx.lineWidth = 1;
-      roundRect(ctx, lx, ly, cardW, cardH, 10);
-      ctx.stroke();
-    }
+    // BORDER
+    ctx.strokeStyle = selected ? '#ffffff' : (unlocked ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)');
+    ctx.lineWidth = selected ? 3 : 1;
+    ctx.stroke();
+    ctx.restore();
 
     if (unlocked) {
-      ctx.fillStyle = '#dff4ff';
-      setDisplayFont(ctx, state, 28, '700');
+      // Level Number
+      ctx.fillStyle = '#ffffff';
+      setDisplayFont(ctx, state, 32, '900');
       ctx.textAlign = 'center';
-      ctx.fillText(`${i + 1}`, lx + cardW / 2, ly + 50);
+      ctx.fillText(`${i + 1}`, lx + cardW / 2, ly + 58);
 
+      // Best Time "Mission Status"
       const best = state.bestTimes[i];
       if (best) {
         ctx.fillStyle = '#8ef8c6';
-        setUiFont(ctx, state, 11, '700');
-        ctx.fillText(tr(state, 'level_select_best', { time: formatFramesAsTime(best) }), lx + cardW / 2, ly + 80);
+        setUiFont(ctx, state, 11, '800');
+        ctx.fillText("COMPLETED", lx + cardW / 2, ly + 88);
+        setUiFont(ctx, state, 10, '700');
+        ctx.fillText(formatFramesAsTime(best), lx + cardW / 2, ly + 104);
       } else {
-        ctx.fillStyle = '#6d89ae';
-        setUiFont(ctx, state, 11, '600');
-        ctx.fillText(tr(state, 'level_select_none'), lx + cardW / 2, ly + 80);
+        ctx.fillStyle = '#a7c6e7';
+        setUiFont(ctx, state, 11, '700');
+        ctx.fillText("NEW MISSION", lx + cardW / 2, ly + 95);
       }
     } else {
-      ctx.fillStyle = '#95a7c2';
-      setUiFont(ctx, state, 18, '700');
+      // Locked Icon/Text
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#7a8ba3';
+      setUiFont(ctx, state, 20, '800');
       ctx.textAlign = 'center';
-      ctx.fillText(tr(state, 'level_select_locked'), lx + cardW / 2, ly + 65);
+      ctx.fillText("LOCKED", lx + cardW / 2, ly + cardH / 2 + 8);
+      ctx.globalAlpha = 1;
     }
   }
 
-  drawPanel(ctx, W / 2 - 430, H - 86, 860, 56, 12, '#86d2ff');
-  ctx.fillStyle = '#d8ecff';
-  setUiFont(ctx, state, 14, '700');
-  ctx.fillText(isMobile ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start'), W / 2, H - 58);
+  // Modern Footer
+  const footerW = 800;
+  const footerH = 68;
+  drawPanel(ctx, W / 2 - footerW / 2, H - 90, footerW, footerH, 12, '#86d2ff');
 
-  ctx.fillStyle = UI_THEME.muted;
-  setUiFont(ctx, state, 11, '600');
-  ctx.fillText(tr(state, 'level_select_locked_hint'), W / 2, H - 39);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 15, '800');
+  const startText = isMobile ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start');
+  ctx.fillText(startText.toUpperCase(), W / 2, H - 62);
+
+  ctx.fillStyle = '#1c3e66';
+  setUiFont(ctx, state, 11, '700');
+  ctx.fillText(tr(state, 'level_select_locked_hint').toUpperCase(), W / 2, H - 42);
 }
 
 function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isPortraitMobile: boolean) {

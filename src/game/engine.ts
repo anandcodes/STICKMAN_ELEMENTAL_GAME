@@ -137,6 +137,7 @@ export function createInitialState(level = 0, score = 0, lives = 3, highScore = 
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
     selectedMenuButton: 0,
+    shopSelectionIndex: 0,
   };
 }
 

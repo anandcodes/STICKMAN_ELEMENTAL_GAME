@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { update, DIFFICULTY_SETTINGS } from './game/engine';
+import { update, DIFFICULTY_SETTINGS, spawnFloatingText } from './game/engine';
 import { render } from './game/renderer';
 import type { Difficulty, Element, GameSettings, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
@@ -43,6 +43,10 @@ function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.textScale = settings.textScale;
   state.reducedMotion = settings.reducedMotion;
   state.highContrast = settings.highContrast;
+}
+
+function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
+  return t(state.locale, key, vars);
 }
 
 function mapGameplayKey(rawKey: string, settings: GameSettings): string | null {
@@ -237,6 +241,33 @@ function App() {
       return false;
     };
 
+    const handleShopPurchase = (index: number) => {
+      const s = stateRef.current;
+      const upg = s.upgrades;
+      const costs = [
+        (upg.healthLevel + 1) * 30,
+        (upg.manaLevel + 1) * 30,
+        (upg.regenLevel + 1) * 50,
+        (upg.damageLevel + 1) * 60,
+        (upg.doubleJumpLevel + 1) * 100,
+        (upg.dashDistanceLevel + 1) * 80,
+      ];
+
+      const keys: (keyof typeof upg)[] = ['healthLevel', 'manaLevel', 'regenLevel', 'damageLevel', 'doubleJumpLevel', 'dashDistanceLevel'];
+      const field = keys[index];
+      const cost = costs[index];
+
+      if (s.gemsCurrency >= cost && (upg[field] as number) < 5) {
+        s.gemsCurrency -= cost;
+        (upg[field] as any)++;
+        saveProgress(s);
+        Audio.playGemCollect?.();
+        spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success' as any), '#8bffaf', 20);
+      } else {
+        Audio.playPause(); // Error sound
+      }
+    };
+
     const handleScreenTransition = (tx?: number, ty?: number) => {
       const s = stateRef.current;
 
@@ -369,7 +400,7 @@ function App() {
         return;
       }
 
-      // IMP-1: Pause toggle
+      // Pause toggle
       if (key === 'Escape' && s.screen === 'playing' && !s.showLevelIntro) {
         s.paused = !s.paused;
         if (s.paused) Audio.playPause(); else Audio.playUnpause();
@@ -389,17 +420,14 @@ function App() {
           e.preventDefault();
         } else if (key === 'Enter' || key === ' ') {
           if (s.pauseSelection === 0) {
-            // Resume
             s.paused = false;
             Audio.playUnpause();
           } else if (s.pauseSelection === 1) {
-            // Restart Level
             const saved = loadSave();
             assignState(buildRestartLevelState(s, saved.highScore));
             Audio.playMenuSelect();
             Audio.startMusic(s.currentLevel);
           } else if (s.pauseSelection === 2) {
-            // Quit to Menu
             const saved = loadSave();
             assignState(buildMenuState(saved.highScore, s.difficulty));
             Audio.playMenuSelect();
@@ -411,16 +439,12 @@ function App() {
       }
 
       if (s.screen !== 'playing') {
-        // Menu-specific keys
         if (s.screen === 'menu') {
-          // [A/D] or [Left/Right] Cycle Buttons
           if (keyLower === 'a' || key === 'ArrowLeft' || keyLower === 'd' || key === 'ArrowRight') {
             s.selectedMenuButton = s.selectedMenuButton === 0 ? 1 : 0;
             Audio.playMenuSelect();
             return;
           }
-
-          // [1] Go to Level Select
           if (key === '1' || (s.selectedMenuButton === 0 && (key === 'Enter' || key === ' '))) {
             Audio.initAudio();
             Audio.playMenuSelect();
@@ -428,8 +452,6 @@ function App() {
             e.preventDefault();
             return;
           }
-
-          // [2] or [E] Start Wave Survival
           if (key === '2' || keyLower === 'e' || (s.selectedMenuButton === 1 && (key === 'Enter' || key === ' '))) {
             const saved = loadSave();
             assignState(buildEndlessState(saved.highScore, s.difficulty));
@@ -439,24 +461,11 @@ function App() {
             e.preventDefault();
             return;
           }
-
-          // [D] Cycle Difficulty
-          if (keyLower === 'm') { // Moved to M if we want to avoid D overlap, but original was D
-            // s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
-            // Audio.playMenuSelect();
-            // return;
-          }
-
           if (keyLower === 'd') {
-            // Only cycle difficulty if NOT using D to navigate
-            // Actually D is mapped to MOVE_SPEED in playing, but in menu we can use it.
-            // Let's keep D for difficulty if we don't have better key.
             s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
             Audio.playMenuSelect();
             return;
           }
-
-          // [U] Upgrade Shop
           if (keyLower === 'u') {
             s.screen = 'shop';
             Audio.playMenuSelect();
@@ -465,14 +474,29 @@ function App() {
           return;
         }
 
-        // Level Select Screen Interactions
+        if (s.screen === 'shop') {
+          if (key === 'ArrowUp' || keyLower === 'w') {
+            s.shopSelectionIndex = (s.shopSelectionIndex - 1 + 6) % 6;
+            Audio.playMenuSelect();
+          } else if (key === 'ArrowDown' || keyLower === 's') {
+            s.shopSelectionIndex = (s.shopSelectionIndex + 1) % 6;
+            Audio.playMenuSelect();
+          } else if (key === 'Enter' || key === ' ') {
+            handleShopPurchase(s.shopSelectionIndex);
+          } else if (key === 'Escape' || keyLower === 'q' || keyLower === 'b') {
+            const saved = loadSave();
+            assignState(buildMenuState(saved.highScore, s.difficulty));
+            Audio.playMenuSelect();
+          }
+          return;
+        }
+
         if (s.screen === 'levelSelect') {
           if (key === 'Escape' || keyLower === 'b') {
             s.screen = 'menu';
             Audio.playMenuSelect();
             return;
           }
-
           const cols = 5;
           if (key === 'ArrowRight' || keyLower === 'd') {
             s.levelSelectionIndex = Math.min(s.totalLevels - 1, s.levelSelectionIndex + 1);
@@ -497,54 +521,6 @@ function App() {
           return;
         }
 
-        // Shop Screen Interactions
-        if (s.screen === 'shop') {
-          if (key === 'Escape' || keyLower === 'b') {
-            s.screen = 'menu';
-            Audio.playMenuSelect();
-            return;
-          }
-
-          let bought = false;
-          const costHealth = (s.upgrades.healthLevel + 1) * 30;
-          const costMana = (s.upgrades.manaLevel + 1) * 30;
-          const costRegen = (s.upgrades.regenLevel + 1) * 50;
-          const costDamage = (s.upgrades.damageLevel + 1) * 60;
-          const costDoubleJump = (s.upgrades.doubleJumpLevel + 1) * 100;
-          const costDashDistance = (s.upgrades.dashDistanceLevel + 1) * 80;
-
-          if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
-            s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
-          }
-          if (key === '2' && s.gemsCurrency >= costMana && s.upgrades.manaLevel < 5) {
-            s.gemsCurrency -= costMana; s.upgrades.manaLevel++; bought = true;
-          }
-          if (key === '3' && s.gemsCurrency >= costRegen && s.upgrades.regenLevel < 5) {
-            s.gemsCurrency -= costRegen; s.upgrades.regenLevel++; bought = true;
-          }
-          if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
-            s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
-          }
-          if (key === '5' && s.gemsCurrency >= costDoubleJump && s.upgrades.doubleJumpLevel < 5) {
-            s.gemsCurrency -= costDoubleJump; s.upgrades.doubleJumpLevel++; bought = true;
-          }
-          if (key === '6' && s.gemsCurrency >= costDashDistance && s.upgrades.dashDistanceLevel < 5) {
-            s.gemsCurrency -= costDashDistance; s.upgrades.dashDistanceLevel++; bought = true;
-          }
-
-          if (bought) {
-            Audio.playGemCollect();
-            saveProgress(s);
-            const ds = DIFFICULTY_SETTINGS[s.difficulty];
-            s.stickman.maxHealth = ds.playerHealth + s.upgrades.healthLevel * 25;
-            s.stickman.maxMana = ds.playerMana + s.upgrades.manaLevel * 25;
-            s.stickman.health = s.stickman.maxHealth;
-            s.stickman.mana = s.stickman.maxMana;
-          }
-          return;
-        }
-
-        // Game Over Screen (Campaign) - Retry or Quit
         if (s.screen === 'gameOver' && s.endlessWave === undefined) {
           if (keyLower === 'r') {
             const saved = loadSave();
@@ -562,7 +538,6 @@ function App() {
           }
         }
 
-        // Other non-playing screens (levelComplete, gameOver, victory)
         if (key === 'Enter' || key === ' ') {
           e.preventDefault();
           handleScreenTransition();
@@ -618,6 +593,18 @@ function App() {
         y: (e.clientY - rect.top) * scaleY,
       };
 
+      if (s.screen === 'shop') {
+        const spacing = 72; const startY = 180;
+        const ty = s.mousePos.y;
+        for (let i = 0; i < 6; i++) {
+          const rowY = startY + i * spacing;
+          if (ty >= rowY - 28 && ty <= rowY + 32) {
+            s.shopSelectionIndex = i;
+            return;
+          }
+        }
+      }
+
       if (s.screen === 'menu') {
         const tx = s.mousePos.x;
         const ty = s.mousePos.y;
@@ -641,30 +628,26 @@ function App() {
 
       if (handleDialogAdvance()) return;
 
-      if (s.screen !== 'playing') {
-        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
-          const btnW = 180; const btnH = 50; const gap = 30; const baseY = CANVAS_H / 2 + 80;
-          const retryX = CANVAS_W / 2 - btnW - gap / 2;
-          const quitX = CANVAS_W / 2 + gap / 2;
-          const tx = s.mousePos.x; const ty = s.mousePos.y;
-
-          if (ty >= baseY - 15 && ty <= baseY + btnH - 15) {
-            if (tx >= retryX && tx <= retryX + btnW) {
-              const saved = loadSave();
-              assignState(buildRestartLevelState(s, saved.highScore));
-              Audio.playMenuSelect();
-              Audio.startMusic(s.currentLevel);
-              return;
-            }
-            if (tx >= quitX && tx <= quitX + btnW) {
-              const saved = loadSave();
-              assignState(buildMenuState(saved.highScore, s.difficulty));
-              Audio.playMenuSelect();
-              Audio.stopMusic();
-              return;
-            }
+      if (s.screen === 'shop') {
+        const spacing = 72; const startY = 180;
+        const ty = s.mousePos.y;
+        const tx = s.mousePos.x;
+        if (isMobile && ty > CANVAS_H - 100) {
+          const saved = loadSave();
+          assignState(buildMenuState(saved.highScore, s.difficulty));
+          Audio.playMenuSelect();
+          return;
+        }
+        for (let i = 0; i < 6; i++) {
+          const rowY = startY + i * spacing;
+          if (ty >= rowY - 28 && ty <= rowY + 32 && tx >= CANVAS_W / 2 - 320 && tx <= CANVAS_W / 2 + 320) {
+            handleShopPurchase(i);
+            return;
           }
         }
+      }
+
+      if (s.screen !== 'playing') {
         handleScreenTransition(s.mousePos.x, s.mousePos.y);
         return;
       }
