@@ -14,8 +14,13 @@ const FRICTION = 0.88;
 const JUMP_FORCE = -13.5;
 const MOVE_SPEED = 0.9;
 const MAX_SPEED = 4.5;
-const CANVAS_W = 1200;
-const CANVAS_H = 700;
+let CANVAS_W = 1200;
+let CANVAS_H = 700;
+
+export function setEngineCanvasSize(w: number, h: number) {
+  CANVAS_W = w;
+  CANVAS_H = h;
+}
 
 // IMP-14: Difficulty presets
 export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {

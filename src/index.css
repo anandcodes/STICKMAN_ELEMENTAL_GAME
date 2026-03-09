@@ -55,7 +55,8 @@ body {
     inset 0 0 80px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px),
+(hover: none) and (pointer: coarse) {
   #game-canvas {
     border-radius: 0;
     box-shadow: none;

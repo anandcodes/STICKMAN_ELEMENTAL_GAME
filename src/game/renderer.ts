@@ -499,7 +499,7 @@ export function render(
   ctx.translate(hudFollowX + uiShakeX, hudFollowY + uiShakeY);
 
   // HUD
-  drawHUD(ctx, state, W, H, nowMs, isPortraitMobile);
+  drawHUD(ctx, state, W, H, nowMs, isMobile, isPortraitMobile);
 
   // IMP-7: Minimap (for levels wider than 1.5x the canvas)
   if (!lowQuality && !isPortraitMobile && state.worldWidth > W * 1.5) {
@@ -1536,7 +1536,8 @@ function drawHUD(
   W: number,
   _H: number,
   nowMs: number,
-  isPortraitMobile = false,
+  isMobile: boolean = false,
+  isPortraitMobile: boolean = false,
 ) {
   const s = state.stickman;
   const tSec = nowMs * 0.001;
@@ -1645,22 +1646,7 @@ function drawHUD(
     return;
   }
 
-  // Fullscreen Prompt for Mobile (Landscape)
-  if (!document.fullscreenElement && W < 1000) {
-    ctx.save();
-    ctx.fillStyle = 'rgba(255, 220, 100, 0.12)';
-    const fW = 180; const fH = 42;
-    roundRect(ctx, W - fW - 20, 20, fW, fH, 20);
-    ctx.fill();
-    ctx.strokeStyle = '#ffd97a';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = '#ffd97a';
-    setUiFont(ctx, state, 11, '800');
-    ctx.textAlign = 'center';
-    ctx.fillText("GO FULLSCREEN ⛶", W - fW / 2 - 20, 46);
-    ctx.restore();
-  }
+
 
   const vignette = ctx.createRadialGradient(W / 2, _H / 2, _H * 0.28, W / 2, _H / 2, _H * 0.9);
   vignette.addColorStop(0, 'rgba(0,0,0,0)');
@@ -1818,7 +1804,7 @@ function drawHUD(
 
   // Mobile Fullscreen Toggle
   const isCurrentlyFull = !!document.fullscreenElement;
-  if (!isCurrentlyFull && (isPortraitMobile || (W < 1000))) {
+  if (!isCurrentlyFull && isMobile) {
     ctx.save();
     const btnSize = 44;
     const bx = W - btnSize - 15;
@@ -2098,6 +2084,23 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.globalAlpha = 0.78;
   ctx.fillText('ELEMENTAL ACTION PLATFORMER', W / 2, 82);
   ctx.globalAlpha = 1;
+
+  // Fullscreen Prompt for Mobile (Landscape)
+  if (!document.fullscreenElement && isMobile) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.12)';
+    const fW = 180; const fH = 42;
+    roundRect(ctx, W - fW - 20, 20, fW, fH, 20);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd97a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffd97a';
+    setUiFont(ctx, state, 11, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText("GO FULLSCREEN ⛶", W - fW / 2 - 20, 46);
+    ctx.restore();
+  }
 
   ctx.shadowColor = '#49c8ff';
   ctx.shadowBlur = Math.sin(tSec * 2) * 5 + 15;

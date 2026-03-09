@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { update, DIFFICULTY_SETTINGS, spawnFloatingText } from './game/engine';
+import { update, DIFFICULTY_SETTINGS, spawnFloatingText, setEngineCanvasSize } from './game/engine';
 import { render } from './game/renderer';
 import type { Difficulty, Element, GameSettings, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
@@ -28,7 +28,7 @@ import {
   type TouchControlsState,
 } from './game/touchControls';
 
-const CANVAS_W = 1200;
+let CANVAS_W = 1200;
 const CANVAS_H = 700;
 
 const DIFFICULTY_CYCLE: Record<Difficulty, Difficulty> = {
@@ -81,6 +81,7 @@ function App() {
   const isPortraitMobileRef = useRef(false);
   const loopClockRef = useRef(createLoopClock());
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(1200);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
@@ -136,9 +137,26 @@ function App() {
     const computeScale = () => {
       const vw = window.visualViewport?.width ?? window.innerWidth;
       const vh = window.visualViewport?.height ?? window.innerHeight;
-      const scaleX = vw / CANVAS_W;
-      const scaleY = vh / CANVAS_H;
-      const s = Math.min(scaleX, scaleY);
+      let s;
+      let w = 1200;
+      if (isMobileRef.current) {
+        // Dynamic aspect ratio scaling for mobile fullscreen
+        if (vw > vh) { // Landscape
+          s = vh / CANVAS_H;
+          w = Math.max(1200, Math.floor(vw / s));
+        } else { // Portrait
+          s = vw / 1200;
+          w = 1200;
+        }
+      } else {
+        const scaleX = vw / 1200;
+        const scaleY = vh / CANVAS_H;
+        s = Math.min(scaleX, scaleY);
+      }
+
+      CANVAS_W = w;
+      setEngineCanvasSize(w, CANVAS_H);
+      setCanvasWidth(w);
       setScale(s);
       scaleRef.current = s;
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
@@ -1115,7 +1133,7 @@ function App() {
       </button>
       <canvas
         ref={canvasRef}
-        width={CANVAS_W}
+        width={canvasWidth}
         height={CANVAS_H}
         id="game-canvas"
         aria-label="Game canvas"
