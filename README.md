@@ -1,108 +1,493 @@
-# Elemental Stickman
+# Stickman Elemental – Development Roadmap
 
-Elemental Stickman is a fast-paced, action-platformer built on **React**, **TypeScript**, and the **HTML5 Canvas API**. The game features dynamic combat mechanics where players must adapt and utilize four distinct elements—Fire, Water, Earth, and Wind—to overcome diverse enemies and navigate challenging levels.
+## Project Overview
 
-This project is built from scratch using a highly optimized custom rendering engine specifically designed to run flawlessly across modern desktop browsers and mobile devices.
+**Stickman Elemental** is an elemental action-platformer featuring dynamic combat, puzzle-based environments, and progression systems.
+Players control a stickman warrior capable of wielding four elemental powers—Fire, Water, Earth, and Wind—to overcome enemies, solve environmental puzzles, and traverse challenging platforming levels.
 
----
-
-## 🎮 Game Modes
-
-### 1. Campaign Mode
-- **15 Story-Driven Levels**: Gradually introduces new elements, enemies, and obstacles. 
-- **Objectives**: Collect hidden gems to open the exit portal while surviving enemy hordes.
-- **Boss Fights**: Face off against formidable bosses such as the **Stone Overlord** and **Elemental Wraith**.
-
-### 2. Wave Survival Mode
-- **Endless Combat**: Survive against infinite, increasingly difficult enemy waves in a dedicated arena.
-- **Global Leaderboard**: Secure your spot among the top players based on survival time and kill count.
-- **Dynamic Spawning**: Enemies spawn with escalating health and damage scaling over time.
+The goal of this roadmap is to guide development toward a **stable and polished Version 1 release for Play Store and App Store**, followed by feature expansions and content updates.
 
 ---
 
-## ✨ Core Mechanics
+# Development Phases
 
-### 🔮 The Four Elements
-Players unlock and switch between elements on the fly, each offering unique tactical advantages:
-- 🔥 **Fire**: Casts lingering flame projectiles that burn enemies over time.
-- 💧 **Water**: Fires rapid bubbles that bounce off terrain, ideal for confined spaces.
-- 🪨 **Earth**: Drops heavy, detailed rotating boulders that deal massive physical damage. Aiming closely to the ground shapes the earth into organic, mossy rock slab platforms to alter the terrain.
-- 🌪️ **Wind**: Shoots high-speed gusts that rapidly push enemies back and deal piercing damage.
+## Phase 1 – Player Onboarding (Tutorial System)
 
-### 🏃🏾‍♂️ Advanced Movement
-- **Double Jump**: Unlockable, allowing for high vertical mobility.
-- **Dash**: Quick directional bursts using an stamina/cooldown system. Allows players to evade attacks and reposition.
+**Goal:** Ensure new players learn controls and mechanics within the first few minutes of gameplay.
 
-### 💰 Upgrade Shop System
-Players collect gems throughout the campaign/survival modes to permanently upgrade their stats via an in-game store:
-- Max Health (+25 per tier)
-- Max Mana (+25 per tier)
-- Mana Regeneration (+20% per tier)
-- Spell Damage (+25% per tier)
-- Double Jump (+1 max count)
-- Dash Distance (+15% per tier)
+### Tutorial Structure
 
----
+The tutorial will consist of four guided levels.
 
-## 📱 Platform & Accessibility Specifications
+### Level 1 – Movement Basics
 
-### Cross-Platform Controls
-- **Desktop**: 
-  - Movement: `WASD` or `Arrow Keys`
-  - Elements: Number keys `1`, `2`, `3`, `4`
-  - Attack: `Mouse Click` (Directional firing towards cursor)
-  - Dash: `Shift`
-- **Mobile**: 
-  - Movement: Virtual floating left D-Pad
-  - Element Switch: On-screen tap buttons
-  - Attack: Virtual 'CAST' joystick with **360° Drag-to-Aim** and visual projectile path guides.
-  - Immersive Mode: Automatic full-screen transitions scaling perfectly for both Landscape and Portrait.
+Teach core movement mechanics.
 
-### Internationalization (i18n)
-- Full localized text dictionaries for both **English** and **Hindi**.
-- Supports dynamic text scaling based on language properties.
+Features:
 
-### Accessibility & Video Settings
-- **Graphics Quality Modes**: Toggles background objects, particles, and star-fields off for low-end hardware.
-- **Reduced Motion**: Disables screen-shake, pulse animations, and heavy visually-taxing particle systems to support sensitive players.
-- **High Contrast Mode**: Adds dark, solid backdrops behind bright elements to assist vision-impaired players.
-- **Audio Mixers**: Independent sliders for Music, SFX, and Master volume.
+* Walking
+* Jumping
+* Platform traversal
+* Checkpoints
+
+Player prompts:
+
+* "Use LEFT/RIGHT to move"
+* "Press SPACE to jump"
+
+Mobile instructions:
+
+* Use joystick to move
+* Tap jump button
 
 ---
 
-## 🛠️ Technical Specifications
+### Level 2 – Element Introduction
 
-### Tech Stack
-- **Frontend**: React 18, Vite
-- **Language**: TypeScript (Strict Typing)
-- **Styling**: Tailwind CSS (UI overlays) & Canvas Context (Game rendering)
-- **Architecture**: A fixed-step game loop (usually 60 UPS/FPS) decoupling state updates from rendering logic to ensure deterministic behavior across varied refresh-rate monitors.
+Introduce **Fire Element**.
 
-### Custom Rendering Engine (renderer.ts)
-- Custom lighting composite operations (`globalCompositeOperation = 'lighter'`) for emissive magic effects.
-- Parallax scrolling background layers (stars / nebulae).
-- Procedural level generation/rendering logic (Mossy Earth platforms).
+Player learns:
 
-### Persistence & Data
-- Progress is locally serialized to `localStorage` safely mapping `GameState` variables.
-- Supports external database syncing via a background task queue to save player upgrades remotely without blocking the main game thread.
+* Element switching
+* Casting elemental projectiles
+* Burning wooden crates
+* Lighting fire pits
+
+Prompt example:
+
+* "Press 1 to switch to Fire"
+* "Click to cast Fireball"
 
 ---
 
-## 🚀 Running Locally
+### Level 3 – Dash Ability
 
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+Introduce dash mechanic.
 
-2. **Start Development Server**:
-   ```bash
-   npm run dev
-   ```
+Player learns:
 
-3. **Build for Production**:
-   ```bash
-   npm run build
-   ```
-   (Outputs static bundle to the `/dist` directory).
+* Directional dash
+* Dash invincibility frames
+* Dodging obstacles
+
+Prompt example:
+
+* "Press SHIFT to dash"
+* "Dash grants brief invincibility"
+
+---
+
+### Level 4 – Elemental Interaction
+
+Introduce environmental element puzzles.
+
+Example puzzles:
+
+* Fire ignites torches
+* Water grows plants
+* Earth creates platforms
+* Wind activates turbines
+
+Deliverables:
+
+* Tutorial levels
+* Contextual hints
+* Mobile/desktop control instructions
+
+---
+
+# Phase 2 – Combat Feedback & Game Feel
+
+**Goal:** Improve responsiveness and player satisfaction.
+
+### Enemy Hit Feedback
+
+When an enemy is hit:
+
+* Small screen shake
+* Particle burst
+* Enemy flash effect
+
+---
+
+### Player Damage Feedback
+
+When the player takes damage:
+
+* Red screen flash
+* Knockback
+* Mobile vibration feedback
+
+---
+
+### Element Casting Effects
+
+Each element should have unique audiovisual feedback.
+
+Fire
+
+* Flame particles
+* Burning sound
+
+Water
+
+* Splash particles
+* Liquid effects
+
+Earth
+
+* Rock fragments
+* Heavy impact sound
+
+Wind
+
+* Swirling particles
+* Wind audio
+
+---
+
+### Dash Feedback
+
+Enhancements:
+
+* Dash trail
+* Motion blur
+* Dash sound effect
+* Camera shake
+
+---
+
+# Phase 3 – Difficulty Balancing
+
+**Goal:** Provide a smooth difficulty curve.
+
+### Level Progression
+
+| Level | Focus              | Difficulty |
+| ----- | ------------------ | ---------- |
+| 1     | Movement           | Very Easy  |
+| 2     | Jump timing        | Easy       |
+| 3     | Fire element       | Easy       |
+| 4     | Dash ability       | Medium     |
+| 5     | Enemy introduction | Medium     |
+| 6–10  | Element puzzles    | Medium     |
+| 11–15 | Combat mastery     | Hard       |
+
+---
+
+### Balancing Parameters
+
+Expose balancing parameters for quick tuning:
+
+* Enemy health multiplier
+* Enemy spawn rate
+* Player damage
+* Elemental damage
+* Mana cost
+
+---
+
+# Phase 4 – Campaign Expansion
+
+**Goal:** Increase content and exploration.
+
+Current campaign length: **15 levels**
+Target campaign length: **25–30 levels**
+
+---
+
+### Biome 1 – Forest Ruins
+
+Environment:
+
+* Vines
+* Spikes
+* Moving platforms
+
+Enemies:
+
+* Slimes
+* Bats
+
+Boss:
+Ancient Tree Guardian
+
+---
+
+### Biome 2 – Frozen Caverns
+
+Environment:
+
+* Ice floors
+* Falling icicles
+
+Enemies:
+
+* Ice Spirits
+
+Boss:
+Ice Titan
+
+---
+
+### Biome 3 – Volcanic Depths
+
+Environment:
+
+* Lava pools
+* Fire traps
+
+Enemies:
+
+* Fire Golems
+
+Boss:
+Lava Colossus
+
+---
+
+# Phase 5 – Replayability Systems
+
+## Procedural Dungeon Mode
+
+New game mode: **Elemental Trials**
+
+Features:
+
+* Procedurally generated rooms
+* Random enemy spawns
+* Environmental hazards
+* Reward chests
+
+Example modifiers:
+
+* Low gravity
+* Double enemy speed
+* Mana regeneration disabled
+* Exploding enemies
+
+Rewards:
+
+* Rare gems
+* Relics
+* Cosmetics
+
+---
+
+## Relic System
+
+Relics provide temporary run-based power modifiers.
+
+Example relics:
+
+Burning Soul
+Fire spells cost no mana but slowly drain health.
+
+Storm Crown
+Wind spells chain lightning to nearby enemies.
+
+Titan Core
+Earth projectiles increase in size and damage.
+
+Frozen Blood
+Taking damage freezes nearby enemies.
+
+Players can equip **up to 3 relics per run**.
+
+---
+
+# Phase 6 – Player Progression
+
+Introduce a **Skill Tree system**.
+
+Players spend gems to unlock elemental upgrades.
+
+Example structure:
+
+Fire Tree
+
+* Ember Shot
+* Fire Burst
+* Phoenix Dash
+
+Water Tree
+
+* Ice Lance
+* Healing Mist
+* Tsunami Wave
+
+Earth Tree
+
+* Stone Shield
+* Crystal Armor
+* Quake Slam
+
+Wind Tree
+
+* Tornado Pull
+* Air Dash
+* Lightning Surge
+
+---
+
+# Phase 7 – Retention Systems
+
+Mobile games benefit from systems that encourage players to return regularly.
+
+## Daily Challenge Mode
+
+Every day:
+
+* New dungeon seed
+* Random modifiers
+* Global leaderboard
+
+---
+
+## Daily Rewards
+
+Example reward schedule:
+
+| Day | Reward        |
+| --- | ------------- |
+| 1   | 50 Gems       |
+| 2   | Health Potion |
+| 3   | Mana Crystal  |
+| 5   | Relic Chest   |
+| 7   | Rare Skin     |
+
+---
+
+# Phase 8 – UI / UX Improvements
+
+Essential menus:
+
+* Main Menu
+* Settings
+* Pause Menu
+* Level Select
+* Shop
+* Achievements
+
+---
+
+## Settings Menu Options
+
+Graphics Quality
+
+* Low
+* Medium
+* High
+
+Audio
+
+* Music volume
+* Sound volume
+
+Gameplay
+
+* Vibration toggle
+* Language selection
+* Control layout
+
+---
+
+# Phase 9 – Performance Optimization
+
+Target performance:
+
+| Device          | Target FPS |
+| --------------- | ---------- |
+| Low-end Android | 30 FPS     |
+| Mid-range       | 60 FPS     |
+| High-end        | 60+ FPS    |
+
+Optimization techniques:
+
+* Object pooling for projectiles
+* Particle count reduction
+* Dynamic lighting optimization
+* AI update throttling
+
+---
+
+# Phase 10 – Store Preparation
+
+## Play Store Requirements
+
+Prepare the following assets:
+
+* App icon (512x512)
+* Feature graphic (1024x500)
+* 5 gameplay screenshots
+* Gameplay trailer
+* Privacy policy
+
+---
+
+## App Store Requirements
+
+Prepare:
+
+* iPhone screenshots
+* Launch screen
+* Privacy details
+
+---
+
+# Final Launch Checklist
+
+Before publishing:
+
+* No crash bugs
+* Stable save system
+* Tutorial completed
+* All levels completable
+* Performance stable
+* UI readable on mobile
+* Sound and music functioning
+
+---
+
+# Estimated Development Timeline
+
+| Phase                  | Duration  |
+| ---------------------- | --------- |
+| Tutorial System        | 1 week    |
+| Game Feel Improvements | 1 week    |
+| Difficulty Balancing   | 1 week    |
+| Campaign Expansion     | 2–3 weeks |
+| Replayability Systems  | 2 weeks   |
+| Skill Tree             | 1 week    |
+| Retention Systems      | 1 week    |
+| UI / UX Polish         | 1 week    |
+| Optimization           | 1 week    |
+
+**Total estimated development time:**
+Approximately **10–12 weeks to launch-ready build**
+
+---
+
+# Future Updates (Post Launch)
+
+After Version 1 release:
+
+* New elements
+* Additional biomes
+* Multiplayer mode
+* Cosmetic marketplace
+* Seasonal events
+* New bosses and dungeons
+
+---
+
+# Project Goal
+
+Deliver a polished **elemental action-platformer** with:
+
+* engaging combat
+* satisfying movement
+* strong replayability
+* smooth mobile experience
+
+The initial release will focus on **stability, accessibility, and strong core gameplay**, followed by feature expansions based on player feedback.

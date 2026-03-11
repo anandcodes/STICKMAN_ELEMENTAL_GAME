@@ -146,6 +146,35 @@ export interface TutorialHint {
   triggerRadius: number;
 }
 
+export type TutorialAction =
+  | 'move_right'
+  | 'move_left'
+  | 'jump'
+  | 'jump_platform'
+  | 'switch_fire'
+  | 'cast_fire'
+  | 'burn_crate'
+  | 'collect_gem'
+  | 'dash'
+  | 'dash_through'
+  | 'switch_water'
+  | 'cast_water'
+  | 'grow_plant'
+  | 'reach_portal'
+  | 'none';
+
+export interface TutorialStep {
+  action: TutorialAction;
+  promptDesktop: string;
+  promptMobile: string;
+  worldX?: number;        // optional world position for arrow indicator
+  worldY?: number;
+  triggerRadius?: number; // how close to get for position-based steps
+  element?: Element;      // required element for element steps
+  completed: boolean;
+  showArrow: boolean;     // show directional arrow to target
+}
+
 export interface DialogNode {
   speaker: string;
   text: string;
@@ -223,6 +252,9 @@ export interface GameState {
   upgrades: Upgrades;
   onIce: boolean; // IMP-10: currently standing on ice
   tutorialHints: TutorialHint[];
+  tutorialSteps: TutorialStep[];
+  tutorialStepIndex: number;
+  tutorialActive: boolean;
   redFlash: number; // frames for damage flash
   pauseSelection: number; // 0=Resume, 1=Restart, 2=Quit
   bestTimes: Record<number, number>;

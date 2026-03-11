@@ -1,4 +1,5 @@
 import type { GameState, Element, Difficulty, DifficultySettings, TutorialHint } from './types';
+import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { spawnFloatingText, spawnParticles, addScore } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
@@ -26,6 +27,13 @@ let CANVAS_H = 700;
 export function setEngineCanvasSize(w: number, h: number) {
   CANVAS_W = w;
   CANVAS_H = h;
+}
+
+/** Phase 2: Haptic feedback for mobile devices */
+export function vibrate(pattern: number | number[]): void {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch { /* vibration not supported / blocked */ }
 }
 
 // IMP-14: Difficulty presets
@@ -134,6 +142,9 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     upgrades: upg,
     onIce: false,
     tutorialHints: createTutorialHints(level),
+    tutorialSteps: createTutorialSteps(level),
+    tutorialStepIndex: 0,
+    tutorialActive: level <= 3, // Tutorial active for first 4 levels
     redFlash: 0,
     pauseSelection: 0,
     bestTimes: savedData.bestTimes || {},
@@ -242,6 +253,9 @@ export function update(state: GameState): void {
 
   const s = state.stickman;
 
+  // Tutorial system update
+  updateTutorial(state);
+
   // Combo timer
   if (state.comboTimer > 0) {
     state.comboTimer--;
@@ -319,6 +333,7 @@ export function update(state: GameState): void {
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 12);
     state.screenShake = Math.max(state.screenShake, 4);
     Audio.playJump();
+    vibrate([30, 20, 40]); // Dash haptic burst
     // Consume the trigger so holding SHIFT does not auto-chain once cooldown expires.
     state.keys.delete('shift');
   }
@@ -606,6 +621,7 @@ export function update(state: GameState): void {
       state.screenShake = 10;
       spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);
       Audio.playSpikeHit();
+      vibrate(50); // Damage haptic
     }
   }
 
@@ -780,6 +796,7 @@ export function update(state: GameState): void {
       endlessWave: state.endlessWave ?? null,
     }, { force: true });
     saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
+    vibrate([80, 40, 80, 40, 120]); // Death haptic pattern
     const progression = updateProgression(state);
     let offset = 85;
     for (const achievementId of progression.unlockedAchievements) {

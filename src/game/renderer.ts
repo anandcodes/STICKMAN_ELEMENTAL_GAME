@@ -3,6 +3,7 @@ import { elementName, t } from './i18n';
 import { getLeaderboard, getLeaderboardStatus } from './services/leaderboard';
 import { getCloudSyncStatus } from './services/cloud';
 import { getProgressionSnapshot } from './services/progression';
+import { getCurrentTutorialStep } from './systems/tutorial';
 
 const ELEMENT_COLORS: Record<Element, string> = {
   fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
@@ -529,6 +530,11 @@ export function render(
   // Active Dialog
   if (state.activeDialog.length > 0) {
     drawDialogSystem(ctx, state, W, H, isPortraitMobile);
+  }
+
+  // Tutorial overlay (above dialog, below pause)
+  if (state.tutorialActive && !state.showLevelIntro && state.activeDialog.length === 0) {
+    drawTutorialOverlay(ctx, state, W, H, nowMs, isMobile, cam);
   }
 
   // IMP-1: Pause overlay with full menu
@@ -2914,6 +2920,128 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
     ctx.arc(panelX + panelW - 24, panelY + panelH - 24, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+// ─── Tutorial Overlay ───────────────────────────────────────────────────────
+
+function drawTutorialOverlay(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  W: number,
+  H: number,
+  nowMs: number,
+  isMobile: boolean,
+  cam: { x: number; y: number },
+): void {
+  const step = getCurrentTutorialStep(state);
+  if (!step) return;
+
+  const prompt = isMobile ? step.promptMobile : step.promptDesktop;
+  const pulse = Math.sin(nowMs * 0.004) * 0.15 + 0.85;
+  const totalSteps = state.tutorialSteps.length;
+  const currentIdx = state.tutorialStepIndex + 1;
+
+  ctx.save();
+
+  // ── Prompt bar at the top ──
+  const barW = Math.min(600, W - 60);
+  const barH = 52;
+  const barX = (W - barW) / 2;
+  const barY = 70;
+
+  // Background panel with glow
+  ctx.shadowColor = '#53b8ff';
+  ctx.shadowBlur = 16 * pulse;
+
+  const barGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY + barH);
+  barGrad.addColorStop(0, 'rgba(7, 17, 36, 0.92)');
+  barGrad.addColorStop(0.5, 'rgba(13, 31, 63, 0.92)');
+  barGrad.addColorStop(1, 'rgba(7, 17, 36, 0.92)');
+  ctx.fillStyle = barGrad;
+  roundRect(ctx, barX, barY, barW, barH, 12);
+  ctx.fill();
+
+  // Accent top line
+  ctx.fillStyle = `rgba(83, 184, 255, ${0.6 * pulse})`;
+  roundRect(ctx, barX, barY, barW, 3, 2);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = `rgba(144, 211, 255, ${0.3 * pulse})`;
+  ctx.lineWidth = 1;
+  roundRect(ctx, barX, barY, barW, barH, 12);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+
+  // Step counter (left side)
+  ctx.fillStyle = 'rgba(83, 184, 255, 0.7)';
+  ctx.font = `600 12px ${FONT_UI}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`STEP ${currentIdx}/${totalSteps}`, barX + 16, barY + barH / 2 - 10);
+
+  // Label
+  ctx.fillStyle = 'rgba(144, 211, 255, 0.5)';
+  ctx.font = `600 10px ${FONT_UI}`;
+  ctx.fillText('TUTORIAL', barX + 16, barY + barH / 2 + 8);
+
+  // Prompt text (centered)
+  ctx.fillStyle = '#ecf7ff';
+  ctx.font = `700 ${isMobile ? 15 : 17}px ${FONT_UI}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(prompt, W / 2, barY + barH / 2 + 1);
+
+  // ── World-space arrow indicator ──
+  if (step.showArrow && step.worldX !== undefined && step.worldY !== undefined) {
+    const arrowTargetX = step.worldX - cam.x;
+    const arrowTargetY = step.worldY - cam.y;
+
+    // Only draw if target is on-screen or near edges
+    const clampedX = Math.max(30, Math.min(W - 30, arrowTargetX));
+    const clampedY = Math.max(130, Math.min(H - 30, arrowTargetY));
+
+    // Pulsing ring at target location
+    const ringPulse = Math.sin(nowMs * 0.006) * 8 + 28;
+    ctx.save();
+    ctx.strokeStyle = `rgba(83, 184, 255, ${0.5 * pulse})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(clampedX, clampedY, ringPulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner pulsing dot
+    ctx.fillStyle = `rgba(83, 184, 255, ${0.3 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(clampedX, clampedY, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // If target is off-screen, draw an edge arrow
+    if (arrowTargetX < 10 || arrowTargetX > W - 10 || arrowTargetY < 130 || arrowTargetY > H - 10) {
+      const angle = Math.atan2(arrowTargetY - H / 2, arrowTargetX - W / 2);
+      const edgeX = clampedX;
+      const edgeY = clampedY;
+
+      ctx.save();
+      ctx.translate(edgeX, edgeY);
+      ctx.rotate(angle);
+
+      // Arrow shape
+      ctx.fillStyle = `rgba(83, 184, 255, ${0.8 * pulse})`;
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.lineTo(-6, -8);
+      ctx.lineTo(-6, 8);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    ctx.restore();
   }
 
   ctx.restore();

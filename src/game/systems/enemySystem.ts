@@ -1,5 +1,5 @@
 import type { GameState } from '../types';
-import { DIFFICULTY_SETTINGS } from '../engine';
+import { DIFFICULTY_SETTINGS, vibrate } from '../engine';
 import { spawnFloatingText, spawnParticles, handleEnemyHit } from './utils';
 
 const FLYING_TYPES = new Set(['bat', 'boss2', 'thunder_hawk', 'corrupted_wraith', 'void_titan']);
@@ -304,6 +304,7 @@ export function updateEnemies(state: GameState) {
             state.screenShake = 12;
             spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);
             state.onDamage?.();
+            vibrate(40); // Damage haptic
         }
     }
 }

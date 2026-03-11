@@ -257,7 +257,7 @@ function App() {
 
       if (s.gemsCurrency >= cost && (upg[field] as number) < 5) {
         s.gemsCurrency -= cost;
-        (upg[field] as any)++;
+        (upg as unknown as Record<string, number>)[field] = (upg[field] as number) + 1;
         saveProgress(s);
         Audio.playGemCollect?.();
         spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success' as any), '#8bffaf', 20);
