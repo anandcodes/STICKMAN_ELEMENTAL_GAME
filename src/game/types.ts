@@ -265,4 +265,6 @@ export interface GameState {
   reducedMotion: boolean;
   highContrast: boolean;
   onDamage?: () => void;
+  deathAnimTimer: number;
+  deathType?: 'fall' | 'enemy' | 'spike';
 }

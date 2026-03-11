@@ -159,6 +159,7 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     endlessTimer: level === 15 ? 0 : undefined,
     selectedMenuButton: 0,
     shopSelectionIndex: 0,
+    deathAnimTimer: 0,
   };
 }
 
@@ -260,6 +261,12 @@ export function update(state: GameState): void {
   if (state.comboTimer > 0) {
     state.comboTimer--;
     if (state.comboTimer <= 0) state.comboCount = 0;
+  }
+
+  // Disable input during death animation
+  if (state.deathAnimTimer > 0) {
+    state.keys.clear();
+    state.mouseDown = false;
   }
 
   // Input handling
@@ -779,34 +786,64 @@ export function update(state: GameState): void {
 
   for (const star of state.backgroundStars) star.twinkle += 0.03;
 
-  // Death
+  // Death Animation Logic
   if (s.health <= 0) {
-    state.screenShake = 20;
-    trackEvent('player_death', {
-      mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
-      level: state.currentLevel + 1,
-      score: state.score,
-    });
-    state.screen = 'gameOver'; state.screenTimer = 0;
-    trackEvent('game_over', {
-      mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
-      level: state.currentLevel + 1,
-      score: state.score,
-      enemiesDefeated: state.enemiesDefeated,
-      endlessWave: state.endlessWave ?? null,
-    }, { force: true });
-    saveProgress(state); Audio.playGameOver(); Audio.stopMusic();
-    vibrate([80, 40, 80, 40, 120]); // Death haptic pattern
-    const progression = updateProgression(state);
-    let offset = 85;
-    for (const achievementId of progression.unlockedAchievements) {
-      spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
-      offset += 20;
-    }
-    if (state.endlessWave !== undefined) {
-      void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {
-        // leaderboard submission is best-effort
+    if (state.deathAnimTimer === 0) {
+      state.screenShake = 20;
+      trackEvent('player_death', {
+        mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+        level: state.currentLevel + 1,
+        score: state.score,
       });
+      Audio.stopMusic();
+      vibrate([80, 40, 80, 40, 120]);
+
+      if (!state.deathType) state.deathType = 'enemy';
+
+      // Dramatic explosions for non-fall death
+      if (state.deathType !== 'fall') {
+        spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 60);
+        spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, 'fire', 20); // Boom
+        s.vy = -5; // knock up
+      } else {
+        s.vy = 8; // fast fall
+      }
+    }
+
+    state.deathAnimTimer++;
+
+    // Freeze or fall down
+    if (state.deathType !== 'fall') {
+      s.vx *= 0.8; 
+      s.vy += 0.2; // slow drift 
+    } else {
+      s.vx *= 0.95;
+      s.vy += 0.8;
+    }
+
+    // After ~1.5 seconds, transition to Game Over
+    if (state.deathAnimTimer > 90) {
+      state.screen = 'gameOver';
+      state.screenTimer = 0;
+      trackEvent('game_over', {
+        mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
+        level: state.currentLevel + 1,
+        score: state.score,
+        enemiesDefeated: state.enemiesDefeated,
+        endlessWave: state.endlessWave ?? null,
+      }, { force: true });
+      saveProgress(state);
+      Audio.playGameOver();
+      
+      const progression = updateProgression(state);
+      let offset = 85;
+      for (const achievementId of progression.unlockedAchievements) {
+        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
+        offset += 20;
+      }
+      if (state.endlessWave !== undefined) {
+        void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {});
+      }
     }
   }
 

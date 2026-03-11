@@ -546,12 +546,42 @@ export function render(
       drawLights(ctx, state, W);
     }
 
-    drawPanel(ctx, W / 2 - 260, H / 2 - 170, 520, 340, 18, '#8cd7ff');
-    ctx.fillStyle = '#ecf7ff';
+    const panelW = 460;
+    const panelH = 340;
+    const px = W / 2 - panelW / 2;
+    const py = H / 2 - 160;
+
+    // Dark glowing backdrop panel
+    ctx.save();
+    ctx.shadowColor = '#8bf5c8';
+    ctx.shadowBlur = 40;
+    ctx.fillStyle = 'rgba(8, 14, 25, 0.95)';
+    roundRect(ctx, px, py, panelW, panelH, 24);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(139, 245, 200, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Inner glow
+    const innerGrad = ctx.createLinearGradient(px, py, px, py + panelH);
+    innerGrad.addColorStop(0, 'rgba(139, 245, 200, 0.15)');
+    innerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = innerGrad;
+    roundRect(ctx, px, py, panelW, panelH, 24);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = '#ffffff';
     setDisplayFont(ctx, state, 46, '800');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(tr(state, 'pause_title'), W / 2, H / 2 - 124);
+    ctx.fillText(tr(state, 'pause_title').toUpperCase(), W / 2, H / 2 - 110);
+    
+    // Decorative line
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(W / 2 - 80, H / 2 - 80, 160, 2);
+    ctx.fillStyle = '#8bf5c8';
+    ctx.fillRect(W / 2 - 25, H / 2 - 80, 50, 2);
 
     // Menu options
     const options = [tr(state, 'pause_resume'), tr(state, 'pause_restart'), tr(state, 'pause_quit')];
@@ -561,18 +591,18 @@ export function render(
       const selected = state.pauseSelection === i;
 
       // Background
-      const rowGrad = ctx.createLinearGradient(W / 2 - 190, y, W / 2 + 190, y + 44);
-      rowGrad.addColorStop(0, selected ? 'rgba(88, 182, 255, 0.4)' : 'rgba(10, 20, 40, 0.86)');
-      rowGrad.addColorStop(1, selected ? 'rgba(98, 235, 208, 0.33)' : 'rgba(18, 36, 68, 0.8)');
+      const rowGrad = ctx.createLinearGradient(W / 2 - 170, y, W / 2 + 170, y + 44);
+      rowGrad.addColorStop(0, selected ? 'rgba(88, 182, 255, 0.2)' : 'rgba(255, 255, 255, 0.03)');
+      rowGrad.addColorStop(1, selected ? 'rgba(98, 235, 208, 0.15)' : 'rgba(255, 255, 255, 0.01)');
       ctx.fillStyle = rowGrad;
-      roundRect(ctx, W / 2 - 190, y - 22, 380, 46, 11);
+      roundRect(ctx, W / 2 - 170, y - 22, 340, 46, 12);
       ctx.fill();
 
       if (selected) {
         ctx.save();
-        ctx.strokeStyle = optionColors[i]; ctx.lineWidth = 2;
-        ctx.shadowColor = optionColors[i]; ctx.shadowBlur = 14;
-        roundRect(ctx, W / 2 - 190, y - 22, 380, 46, 11);
+        ctx.strokeStyle = optionColors[i]; ctx.lineWidth = 1.5;
+        ctx.shadowColor = optionColors[i]; ctx.shadowBlur = 10;
+        roundRect(ctx, W / 2 - 170, y - 22, 340, 46, 12);
         ctx.stroke();
         ctx.restore();
       }
@@ -1409,6 +1439,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
 }
 
 function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
+  if (state.deathAnimTimer > 0 && state.deathType !== 'fall') return;
   const s = state.stickman;
   const cx = s.x + s.width / 2;
   const headY = s.y + 8;
@@ -2385,7 +2416,27 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
 
   const panelW = 740;
   const panelH = 360;
-  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 180, panelW, panelH, 22, '#ff6b81');
+  const px = W / 2 - panelW / 2;
+  const py = H / 2 - 180;
+
+  // Dark glowing panel
+  ctx.save();
+  ctx.shadowColor = '#ff3355';
+  ctx.shadowBlur = 40;
+  ctx.fillStyle = 'rgba(15, 5, 8, 0.95)';
+  roundRect(ctx, px, py, panelW, panelH, 24);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 51, 85, 0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  const innerGrad = ctx.createLinearGradient(px, py, px, py + panelH);
+  innerGrad.addColorStop(0, 'rgba(255, 51, 85, 0.15)');
+  innerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = innerGrad;
+  roundRect(ctx, px, py, panelW, panelH, 24);
+  ctx.fill();
+  ctx.restore();
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
@@ -2439,14 +2490,31 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
     const quitX = W / 2 + gap / 2;
 
     // Retry Button
-    drawPanel(ctx, retryX, baseY, btnW, btnH, 12, '#ffffff');
-    ctx.fillStyle = '#ff6b81';
+    const retryGrad = ctx.createLinearGradient(retryX, baseY, retryX, baseY + btnH);
+    retryGrad.addColorStop(0, '#ff4766');
+    retryGrad.addColorStop(1, '#d62846');
+    ctx.fillStyle = retryGrad;
+    roundRect(ctx, retryX, baseY, btnW, btnH, 12);
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = '#ff3355'; ctx.shadowBlur = 15;
+    ctx.strokeStyle = '#ff8fa1'; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+    
+    ctx.fillStyle = '#ffffff';
     setUiFont(ctx, state, 16, '900');
     ctx.textAlign = 'center';
     ctx.fillText(tr(state, 'game_over_retry').toUpperCase(), retryX + btnW / 2, baseY + 36);
 
     // Quit Button
-    drawPanel(ctx, quitX, baseY, btnW, btnH, 12, 'rgba(255,255,255,0.15)');
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, quitX, baseY, btnW, btnH, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
     ctx.fillStyle = '#ffffff';
     setUiFont(ctx, state, 16, '900');
     ctx.fillText(tr(state, 'game_over_quit').toUpperCase(), quitX + btnW / 2, baseY + 36);
