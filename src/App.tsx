@@ -15,6 +15,7 @@ import {
   buildMenuState,
   buildNextLevelState,
   buildPlayingState,
+  buildTutorialState,
   buildRestartLevelState,
 } from './game/stateFactory';
 import {
@@ -1259,6 +1260,34 @@ function App() {
                     style={{ marginLeft: 8 }}
                   />
                 </label>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_tutorial')}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettings(false);
+                    const saved = loadSave();
+                    assignState(buildTutorialState(saved.highScore, stateRef.current.difficulty));
+                    Audio.initAudio();
+                    Audio.playMenuSelect();
+                    Audio.startMusic(0);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    background: '#1d4ed8',
+                    color: '#fff',
+                    border: '1px solid #3b82f6',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    marginTop: '4px'
+                  }}
+                >
+                  ▶ Play Tutorial
+                </button>
               </section>
 
               <section>

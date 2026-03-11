@@ -23,6 +23,10 @@ export function buildPlayingState(
   return withPlayingIntro(createInitialState(level, score, highScore, difficulty));
 }
 
+export function buildTutorialState(highScore: number, difficulty: Difficulty): GameState {
+  return buildPlayingState(-1, highScore, difficulty, 0);
+}
+
 export function buildEndlessState(highScore: number, difficulty: Difficulty): GameState {
   return buildPlayingState(15, highScore, difficulty, 0);
 }

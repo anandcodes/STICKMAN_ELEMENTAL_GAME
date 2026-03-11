@@ -3,11 +3,13 @@ import { level1, level2, level3, level4, level5 } from './levels/level1_5';
 import { level6, level7, level8, level9, level10 } from './levels/level6_10';
 import { level11, level12, level13, level14, level15 } from './levels/level11_15';
 import { endlessLevel } from './levels/endlessLevel';
+import { getTutorialLevel } from './levels/tutorial';
 import type { ContentPack } from './content';
 import { applyContentPack } from './content';
 import contentPackJson from './content-pack.json';
 
 export { makeEnemy } from './levels/utils';
+export { getTutorialLevel };
 
 const CONTENT_PACK = contentPackJson as ContentPack;
 
@@ -22,6 +24,7 @@ export function getLevels(): LevelDef[] {
 }
 
 export function getLevel(index: number): LevelDef {
+  if (index === -1) return getTutorialLevel();
   const levels = getLevels();
   return levels[Math.min(index, levels.length - 1)];
 }

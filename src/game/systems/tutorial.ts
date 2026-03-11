@@ -16,21 +16,17 @@ import type { GameState, TutorialStep } from '../types';
 // ─── Step Definitions ────────────────────────────────────────────────────────
 
 export function createTutorialSteps(level: number): TutorialStep[] {
-  switch (level) {
-    case 0: return level1Steps();
-    case 1: return level2Steps();
-    case 2: return level3Steps();
-    case 3: return level4Steps();
-    default: return []; // No tutorial for later levels
+  // Only return steps for the dedicated tutorial level (ID: -1)
+  if (level === -1) {
+    return tutorialModuleSteps();
   }
+  return []; // No tutorial for regular campaign levels
 }
 
 /**
- * Level 1 (Forest Awakening): Movement basics
- * - Walk right/left, jump, climb platform, collect gem, reach portal
- * Match: Level has ground at y:580, platform at (250,460), gem at (270,440)
+ * Unified Tutorial Module: Covers movement, fire, water, dash, plant growth, and portal.
  */
-function level1Steps(): TutorialStep[] {
+function tutorialModuleSteps(): TutorialStep[] {
   return [
     {
       action: 'move_right',
@@ -57,7 +53,7 @@ function level1Steps(): TutorialStep[] {
       action: 'jump_platform',
       promptDesktop: '🔼  Jump onto the stone platform!',
       promptMobile: '🔼  Jump onto the stone platform!',
-      worldX: 320, worldY: 460, triggerRadius: 100,
+      worldX: 320, worldY: 500, triggerRadius: 100,
       completed: false,
       showArrow: true,
     },
@@ -79,31 +75,6 @@ function level1Steps(): TutorialStep[] {
       showArrow: true,
     },
     {
-      action: 'collect_gem',
-      promptDesktop: '💎  Collect gems to open the exit Portal!',
-      promptMobile: '💎  Collect gems to open the exit Portal!',
-      worldX: 270, worldY: 440, triggerRadius: 80,
-      completed: false,
-      showArrow: true,
-    },
-    {
-      action: 'reach_portal',
-      promptDesktop: '🌀  Keep exploring! Collect 5 gems and reach the Portal!',
-      promptMobile: '🌀  Collect 5 gems and reach the Portal!',
-      completed: false,
-      showArrow: false,
-    },
-  ];
-}
-
-/**
- * Level 2 (Ice Caverns): Water element + ice mechanics
- * - Switch water, cast water, learn ice physics
- * Match: Level has ice blocks at (500,540)(850,540), puddles, water currents
- */
-function level2Steps(): TutorialStep[] {
-  return [
-    {
       action: 'switch_water',
       promptDesktop: '💧  Press 2 to switch to Water element',
       promptMobile: '💧  Tap the WATER button to switch',
@@ -113,107 +84,65 @@ function level2Steps(): TutorialStep[] {
     },
     {
       action: 'cast_water',
-      promptDesktop: '💧  Click to cast Water! Melt ice blocks in your path.',
-      promptMobile: '💧  Cast Water to melt ice blocks!',
+      promptDesktop: '💧  Cast Water to melt the ice blocks ahead!',
+      promptMobile: '💧  Cast Water to melt the ice blocks!',
       element: 'water',
-      worldX: 500, worldY: 540, triggerRadius: 200,
+      worldX: 700, worldY: 500, triggerRadius: 200,
       completed: false,
       showArrow: true,
     },
-    {
-      action: 'none',
-      promptDesktop: '🧊  Careful! Ice platforms are slippery – control your momentum!',
-      promptMobile: '🧊  Ice platforms are slippery – control your momentum!',
-      worldX: 750, worldY: 440, triggerRadius: 120,
-      completed: false,
-      showArrow: true,
-    },
-    {
-      action: 'reach_portal',
-      promptDesktop: '🌀  Master the ice and collect gems to reach the Portal!',
-      promptMobile: '🌀  Collect gems and reach the Portal!',
-      completed: false,
-      showArrow: false,
-    },
-  ];
-}
-
-/**
- * Level 3 (Volcanic Forge): Dash ability
- * - Learn dash, dash through spikes
- * Match: Level has spikes at (420,580)(770,580), fire pits, fire spirits
- */
-function level3Steps(): TutorialStep[] {
-  return [
     {
       action: 'dash',
-      promptDesktop: '💨  Press SHIFT to Dash! You are briefly invincible while dashing.',
+      promptDesktop: '💨  Press SHIFT to Dash! You are briefly invincible.',
       promptMobile: '💨  Tap the DASH button! You are briefly invincible.',
       completed: false,
       showArrow: false,
     },
     {
       action: 'dash_through',
-      promptDesktop: '💨  Dash across the spike gap to avoid damage!',
+      promptDesktop: '💨  Dash across the spike bed to safely cross!',
       promptMobile: '💨  Dash over the spikes to stay safe!',
-      worldX: 420, worldY: 570, triggerRadius: 200,
+      worldX: 900, worldY: 550, triggerRadius: 200,
       completed: false,
       showArrow: true,
     },
-    {
-      action: 'switch_water',
-      promptDesktop: '💧  Switch to Water (2) to extinguish fire pits and fight fire spirits!',
-      promptMobile: '💧  Switch to Water to extinguish fire!',
-      element: 'water',
-      completed: false,
-      showArrow: false,
-    },
-    {
-      action: 'reach_portal',
-      promptDesktop: '🌀  Use Dash to survive and reach the Portal!',
-      promptMobile: '🌀  Dash, fight, and reach the Portal!',
-      completed: false,
-      showArrow: false,
-    },
-  ];
-}
-
-/**
- * Level 4 (Sky Fortress): Element interactions + wind zones
- * - Grow plants with water, ride wind zones
- * Match: Level has plants at (350,560)(580,560), wind zones at (600,350)
- */
-function level4Steps(): TutorialStep[] {
-  return [
     {
       action: 'grow_plant',
-      promptDesktop: '🌱  Switch to Water (2) and shoot the plant to grow it!',
-      promptMobile: '🌱  Switch to Water and shoot the plant!',
-      worldX: 350, worldY: 555, triggerRadius: 200,
+      promptDesktop: '🌱  Use Water (2) to grow the plant and climb!',
+      promptMobile: '🌱  Use Water to grow the plant and climb!',
+      worldX: 1100, worldY: 550, triggerRadius: 200,
       element: 'water',
       completed: false,
       showArrow: true,
     },
     {
       action: 'none',
-      promptDesktop: '🌪️  Step into the Wind Zone — it pushes you upward!',
+      promptDesktop: '🌪️  Step into the continuous Wind Zone to float up.',
       promptMobile: '🌪️  Step into the Wind Zone to fly up!',
-      worldX: 640, worldY: 400, triggerRadius: 120,
+      worldX: 1450, worldY: 450, triggerRadius: 150,
       completed: false,
       showArrow: true,
     },
     {
       action: 'none',
-      promptDesktop: '⚡  Switch elements with 1-4 to exploit enemy weaknesses!',
-      promptMobile: '⚡  Switch elements to exploit enemy weaknesses!',
-      worldX: 900, worldY: 350, triggerRadius: 150,
+      promptDesktop: '⚡  Defeat the enemy using its weakness!',
+      promptMobile: '⚡  Defeat the enemy!',
+      worldX: 1900, worldY: 580, triggerRadius: 200,
+      completed: false,
+      showArrow: true,
+    },
+    {
+      action: 'collect_gem',
+      promptDesktop: '💎  Collect gems to gather power!',
+      promptMobile: '💎  Collect gems to gather power!',
+      worldX: 1800, worldY: 380, triggerRadius: 120,
       completed: false,
       showArrow: false,
     },
     {
       action: 'reach_portal',
-      promptDesktop: '🌀  You have learned all the basics! Reach the Portal!',
-      promptMobile: '🌀  You know the basics! Reach the Portal!',
+      promptDesktop: '🌀  Gather all gems and reach the Portal to finish!',
+      promptMobile: '🌀  Gather all gems and reach the Portal!',
       completed: false,
       showArrow: false,
     },

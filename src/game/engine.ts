@@ -44,7 +44,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
 };
 
 function createTutorialHints(level: number): TutorialHint[] {
-  if (level !== 0) return [];
+  if (level !== -1) return [];
   return [
     { x: 350, y: 520, text: 'Press 1 and click to burn crates', triggered: false, triggerRadius: 120 },
     { x: 650, y: 540, text: 'Press 2 and click to grow plants', triggered: false, triggerRadius: 120 },
@@ -144,7 +144,7 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     tutorialHints: createTutorialHints(level),
     tutorialSteps: createTutorialSteps(level),
     tutorialStepIndex: 0,
-    tutorialActive: level <= 3, // Tutorial active for first 4 levels
+    tutorialActive: level === -1, // Tutorial active only for the dedicated tutorial module
     redFlash: 0,
     pauseSelection: 0,
     bestTimes: savedData.bestTimes || {},
@@ -163,10 +163,10 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
 }
 
 function getUnlockedElements(level: number): Element[] {
-  if (level === 0) return ['fire', 'water'];
-  if (level === 1) return ['fire', 'water', 'earth'];
-  // Level 10 is endless, give all elements
-  return ['fire', 'water', 'earth', 'wind'];
+  if (level === -1) return ['fire', 'water']; // Tutorial module
+  if (level === 0) return ['fire', 'water']; // Campaign L1
+  if (level === 1) return ['fire', 'water', 'earth']; // Campaign L2
+  return ['fire', 'water', 'earth', 'wind']; // Campaign L3+ & Endless
 }
 
 export { spawnParticles, spawnFloatingText, addScore, createSynergyZone, handleEnemyHit } from './systems/utils';
