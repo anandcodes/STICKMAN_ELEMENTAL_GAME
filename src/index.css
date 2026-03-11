@@ -64,24 +64,10 @@ body {
 }
 
 @media screen and (max-width: 768px) and (orientation: portrait) {
-  #game-container::before {
-    content: "Portrait mobile layout enabled";
-    position: fixed;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(5, 13, 28, 0.88);
-    color: #d5e7ff;
-    border: 1px solid rgba(130, 194, 255, 0.4);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-family: "Rajdhani", "Trebuchet MS", sans-serif;
-    letter-spacing: 0.4px;
-    z-index: 100;
-    white-space: nowrap;
-    pointer-events: none;
-    animation: fadeOut 4s forwards;
+  #game-container {
+    /* Ensure the rotated canvas is properly contained */
+    align-items: flex-start;
+    justify-content: center;
   }
 }
 

@@ -81,11 +81,13 @@ function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasRotated, setCanvasRotated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
+  const canvasRotatedRef = useRef(false);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
@@ -100,7 +102,35 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
+    // When rotated, CSS width/height are swapped visually.
+    // The touch layout should use the logical game dimensions.
+    const displayW = canvasRotatedRef.current ? rect.height : rect.width;
+    const displayH = canvasRotatedRef.current ? rect.width : rect.height;
+    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, displayW, displayH);
+  };
+
+  /**
+   * Map a screen-space coordinate (clientX, clientY) to canvas logical coordinates.
+   * When the canvas is CSS-rotated −90°, screen X→canvas Y (inverted) and screen Y→canvas X.
+   */
+  const screenToCanvas = (clientX: number, clientY: number, rect: DOMRect): { x: number; y: number } => {
+    if (canvasRotatedRef.current) {
+      // CSS transform: rotate(-90deg) translateX(-100%)
+      // The rect top-left in screen space is actually the canvas bottom-left.
+      // Screen X maps to canvas Y (bottom-up), Screen Y maps to canvas X.
+      const displayW = rect.height; // actual game width display
+      const displayH = rect.width;  // actual game height display
+      const relX = clientX - rect.left; // 0..rect.width  → maps to canvas Y
+      const relY = clientY - rect.top;  // 0..rect.height → maps to canvas X
+      return {
+        x: (relY / displayW) * CANVAS_W,
+        y: ((displayH - relX) / displayH) * CANVAS_H,
+      };
+    }
+    return {
+      x: ((clientX - rect.left) / rect.width) * CANVAS_W,
+      y: ((clientY - rect.top) / rect.height) * CANVAS_H,
+    };
   };
 
   const enterMobileImmersive = () => {
@@ -120,14 +150,19 @@ function App() {
       const vh = hostRect?.height ?? window.visualViewport?.height ?? window.innerHeight;
       let s;
       let w = 1200;
+      let rotated = false;
+
       if (isMobileRef.current) {
-        // Dynamic aspect ratio scaling for mobile fullscreen
-        if (vw > vh) { // Landscape
+        if (vw > vh) {
+          // Landscape: scale to fill height, expand width
           s = vh / CANVAS_H;
           w = Math.max(1200, Math.floor(vw / s));
-        } else { // Portrait
-          s = vw / 1200;
-          w = 1200;
+        } else {
+          // Portrait: rotate canvas 90° so phone height becomes game width
+          // After rotation: game width = vh, game height = vw
+          rotated = true;
+          s = vw / CANVAS_H; // phone width maps to canvas height
+          w = Math.max(1200, Math.floor(vh / s)); // phone height maps to canvas width
         }
       } else {
         const scaleX = vw / 1200;
@@ -139,7 +174,10 @@ function App() {
       setEngineCanvasSize(w, CANVAS_H);
       setCanvasWidth(w);
       setCanvasScale(s);
-      isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
+      setCanvasRotated(rotated);
+      canvasRotatedRef.current = rotated;
+      // When rotated, internal canvas is still landscape, so renderer shouldn't use portrait adjustments
+      isPortraitMobileRef.current = false;
       requestAnimationFrame(syncTouchLayout);
     };
     computeScale();
@@ -614,13 +652,9 @@ function App() {
 
     const onMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = CANVAS_W / rect.width;
-      const scaleY = CANVAS_H / rect.height;
+      const mapped = screenToCanvas(e.clientX, e.clientY, rect);
       const s = stateRef.current;
-      s.mousePos = {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
-      };
+      s.mousePos = mapped;
 
       if (s.screen === 'shop') {
         const spacing = 72; const startY = 180;
@@ -751,12 +785,15 @@ function App() {
 
       if (handleDialogAdvance()) return;
 
-      if (s.screen === 'shop') {
+      // Helper: map first touch to canvas coords
+      const mapFirstTouch = () => {
         const rect = canvas.getBoundingClientRect();
-        const scaleX = CANVAS_W / rect.width;
-        const scaleY = CANVAS_H / rect.height;
-        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
-        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+        const t0 = e.changedTouches[0];
+        return screenToCanvas(t0.clientX, t0.clientY, rect);
+      };
+
+      if (s.screen === 'shop') {
+        const { x: tx, y: ty } = mapFirstTouch();
 
         // Check Back Button (roughly W/2 - 60, H - 70, 120x40)
         if (tx > CANVAS_W / 2 - 80 && tx < CANVAS_W / 2 + 80 && ty > CANVAS_H - 90 && ty < CANVAS_H - 10) {
@@ -813,11 +850,7 @@ function App() {
       if (s.screen !== 'playing') {
         // Menu touch handling with proper button hit-testing
         if (s.screen === 'menu') {
-          const rect = canvas.getBoundingClientRect();
-          const scaleX = CANVAS_W / rect.width;
-          const scaleY = CANVAS_H / rect.height;
-          const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
-          const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+          const { x: tx, y: ty } = mapFirstTouch();
 
           // Button layout matches renderer: btnW=280, btnH=80, gap=40, baseY=320
           const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
@@ -864,11 +897,7 @@ function App() {
 
         // Game Over Screen (Campaign)
         if (s.screen === 'gameOver' && s.endlessWave === undefined) {
-          const rect = canvas.getBoundingClientRect();
-          const scaleX = CANVAS_W / rect.width;
-          const scaleY = CANVAS_H / rect.height;
-          const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
-          const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+          const { x: tx, y: ty } = mapFirstTouch();
 
           const btnW = 194; const btnH = 56; const gap = 30; const baseY = CANVAS_H / 2 + 85;
           const retryX = CANVAS_W / 2 - btnW - gap / 2;
@@ -893,22 +922,14 @@ function App() {
         }
 
         // Other non-playing screens
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = CANVAS_W / rect.width;
-        const scaleY = CANVAS_H / rect.height;
-        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
-        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+        const { x: tx, y: ty } = mapFirstTouch();
         handleScreenTransition(tx, ty);
         return;
       }
 
       // Mobile pause menu touch handling
       if (s.paused) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = CANVAS_W / rect.width;
-        const scaleY = CANVAS_H / rect.height;
-        const tx = (e.changedTouches[0].clientX - rect.left) * scaleX;
-        const ty = (e.changedTouches[0].clientY - rect.top) * scaleY;
+        const { x: tx, y: ty } = mapFirstTouch();
 
         // Check each pause menu option (matches renderer layout: y = H/2 - 30 + i * 55)
         for (let i = 0; i < 3; i++) {
@@ -946,14 +967,14 @@ function App() {
       }
 
       const newTouches = Array.from(e.changedTouches);
-      handleTouchStart(newTouches, controls, s, canvas, CANVAS_W, CANVAS_H);
+      handleTouchStart(newTouches, controls, s, canvas, CANVAS_W, CANVAS_H, screenToCanvas);
     };
 
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       const controls = touchControlsRef.current;
       const changedTouches = Array.from(e.changedTouches);
-      handleTouchMove(changedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H);
+      handleTouchMove(changedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H, screenToCanvas);
     };
 
     const onTouchEnd = (e: TouchEvent) => {
@@ -1120,11 +1141,16 @@ function App() {
         aria-label="Game canvas"
         style={{
           display: 'block',
-          width: Math.floor(canvasWidth * canvasScale),
-          height: Math.floor(CANVAS_H * canvasScale),
+          width: canvasRotated ? Math.floor(CANVAS_H * canvasScale) : Math.floor(canvasWidth * canvasScale),
+          height: canvasRotated ? Math.floor(canvasWidth * canvasScale) : Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',
           touchAction: 'none',
           imageRendering: 'auto',
+          // Swap dimensions via CSS when rotated — maps phone height to game width
+          ...(canvasRotated ? {
+            transformOrigin: 'top left',
+            transform: `rotate(-90deg) translateX(-100%)`,
+          } : {}),
         }}
       />
       {showSettings && (

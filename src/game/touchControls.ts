@@ -150,14 +150,17 @@ export function handleTouchStart(
   canvas: HTMLCanvasElement,
   canvasW: number,
   canvasH: number,
+  coordTransform?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number },
 ): void {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvasW / rect.width;
-  const scaleY = canvasH / rect.height;
+  const defaultTransform = (cx: number, cy: number, r: DOMRect) => ({
+    x: (cx - r.left) * (canvasW / r.width),
+    y: (cy - r.top) * (canvasH / r.height),
+  });
+  const toCanvas = coordTransform || defaultTransform;
 
   for (const touch of touches) {
-    const tx = (touch.clientX - rect.left) * scaleX;
-    const ty = (touch.clientY - rect.top) * scaleY;
+    const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
     for (const btn of controls.elementButtons) {
       if (dist(tx, ty, btn.x, btn.y) < btn.radius * 2.0) {
@@ -228,14 +231,17 @@ export function handleTouchMove(
   canvas: HTMLCanvasElement,
   canvasW: number,
   canvasH: number,
+  coordTransform?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number },
 ): void {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvasW / rect.width;
-  const scaleY = canvasH / rect.height;
+  const defaultTransform = (cx: number, cy: number, r: DOMRect) => ({
+    x: (cx - r.left) * (canvasW / r.width),
+    y: (cy - r.top) * (canvasH / r.height),
+  });
+  const toCanvas = coordTransform || defaultTransform;
 
   for (const touch of touches) {
-    const tx = (touch.clientX - rect.left) * scaleX;
-    const ty = (touch.clientY - rect.top) * scaleY;
+    const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
     if (touch.identifier === controls.dpadTouchId) {
       const dx = tx - controls.dpadCenter.x;
