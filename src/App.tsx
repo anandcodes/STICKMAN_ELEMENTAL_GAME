@@ -111,20 +111,20 @@ function App() {
 
   /**
    * Map a screen-space coordinate (clientX, clientY) to canvas logical coordinates.
-   * When the canvas is CSS-rotated −90°, screen X→canvas Y (inverted) and screen Y→canvas X.
+   * When rotated 90° CW: screen-down → game-right, screen-right → game-up.
    */
   const screenToCanvas = (clientX: number, clientY: number, rect: DOMRect): { x: number; y: number } => {
     if (canvasRotatedRef.current) {
-      // CSS transform: rotate(-90deg) translateX(-100%)
-      // The rect top-left in screen space is actually the canvas bottom-left.
-      // Screen X maps to canvas Y (bottom-up), Screen Y maps to canvas X.
-      const displayW = rect.height; // actual game width display
-      const displayH = rect.width;  // actual game height display
-      const relX = clientX - rect.left; // 0..rect.width  → maps to canvas Y
-      const relY = clientY - rect.top;  // 0..rect.height → maps to canvas X
+      // CSS transform: rotate(90deg) translateY(-100%) with origin (0,0)
+      // getBoundingClientRect returns the visual box after transform:
+      //   rect.width = CANVAS_H * scale (phone width ≈ 390)
+      //   rect.height = CANVAS_W * scale (phone height ≈ 844)
+      // Mapping: screen Y → canvas X, screen X → canvas Y (inverted)
+      const relX = clientX - rect.left; // 0..rect.width  (screen horizontal)
+      const relY = clientY - rect.top;  // 0..rect.height (screen vertical)
       return {
-        x: (relY / displayW) * CANVAS_W,
-        y: ((displayH - relX) / displayH) * CANVAS_H,
+        x: (relY / rect.height) * CANVAS_W,
+        y: (1 - relX / rect.width) * CANVAS_H,
       };
     }
     return {
@@ -1111,28 +1111,30 @@ function App() {
         touchAction: 'none',
       }}
     >
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={showSettings}
-        onClick={() => setShowSettings(true)}
-        style={{
-          position: 'absolute',
-          top: 12,
-          left: 12,
-          zIndex: 30,
-          border: '1px solid #7db8ff',
-          background: 'rgba(9, 23, 44, 0.9)',
-          color: '#e8f2ff',
-          borderRadius: 8,
-          padding: '8px 12px',
-          fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
-          fontSize: `${Math.round(12 * settings.textScale)}px`,
-          cursor: 'pointer',
-        }}
-      >
-        {t(settings.locale, 'app_open_settings')}
-      </button>
+      {!canvasRotated && (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={showSettings}
+          onClick={() => setShowSettings(true)}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 30,
+            border: '1px solid #7db8ff',
+            background: 'rgba(9, 23, 44, 0.9)',
+            color: '#e8f2ff',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
+            fontSize: `${Math.round(12 * settings.textScale)}px`,
+            cursor: 'pointer',
+          }}
+        >
+          {t(settings.locale, 'app_open_settings')}
+        </button>
+      )}
       <canvas
         ref={canvasRef}
         width={canvasWidth}
@@ -1141,15 +1143,20 @@ function App() {
         aria-label="Game canvas"
         style={{
           display: 'block',
-          width: canvasRotated ? Math.floor(CANVAS_H * canvasScale) : Math.floor(canvasWidth * canvasScale),
-          height: canvasRotated ? Math.floor(canvasWidth * canvasScale) : Math.floor(CANVAS_H * canvasScale),
+          // Always use natural landscape dimensions — rotation handles orientation
+          width: Math.floor(canvasWidth * canvasScale),
+          height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',
           touchAction: 'none',
           imageRendering: 'auto',
-          // Swap dimensions via CSS when rotated — maps phone height to game width
           ...(canvasRotated ? {
-            transformOrigin: 'top left',
-            transform: `rotate(-90deg) translateX(-100%)`,
+            // Absolute position at top-left, then rotate 90° CW to fill portrait screen
+            // The wide canvas (844px) becomes the visual height, short (390px) becomes visual width
+            position: 'absolute' as const,
+            top: 0,
+            left: 0,
+            transformOrigin: '0 0',
+            transform: 'rotate(90deg) translateY(-100%)',
           } : {}),
         }}
       />
