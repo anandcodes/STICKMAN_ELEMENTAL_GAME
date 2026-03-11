@@ -81,13 +81,11 @@ function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
-  const [canvasRotated, setCanvasRotated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
-  const canvasRotatedRef = useRef(false);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
@@ -102,31 +100,13 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    // When rotated, CSS width/height are swapped visually.
-    // The touch layout should use the logical game dimensions.
-    const displayW = canvasRotatedRef.current ? rect.height : rect.width;
-    const displayH = canvasRotatedRef.current ? rect.width : rect.height;
-    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, displayW, displayH);
+    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
   };
 
   /**
    * Map a screen-space coordinate (clientX, clientY) to canvas logical coordinates.
-   * When rotated 90° CW: screen-down → game-right, screen-right → game-up.
    */
   const screenToCanvas = (clientX: number, clientY: number, rect: DOMRect): { x: number; y: number } => {
-    if (canvasRotatedRef.current) {
-      // CSS transform: rotate(90deg) translateY(-100%) with origin (0,0)
-      // getBoundingClientRect returns the visual box after transform:
-      //   rect.width = CANVAS_H * scale (phone width ≈ 390)
-      //   rect.height = CANVAS_W * scale (phone height ≈ 844)
-      // Mapping: screen Y → canvas X, screen X → canvas Y (inverted)
-      const relX = clientX - rect.left; // 0..rect.width  (screen horizontal)
-      const relY = clientY - rect.top;  // 0..rect.height (screen vertical)
-      return {
-        x: (relY / rect.height) * CANVAS_W,
-        y: (1 - relX / rect.width) * CANVAS_H,
-      };
-    }
     return {
       x: ((clientX - rect.left) / rect.width) * CANVAS_W,
       y: ((clientY - rect.top) / rect.height) * CANVAS_H,
@@ -150,19 +130,19 @@ function App() {
       const vh = hostRect?.height ?? window.visualViewport?.height ?? window.innerHeight;
       let s;
       let w = 1200;
-      let rotated = false;
 
       if (isMobileRef.current) {
         if (vw > vh) {
-          // Landscape: scale to fill height, expand width
+          // Landscape: scale to fill height, expand canvas width to fill screen
           s = vh / CANVAS_H;
           w = Math.max(1200, Math.floor(vw / s));
         } else {
-          // Portrait: rotate canvas 90° so phone height becomes game width
-          // After rotation: game width = vh, game height = vw
-          rotated = true;
-          s = vw / CANVAS_H; // phone width maps to canvas height
-          w = Math.max(1200, Math.floor(vh / s)); // phone height maps to canvas width
+          // Portrait: scale to fill width, letterbox vertically
+          s = vw / CANVAS_H; // fill the phone width using canvas height dimension
+          w = Math.max(1200, Math.floor(vw / s)); // make canvas wide enough
+          // Recalculate: fill width based on a reasonable virtual width
+          w = 1200;
+          s = vw / w;
         }
       } else {
         const scaleX = vw / 1200;
@@ -174,10 +154,7 @@ function App() {
       setEngineCanvasSize(w, CANVAS_H);
       setCanvasWidth(w);
       setCanvasScale(s);
-      setCanvasRotated(rotated);
-      canvasRotatedRef.current = rotated;
-      // When rotated, internal canvas is still landscape, so renderer shouldn't use portrait adjustments
-      isPortraitMobileRef.current = false;
+      isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
       requestAnimationFrame(syncTouchLayout);
     };
     computeScale();
@@ -1111,30 +1088,28 @@ function App() {
         touchAction: 'none',
       }}
     >
-      {!canvasRotated && (
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={showSettings}
-          onClick={() => setShowSettings(true)}
-          style={{
-            position: 'absolute',
-            top: 12,
-            left: 12,
-            zIndex: 30,
-            border: '1px solid #7db8ff',
-            background: 'rgba(9, 23, 44, 0.9)',
-            color: '#e8f2ff',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
-            fontSize: `${Math.round(12 * settings.textScale)}px`,
-            cursor: 'pointer',
-          }}
-        >
-          {t(settings.locale, 'app_open_settings')}
-        </button>
-      )}
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={showSettings}
+        onClick={() => setShowSettings(true)}
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: 12,
+          zIndex: 30,
+          border: '1px solid #7db8ff',
+          background: 'rgba(9, 23, 44, 0.9)',
+          color: '#e8f2ff',
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
+          fontSize: `${Math.round(12 * settings.textScale)}px`,
+          cursor: 'pointer',
+        }}
+      >
+        {t(settings.locale, 'app_open_settings')}
+      </button>
       <canvas
         ref={canvasRef}
         width={canvasWidth}
@@ -1143,21 +1118,11 @@ function App() {
         aria-label="Game canvas"
         style={{
           display: 'block',
-          // Always use natural landscape dimensions — rotation handles orientation
           width: Math.floor(canvasWidth * canvasScale),
           height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',
           touchAction: 'none',
           imageRendering: 'auto',
-          ...(canvasRotated ? {
-            // Absolute position at top-left, then rotate 90° CW to fill portrait screen
-            // The wide canvas (844px) becomes the visual height, short (390px) becomes visual width
-            position: 'absolute' as const,
-            top: 0,
-            left: 0,
-            transformOrigin: '0 0',
-            transform: 'rotate(90deg) translateY(-100%)',
-          } : {}),
         }}
       />
       {showSettings && (
