@@ -78,8 +78,19 @@ export function updateEnemies(state: GameState) {
             }
 
             // BOSS & SPECIAL ATTACK LOGIC
-            if (enemy.type === 'boss1' || enemy.type === 'boss2' || enemy.type === 'void_titan') {
+            if (enemy.type === 'boss1' || enemy.type === 'boss2' || enemy.type === 'void_titan' || enemy.type === 'tree_guardian') {
                 enemy.attackTimer = (enemy.attackTimer || 0) + 1;
+                if (enemy.type === 'tree_guardian' && enemy.attackTimer >= 140) {
+                    enemy.attackTimer = 0;
+                    state.projectiles.push({
+                        x: s.x,
+                        y: s.y + s.height + 40,
+                        vx: 0, vy: -6,
+                        element: 'earth', life: 60,
+                        isEnemy: true, size: 18,
+                    });
+                    spawnParticles(state, s.x, s.y + s.height, 'earth', 30);
+                }
                 if (enemy.type === 'boss1' && enemy.attackTimer >= 100) {
                     enemy.attackTimer = 0;
                     state.projectiles.push({

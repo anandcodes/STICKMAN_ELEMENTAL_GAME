@@ -234,8 +234,14 @@ export function update(state: GameState): void {
     for (let i = state.particles.length - 1; i >= 0; i--) {
       const p = state.particles[i];
       p.x += p.vx; p.y += p.vy;
-      if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
-      p.vx *= 0.98; p.life--;
+      if (p.maxLife === 300) {
+        p.vy = Math.min(p.vy + 0.01, 2);
+        p.vx = Math.sin(state.timeElapsed * 0.03 + p.y * 0.02) * 1.5 + 0.5;
+      } else {
+        if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
+        p.vx *= 0.98;
+      }
+      p.life--;
       if (p.life <= 0) state.particles.splice(i, 1);
     }
     updateFloatingTexts(state);
@@ -372,8 +378,57 @@ export function update(state: GameState): void {
     s.mana = Math.min(s.maxMana, s.mana + (ds.manaRegenRate * regenBonus));
   }
 
+  // Phase 4: Moving platforms and Vine physics
+  let touchingVine = false;
+  let plfX = 0, plfY = 0;
+  for (const obj of state.envObjects) {
+    if (obj.type === 'moving_platform') {
+      const prevY = obj.y;
+      obj.x += obj.vx || 0;
+      obj.y += obj.vy || 0;
+      const dx = obj.x - (obj.moveOriginX || obj.x);
+      const dy = obj.y - (obj.moveOriginY || obj.y);
+      if (Math.sqrt(dx * dx + dy * dy) > (obj.moveRange || 0)) {
+        if (obj.vx) obj.vx *= -1;
+        if (obj.vy) obj.vy *= -1;
+      }
+      
+      // Moving platform stickiness
+      if (s.x + s.width > obj.x && s.x < obj.x + obj.width &&
+          s.y + s.height >= prevY - 2 && s.y + s.height <= prevY + 5 && s.vy >= 0) {
+        plfX = obj.vx || 0;
+        plfY = obj.vy || 0;
+        s.y = obj.y - s.height; // Snap exactly to top of platform
+        s.onGround = true;      // Ground stick
+      }
+    }
+    if (obj.type === 'vine') {
+      if (s.x + s.width > obj.x && s.x < obj.x + obj.width &&
+          s.y + s.height > obj.y && s.y < obj.y + obj.height) {
+        touchingVine = true;
+      }
+    }
+  }
+
   // Physics
-  s.vy += s.isDashing ? GRAVITY * 0.2 : GRAVITY;
+  if (touchingVine) {
+    if (state.keys.has('w') || state.keys.has('arrowup') || state.keys.has(' ')) {
+      s.vy = -3;
+    } else if (state.keys.has('s') || state.keys.has('arrowdown')) {
+      s.vy = 3;
+    } else {
+      s.vy = 0;
+    }
+    s.jumpsUsed = 0;
+    s.onGround = true;
+    s.isDashing = false;
+    s.jumpBufferTimer = 0;
+  } else {
+    s.vy += s.isDashing ? Math.min(GRAVITY * 0.2, 0) : GRAVITY; // Ensure dash stays horizontal mostly
+  }
+  
+  s.x += plfX;
+  s.y += plfY;
 
   // Ice slippery physics (based on onIce state from previous frame's collision)
   if (!s.isDashing) {
@@ -430,6 +485,11 @@ export function update(state: GameState): void {
       s.onGround = true;
       s.jumpsUsed = 0;
       s.jumping = false;
+    }
+    // Bottom collision (hitting head)
+    if (s.vy < 0 && s.y > obj.y + obj.height - 10 && s.y < obj.y + obj.height && s.x + s.width > obj.x + 5 && s.x < obj.x + obj.width - 5) {
+       s.y = obj.y + obj.height;
+       s.vy = 0;
     }
     // Side collision
     if (s.y + s.height > obj.y + 5 && s.y < obj.y + obj.height - 5) {
@@ -749,12 +809,37 @@ export function update(state: GameState): void {
     }
   }
 
+  // Ambient Leaves for Forest Biome
+  if (state.currentLevel >= 15 && state.currentLevel <= 19) {
+    if (Math.random() < 0.1) {
+      state.particles.push({
+        x: state.camera.x + Math.random() * (CANVAS_W + 200) - 100,
+        y: state.camera.y - 10,
+        vx: 0,
+        vy: Math.random() * 0.5 + 0.5,
+        life: 300, maxLife: 300,
+        element: 'wind', // reuse element typing
+        size: Math.random() * 2 + 2,
+        color: ['#228B22', '#32CD32', '#006400'][Math.floor(Math.random() * 3)]
+      });
+    }
+  }
+
   // Update particles
   for (let i = state.particles.length - 1; i >= 0; i--) {
     const p = state.particles[i];
     p.x += p.vx; p.y += p.vy;
-    if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
-    p.vx *= 0.98; p.life--;
+    
+    if (p.maxLife === 300) {
+      // Leaf drift logic
+      p.vy = Math.min(p.vy + 0.01, 2);
+      p.vx = Math.sin(state.timeElapsed * 0.03 + p.y * 0.02) * 1.5 + 0.5; 
+    } else {
+      if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
+      p.vx *= 0.98; 
+    }
+    
+    p.life--;
     if (p.life <= 0) state.particles.splice(i, 1);
   }
 

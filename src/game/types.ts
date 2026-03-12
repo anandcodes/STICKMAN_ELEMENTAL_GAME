@@ -21,7 +21,7 @@ export interface Projectile {
 
 export interface EnvObject {
   id: number;
-  type: 'crate' | 'ice' | 'plant' | 'rock' | 'puddle' | 'fire_pit' | 'gem' | 'health_potion' | 'mana_crystal' | 'portal' | 'spike' | 'moving_platform' | 'wind_zone' | 'water_current' | 'synergy_zone' | 'magma_pool' | 'mud_trap' | 'steam_cloud' | 'dust_devil' | 'lore_tome' | 'anti_gravity_zone' | 'corrupted_crystal';
+  type: 'crate' | 'ice' | 'plant' | 'rock' | 'puddle' | 'fire_pit' | 'gem' | 'health_potion' | 'mana_crystal' | 'portal' | 'spike' | 'moving_platform' | 'vine' | 'wind_zone' | 'water_current' | 'synergy_zone' | 'magma_pool' | 'mud_trap' | 'steam_cloud' | 'dust_devil' | 'lore_tome' | 'anti_gravity_zone' | 'corrupted_crystal';
   x: number; y: number; width: number; height: number;
   health: number; maxHealth: number;
   state: 'normal' | 'burning' | 'frozen' | 'grown' | 'destroyed' | 'melted' | 'extinguished' | 'collected' | 'active' | 'magma' | 'mud' | 'lightning' | 'steam' | 'sand';
@@ -39,7 +39,7 @@ export interface EnvObject {
 
 export interface Enemy {
   id: number;
-  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk' | 'corrupted_wraith' | 'void_brute' | 'void_titan';
+  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'tree_guardian' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk' | 'corrupted_wraith' | 'void_brute' | 'void_titan';
   x: number; y: number; width: number; height: number;
   vx: number; vy: number;
   health: number; maxHealth: number;

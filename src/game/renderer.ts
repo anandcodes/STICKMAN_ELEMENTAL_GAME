@@ -1123,6 +1123,24 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       ctx.restore();
       break;
     }
+    case 'vine': {
+      ctx.fillStyle = '#228B22'; // Forest green
+      ctx.fillRect(obj.x + obj.width / 2 - 2, obj.y, 4, obj.height);
+      ctx.fillStyle = '#006400';
+      for (let i = 0; i < obj.height; i += 20) {
+        ctx.beginPath();
+        ctx.arc(obj.x + obj.width / 2 + (i % 40 === 0 ? 4 : -4), obj.y + i, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'moving_platform': {
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = '#A0522D';
+      ctx.fillRect(obj.x, obj.y, obj.width, 4);
+      break;
+    }
   }
 }
 
@@ -1409,6 +1427,18 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: GameState['enemies'][nu
       ctx.restore();
       break;
     }
+    case 'tree_guardian': {
+      ctx.fillStyle = '#4B3621'; // Dark wood
+      ctx.fillRect(enemy.x + 10, enemy.y + 30, enemy.width - 20, enemy.height - 30);
+      ctx.fillStyle = '#2E8B57'; // Foliage
+      ctx.beginPath();
+      ctx.arc(cx, enemy.y + 30, enemy.width / 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFA500'; // Eyes
+      ctx.fillRect(cx - 15, enemy.y + 45, 8, 8);
+      ctx.fillRect(cx + 7, enemy.y + 45, 8, 8);
+      break;
+    }
     default: {
       ctx.fillStyle = '#777';
       ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
@@ -1654,7 +1684,7 @@ function drawHUD(
       ctx.restore();
     }
 
-    const bossCompact = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2');
+    const bossCompact = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2' || enemy.type === 'tree_guardian');
     if (bossCompact && bossCompact.state !== 'dead') {
       const barW = 380;
       const barH = 18;
@@ -1672,11 +1702,10 @@ function drawHUD(
       ctx.fillStyle = '#ffe1e6';
       setUiFont(ctx, state, 11, '700');
       ctx.textAlign = 'center';
-      ctx.fillText(
-        bossCompact.type === 'boss1' ? tr(state, 'hud_boss_stone') : tr(state, 'hud_boss_wraith'),
-        W / 2,
-        by - 4,
-      );
+      const bossName = bossCompact.type === 'boss1' ? tr(state, 'hud_boss_stone') :
+                       bossCompact.type === 'boss2' ? tr(state, 'hud_boss_wraith') :
+                       tr(state, 'hud_boss_tree');
+      ctx.fillText(bossName, W / 2, by - 4);
     }
 
     return;
@@ -1884,7 +1913,7 @@ function drawHUD(
     ctx.restore();
   }
 
-  const boss = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2');
+  const boss = state.enemies.find((enemy) => enemy.type === 'boss1' || enemy.type === 'boss2' || enemy.type === 'tree_guardian');
   if (boss && boss.state !== 'dead') {
     const barW = 520;
     const barH = 22;
@@ -1909,7 +1938,10 @@ function drawHUD(
 
     ctx.fillStyle = '#ffe1e6';
     setUiFont(ctx, state, 12, '700');
-    ctx.fillText(boss.type === 'boss1' ? tr(state, 'hud_boss_stone') : tr(state, 'hud_boss_wraith'), W / 2, by - 6);
+    const bossName = boss.type === 'boss1' ? tr(state, 'hud_boss_stone') :
+                     boss.type === 'boss2' ? tr(state, 'hud_boss_wraith') :
+                     tr(state, 'hud_boss_tree');
+    ctx.fillText(bossName, W / 2, by - 6);
   }
 
   drawPanel(ctx, W / 2 - 300, _H - 36, 600, 28, 9, '#7bcaff');

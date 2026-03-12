@@ -303,7 +303,7 @@ function App() {
         }
 
         // Fullscreen Toggle on Mobile
-        if (isMobile && tx > CANVAS_W - 100 && ty < 80) {
+        if (isMobileRef.current && tx > CANVAS_W - 100 && ty < 80) {
           enterMobileImmersive();
           return;
         }
@@ -350,7 +350,7 @@ function App() {
       if (s.screen === 'gameOver' || s.screen === 'victory') {
         const saved = loadSave();
 
-        if (isMobile && tx !== undefined && ty !== undefined) {
+        if (isMobileRef.current && tx !== undefined && ty !== undefined) {
           const btnW = 194; const btnH = 56; const gap = 30;
           const retryX = CANVAS_W / 2 - btnW - gap / 2;
           const quitX = CANVAS_W / 2 + gap / 2;
@@ -673,7 +673,7 @@ function App() {
         const spacing = 72; const startY = 180;
         const ty = s.mousePos.y;
         const tx = s.mousePos.x;
-        if (isMobile && ty > CANVAS_H - 100) {
+        if (isMobileRef.current && ty > CANVAS_H - 100) {
           const saved = loadSave();
           assignState(buildMenuState(saved.highScore, s.difficulty));
           Audio.playMenuSelect();
