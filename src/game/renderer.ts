@@ -242,6 +242,7 @@ export function render(
   if (state.screen === 'levelComplete') { drawLevelCompleteScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'gameOver') { drawGameOverScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'victory') { drawVictoryScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'relicSelection') { drawRelicSelectionScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
 
   const cam = state.camera;
 
@@ -501,6 +502,19 @@ export function render(
     ctx.fillStyle = p.color;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2); ctx.fill();
   }
+
+  // Shockwaves
+  for (const sw of state.shockwaves) {
+    const alpha = sw.life / 20; // assumed 20 max life for now
+    const currentRadius = sw.radius * (1 - alpha) + 20; // expands from 20 outwards
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = sw.color;
+    ctx.lineWidth = 4 * alpha;
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y, currentRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   ctx.globalAlpha = 1;
 
   // Stickman
@@ -1748,6 +1762,22 @@ function drawHUD(
   vignette.addColorStop(1, state.highContrast ? 'rgba(0,0,0,0.68)' : 'rgba(0,0,0,0.46)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, W, _H);
+
+  // Elemental Trial Indicator
+  if (state.trialActive && state.trialElement) {
+    const trialName = tr(state, `trial_${state.trialElement}` as any);
+    const trialText = tr(state, 'trial_active', { element: trialName });
+    ctx.save();
+    ctx.textAlign = 'center';
+    setDisplayFont(ctx, state, 18, '900');
+    const pulse = 0.8 + Math.sin(nowMs * 0.005) * 0.2;
+    ctx.fillStyle = ELEMENT_COLORS[state.trialElement] || '#ffffff';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 15;
+    ctx.globalAlpha = pulse;
+    ctx.fillText(trialText.toUpperCase(), W / 2, 45);
+    ctx.restore();
+  }
 
   drawPanel(ctx, 10, 10, 286, 132, 12, '#7bd3ff');
 
@@ -3101,6 +3131,104 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   }
 
   ctx.restore();
+}
+
+function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+  drawBackdrop(ctx, state, W, H, ['#051020', '#102040', '#0a1020']);
+  
+  const nowMs = performance.now();
+  const pulse = Math.sin(nowMs * 0.005) * 0.1 + 1.1;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(83, 184, 255, 0.6)';
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 48, '900');
+  ctx.textAlign = 'center';
+  ctx.fillText(tr(state, 'relic_selection_title'), W / 2, 100);
+  
+  setUiFont(ctx, state, 18, '600');
+  ctx.fillStyle = 'rgba(144, 211, 255, 0.7)';
+  ctx.fillText(tr(state, 'relic_selection_subtitle'), W / 2, 135);
+  ctx.restore();
+
+  const cardW = 320;
+  const cardH = 380;
+  const gap = 30;
+  const totalW = (cardW * state.relicChoices.length) + (gap * (state.relicChoices.length - 1));
+  const startX = W / 2 - totalW / 2;
+  const startY = 180;
+
+  state.relicChoices.forEach((relic, i) => {
+    const rx = startX + i * (cardW + gap);
+    const ry = startY;
+    
+    // Hover logic would be here, but we'll use a subtle pulse for all cards
+    drawPanel(ctx, rx, ry, cardW, cardH, 20, relic.rarity === 'legendary' ? '#ffcc00' : (relic.rarity === 'rare' ? '#6ad2ff' : '#ffffff'));
+
+    // Rarity Badge
+    const badgeW = 100;
+    const badgeH = 24;
+    ctx.fillStyle = relic.rarity === 'legendary' ? 'rgba(255, 204, 0, 0.15)' : 'rgba(255,255,255,0.05)';
+    roundRect(ctx, rx + cardW / 2 - badgeW / 2, ry + 25, badgeW, badgeH, 12);
+    ctx.fill();
+    ctx.fillStyle = relic.rarity === 'legendary' ? '#ffcc00' : (relic.rarity === 'rare' ? '#6ad2ff' : '#8aa2c6');
+    setUiFont(ctx, state, 11, '800');
+    const rarityKey = `relic_rarity_${relic.rarity}` as any;
+    ctx.fillText(tr(state, rarityKey), rx + cardW / 2, ry + 42);
+
+    // Icon Area
+    ctx.save();
+    ctx.font = `${Math.round(80 * pulse)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
+    ctx.shadowBlur = 20;
+    ctx.fillText(relic.icon, rx + cardW / 2, ry + 155);
+    ctx.restore();
+
+    // Name
+    ctx.fillStyle = '#ffffff';
+    setDisplayFont(ctx, state, 26, '800');
+    ctx.fillText(relic.name.toUpperCase(), rx + cardW / 2, ry + 220);
+
+    // Description
+    ctx.fillStyle = 'rgba(233, 242, 255, 0.8)';
+    setUiFont(ctx, state, 16, '600');
+    const descLines = wrapText(ctx, relic.description, cardW - 60);
+    descLines.forEach((line, j) => {
+      ctx.fillText(line, rx + cardW / 2, ry + 260 + j * 24);
+    });
+
+    // Select Hint
+    const pulse2 = 0.7 + Math.sin(nowMs * 0.008) * 0.3;
+    ctx.globalAlpha = pulse2;
+    ctx.fillStyle = UI_THEME.accentStrong;
+    setUiFont(ctx, state, 12, '800');
+    const selectHint = isMobile 
+      ? tr(state, 'relic_tap_select') 
+      : tr(state, 'relic_press_select', { key: i + 1 });
+    ctx.fillText(selectHint, rx + cardW / 2, ry + cardH - 35);
+    ctx.globalAlpha = 1;
+  });
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + " " + word).width;
+    if (width < maxWidth) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
 }
 
 // ─── Tutorial Overlay ───────────────────────────────────────────────────────

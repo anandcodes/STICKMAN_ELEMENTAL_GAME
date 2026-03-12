@@ -90,6 +90,18 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
     const dmgMul = 1 + (state.upgrades.damageLevel * 0.25);
     let dmg = 15 * dmgMul;
 
+    // Relic: Burning Soul (50% Fire Damage)
+    if (elem === 'fire' && state.activeRelics.some(r => r.type === 'burning_soul')) {
+        dmg *= 1.5;
+    }
+
+    // Relic: Berserker Blood (Increased damage at low health)
+    if (state.activeRelics.some(r => r.type === 'berserker_blood')) {
+        const healthRatio = state.stickman.health / state.stickman.maxHealth;
+        const berserkBonus = 1 + (1 - healthRatio) * 1.5; // Up to 150% more damage at near 0 HP
+        dmg *= berserkBonus;
+    }
+
     if (elem === enemy.weakness) {
         dmg = 35 * dmgMul;
         spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, elem, 20);

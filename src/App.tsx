@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { update, DIFFICULTY_SETTINGS, spawnFloatingText, setEngineCanvasSize } from './game/engine';
+import { update, DIFFICULTY_SETTINGS, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
 import type { Difficulty, Element, GameSettings, GameState } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
@@ -420,6 +420,24 @@ function App() {
         return;
       }
 
+      if (s.screen === 'relicSelection') {
+        if (tx === undefined || ty === undefined) return;
+        const cardW = 320; const cardH = 380; const gap = 30;
+        const totalW = (cardW * s.relicChoices.length) + (gap * (s.relicChoices.length - 1));
+        const startX = CANVAS_W / 2 - totalW / 2;
+        const startY = 180;
+
+        for (let i = 0; i < s.relicChoices.length; i++) {
+          const rx = startX + i * (cardW + gap);
+          if (tx >= rx && tx <= rx + cardW && ty >= startY && ty <= startY + cardH) {
+            assignState(selectRelic({ ...s }, i));
+            Audio.playMenuSelect();
+            return;
+          }
+        }
+        return;
+      }
+
       s.screen = 'menu';
       Audio.playMenuSelect();
       return;
@@ -581,6 +599,17 @@ function App() {
             Audio.stopMusic();
             return;
           }
+        }
+
+        if (s.screen === 'relicSelection') {
+          if (key === '1' || key === '2' || key === '3') {
+            const index = parseInt(key) - 1;
+            if (index < s.relicChoices.length) {
+              assignState(selectRelic({ ...s }, index));
+              Audio.playMenuSelect();
+            }
+          }
+          return;
         }
 
         if (key === 'Enter' || key === ' ') {

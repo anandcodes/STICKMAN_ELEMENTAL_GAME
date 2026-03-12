@@ -1,7 +1,7 @@
 import type { GameState, Element, Difficulty, DifficultySettings, TutorialHint } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
-import { spawnFloatingText, spawnParticles, addScore } from './systems/utils';
+import { spawnFloatingText, spawnParticles, addScore, handleEnemyHit } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
 import * as Audio from './audio';
 import { loadSave, saveProgress } from './persistence';
@@ -9,6 +9,8 @@ import { trackEvent } from './telemetry';
 import { loadSettings } from './settings';
 import { submitLeaderboardEntry } from './services/leaderboard';
 import { getAchievementLabel, updateProgression } from './services/progression';
+import { getRandomRelics, applyRelicEffects } from './relics';
+import { startTrial, endTrial } from './systems/trials';
 
 const GRAVITY = 0.75;
 const FRICTION = 0.88;
@@ -160,6 +162,10 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     selectedMenuButton: 0,
     shopSelectionIndex: 0,
     deathAnimTimer: 0,
+    activeRelics: [],
+    relicChoices: [],
+    trialActive: false,
+    shockwaves: [],
   };
 }
 
@@ -183,9 +189,12 @@ function spawnProjectile(state: GameState) {
   const dist = Math.sqrt(dx * dx + dy * dy) || 1;
   const speed = state.selectedElement === 'wind' ? 10 : 8;
 
-  const manaCost: Record<Element, number> = { fire: 8, water: 6, earth: 15, wind: 5 };
-  if (s.mana < manaCost[state.selectedElement]) return;
-  s.mana -= manaCost[state.selectedElement];
+  const manaCostRaw: Record<Element, number> = { fire: 8, water: 6, earth: 15, wind: 5 };
+  let cost = manaCostRaw[state.selectedElement];
+  if (state.activeRelics.some(r => r.type === 'mana_flux')) cost *= 0.7;
+  
+  if (s.mana < cost) return;
+  s.mana -= cost;
 
   state.projectiles.push({
     x: s.x + s.width / 2 + (dx / dist) * 20,
@@ -221,11 +230,15 @@ export function update(state: GameState): void {
     state.screenTimer++;
     // Still update floating texts on non-playing screens
     updateFloatingTexts(state);
+    if (state.screen === 'relicSelection') return;
     return;
   }
 
   // IMP-1: Pause check
   if (state.paused) return;
+
+  state.timeElapsed++;
+  applyRelicEffects(state);
 
   // Dialog active check
   if (state.activeDialog.length > 0) {
@@ -317,7 +330,11 @@ export function update(state: GameState): void {
   const canJump = (s.coyoteTimer > 0 && s.jumpsUsed === 0) || (!s.onGround && s.jumpsUsed < maxJumps);
 
   if (s.jumpBufferTimer > 0 && canJump) {
-    s.vy = JUMP_FORCE;
+    let jf = JUMP_FORCE;
+    if (state.selectedElement === 'wind' && state.activeRelics.some(r => r.type === 'storm_crown')) {
+      jf *= 1.25;
+    }
+    s.vy = jf;
     s.onGround = false;
     s.jumping = true;
     s.coyoteTimer = 0;
@@ -331,7 +348,9 @@ export function update(state: GameState): void {
 
   // DASH ABILITY - short directional burst that can be used for repositioning or aggressive engage
   const dashSpeed = DASH_BASE_SPEED + state.upgrades.dashDistanceLevel * DASH_SPEED_PER_UPGRADE;
-  if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= DASH_MANA_COST) {
+  const dashCost = state.activeRelics.some(r => r.type === 'mana_flux') ? DASH_MANA_COST * 0.7 : DASH_MANA_COST;
+
+  if (state.keys.has('shift') && s.dashCooldown <= 0 && !s.isDashing && s.mana >= dashCost) {
     const movingLeft = state.keys.has('a') || state.keys.has('arrowleft');
     const movingRight = state.keys.has('d') || state.keys.has('arrowright');
     const dashDir = movingLeft && !movingRight ? -1 : movingRight && !movingLeft ? 1 : s.facing;
@@ -339,11 +358,27 @@ export function update(state: GameState): void {
     s.isDashing = true;
     s.dashTimer = DASH_BASE_DURATION + state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE;
     s.dashCooldown = DASH_BASE_COOLDOWN;
-    s.mana -= DASH_MANA_COST;
+    s.mana -= dashCost;
     s.vx = dashDir * dashSpeed;
     s.vy *= 0.35;
     s.invincibleTimer = Math.max(s.invincibleTimer, 10 + state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE);
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, state.selectedElement, 12);
+
+    // Relic: Static Field (Wind shockwave on dash)
+    if (state.activeRelics.some(r => r.type === 'static_static')) {
+      spawnFloatingText(state, s.x, s.y - 20, "STATIC CHARGE!", "#aabbee", 12);
+      state.shockwaves.push({ x: s.x + s.width / 2, y: s.y + s.height / 2, radius: 150, life: 20, color: '#aabbee' });
+      spawnParticles(state, s.x, s.y, 'wind', 20);
+      state.enemies.forEach(e => {
+        const dx = (e.x + e.width / 2) - (s.x + s.width / 2);
+        const dy = (e.y + e.height / 2) - (s.y + s.height / 2);
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 150) {
+          handleEnemyHit(state, { x: s.x, y: s.y, vx: dx / d * 5, vy: dy / d * 5, element: 'wind', life: 1, size: 10 }, e);
+        }
+      });
+    }
+
     state.screenShake = Math.max(state.screenShake, 4);
     Audio.playJump();
     vibrate([30, 20, 40]); // Dash haptic burst
@@ -374,8 +409,12 @@ export function update(state: GameState): void {
   // IMP-14: Mana regeneration
   if (s.mana < s.maxMana) {
     const ds = DIFFICULTY_SETTINGS[state.difficulty];
+    let regenRate = ds.manaRegenRate;
+    if (state.activeRelics.some(r => r.type === 'sea_blessing')) {
+      regenRate *= 1.4;
+    }
     const regenBonus = 1 + (state.upgrades.regenLevel * 0.20);
-    s.mana = Math.min(s.maxMana, s.mana + (ds.manaRegenRate * regenBonus));
+    s.mana = Math.min(s.maxMana, s.mana + (regenRate * regenBonus));
   }
 
   // Phase 4: Moving platforms and Vine physics
@@ -852,6 +891,7 @@ export function update(state: GameState): void {
   }
 
   // Effects & HUD updates
+  updateShockwaves(state);
   updateFloatingTexts(state);
   if (state.screenShake > 0) state.screenShake--;
   if (state.redFlash > 0) state.redFlash--;
@@ -940,6 +980,19 @@ export function update(state: GameState): void {
     // Timer logic: Advance wave 180 frames (3s) after the last enemy dies
     if (aliveEnemies === 0 && state.endlessTimer > 180) {
       state.endlessWave++;
+      // Trigger Relic Selection every 3 waves
+      if (state.endlessWave % 3 === 0) {
+        state.screen = 'relicSelection';
+        state.relicChoices = getRandomRelics(3, state.activeRelics.map(r => r.type));
+      }
+
+      // Trigger Elemental Trial every 10 waves
+      if (state.endlessWave % 10 === 0) {
+        startTrial(state);
+      } else if (state.trialActive) {
+        endTrial(state);
+      }
+
       state.endlessTimer = 0;
       s.health = Math.min(s.health + 25, s.maxHealth);
       spawnFloatingText(state, s.x + s.width / 2, s.y - 20, 'WAVE ' + state.endlessWave, '#ffff00', 24);
@@ -1004,3 +1057,28 @@ function updateFloatingTexts(state: GameState): void {
   }
 }
 
+function updateShockwaves(state: GameState): void {
+  for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+    const sw = state.shockwaves[i];
+    sw.life--;
+    if (sw.life <= 0) state.shockwaves.splice(i, 1);
+  }
+}
+
+export function selectRelic(state: GameState, index: number): GameState {
+  if (state.screen !== 'relicSelection' || !state.relicChoices[index]) return state;
+  
+  const relic = state.relicChoices[index];
+  state.activeRelics.push(relic);
+  
+  // Instant effects
+  if (relic.type === 'vitality_core') {
+    state.stickman.maxHealth += 50;
+    state.stickman.health = state.stickman.maxHealth;
+  }
+  
+  state.screen = 'playing';
+  state.relicChoices = [];
+  spawnFloatingText(state, state.stickman.x + state.stickman.width / 2, state.stickman.y - 40, 'RELIC ACQUIRED: ' + relic.name, '#00ffcc', 20);
+  return state;
+}

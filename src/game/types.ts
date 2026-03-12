@@ -1,9 +1,18 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'levelSelect';
+export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'levelSelect' | 'relicSelection';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Locale = 'en' | 'hi';
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 export type KeyboardLayout = 'wasd' | 'arrows' | 'both';
+export type RelicType = 'burning_soul' | 'storm_crown' | 'earth_heart' | 'sea_blessing' | 'vitality_core' | 'mana_flux' | 'berserker_blood' | 'static_static';
+
+export interface Relic {
+  type: RelicType;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'legendary';
+}
 
 export interface Vec2 { x: number; y: number; }
 
@@ -267,4 +276,9 @@ export interface GameState {
   onDamage?: () => void;
   deathAnimTimer: number;
   deathType?: 'fall' | 'enemy' | 'spike';
+  activeRelics: Relic[];
+  relicChoices: Relic[];
+  trialActive: boolean;
+  trialElement?: Element;
+  shockwaves: { x: number, y: number, radius: number, life: number, color: string }[];
 }
