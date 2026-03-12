@@ -2565,7 +2565,8 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   ctx.fillStyle = '#ff8fa1';
   setUiFont(ctx, state, 18, '700');
   const causeKey = state.stickman.health <= 0 ? 'game_over_cause_health' : 'game_over_cause_fall';
-  ctx.fillText(tr(state, causeKey as any).toUpperCase(), W / 2, py + 135);
+  const causeText = tr(state, causeKey as any) || '';
+  ctx.fillText(causeText.toUpperCase(), W / 2, py + 135);
 
   // Stats Layout
   const gridY = py + 185;

@@ -97,6 +97,8 @@ const TRANSLATIONS = {
     game_over_quit: '[Q] Quit to Menu',
     game_over_mobile_retry: 'RETRY',
     game_over_mobile_quit: 'QUIT',
+    game_over_cause_health: 'DEFEATED IN COMBAT',
+    game_over_cause_fall: 'FELL INTO THE ABYSS',
 
     victory_title: 'VICTORY!',
     victory_subtitle: 'You have mastered all the elements!',
@@ -252,6 +254,8 @@ const TRANSLATIONS = {
     game_over_quit: '[Q] Menu par lautien',
     game_over_mobile_retry: 'RETRY',
     game_over_mobile_quit: 'QUIT',
+    game_over_cause_health: 'लड़ाई में हार गए',
+    game_over_cause_fall: 'रसातल में गिर गए',
 
     victory_title: 'VICTORY!',
     victory_subtitle: 'Aapne saare elements master kar liye!',
