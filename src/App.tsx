@@ -1096,20 +1096,29 @@ function App() {
         onClick={() => setShowSettings(true)}
         style={{
           position: 'absolute',
-          top: 12,
-          left: 12,
+          top: 16,
+          left: 16,
           zIndex: 30,
-          border: '1px solid #7db8ff',
-          background: 'rgba(9, 23, 44, 0.9)',
+          border: '1.5px solid rgba(125, 184, 255, 0.4)',
+          background: 'rgba(9, 23, 44, 0.7)',
+          backdropFilter: 'blur(8px)',
           color: '#e8f2ff',
-          borderRadius: 8,
-          padding: '8px 12px',
+          borderRadius: 10,
+          padding: '10px 18px',
           fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
-          fontSize: `${Math.round(12 * settings.textScale)}px`,
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          fontSize: `${Math.round(13 * settings.textScale)}px`,
           cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
         }}
       >
-        {t(settings.locale, 'app_open_settings')}
+        <span style={{ fontSize: '1.1em', opacity: 0.8 }}>⚙</span>
+        {t(settings.locale, 'app_open_settings').toUpperCase()}
       </button>
       <canvas
         ref={canvasRef}

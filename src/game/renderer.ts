@@ -21,9 +21,11 @@ const UI_THEME = {
   success: '#62eeb8',
   warning: '#ffd36a',
   danger: '#ff7688',
-  panelA: 'rgba(7, 17, 36, 0.88)',
-  panelB: 'rgba(13, 31, 63, 0.78)',
-  panelBorder: 'rgba(144, 211, 255, 0.28)',
+  panelA: 'rgba(7, 18, 38, 0.92)',
+  panelB: 'rgba(10, 35, 66, 0.85)',
+  panelBorder: 'rgba(144, 211, 255, 0.35)',
+  glassBg: 'rgba(255, 255, 255, 0.03)',
+  glassBorder: 'rgba(255, 255, 255, 0.12)',
 };
 
 const FONT_UI = '"Rajdhani", "Trebuchet MS", sans-serif';
@@ -127,21 +129,49 @@ function drawPanel(
   radius = 14,
   accent = UI_THEME.accent,
 ): void {
+  ctx.save();
+  
+  // Outer Shadow for depth
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 35;
+  ctx.shadowOffsetY = 12;
+  
   const bg = ctx.createLinearGradient(x, y, x + w, y + h);
   bg.addColorStop(0, UI_THEME.panelA);
   bg.addColorStop(1, UI_THEME.panelB);
   ctx.fillStyle = bg;
   roundRect(ctx, x, y, w, h, radius);
   ctx.fill();
+  
+  // Reset shadows for inner layers
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
 
+  // Inner Gradient Shine
+  const shine = ctx.createLinearGradient(x, y, x + w, y + h);
+  shine.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+  shine.addColorStop(0.5, 'transparent');
+  shine.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+  ctx.fillStyle = shine;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.fill();
+
+  // Premium Border
   ctx.strokeStyle = UI_THEME.panelBorder;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.2;
   roundRect(ctx, x, y, w, h, radius);
   ctx.stroke();
 
+  // Top Accent with Glow
+  ctx.save();
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 12;
   ctx.fillStyle = accent;
-  roundRect(ctx, x, y, w, 3, 2);
+  roundRect(ctx, x + radius, y, w - radius * 2, 3, 1.5);
   ctx.fill();
+  ctx.restore();
+  
+  ctx.restore();
 }
 
 /** Draws a premium-looking multi-faceted diamond gem icon */
@@ -2376,48 +2406,94 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#051527', '#0f2e45', '#143e39']);
+  
+  const time = state.reducedMotion ? 0 : state.screenTimer * 0.01;
+
+  // Background Rays
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 8; i++) {
+    const angle = time * 0.5 + (i * Math.PI * 2) / 8;
+    const grad = ctx.createLinearGradient(0, 0, Math.cos(angle) * W, Math.sin(angle) * W);
+    grad.addColorStop(0, 'rgba(100, 240, 192, 0.12)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, W, angle - 0.2, angle + 0.2);
+    ctx.fill();
+  }
+  ctx.restore();
 
   const panelW = 740;
-  const panelH = 380;
-  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 180, panelW, panelH, 22, '#64f0c0');
+  const panelH = 400;
+  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#64f0c0');
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#63ffcb';
-  ctx.shadowBlur = 24;
+  // Multi-layered glow for the title
+  ctx.shadowColor = 'rgba(100, 255, 203, 0.6)';
+  ctx.shadowBlur = 35;
   ctx.fillStyle = '#ffffff';
-  setDisplayFont(ctx, state, 46, '800');
+  setDisplayFont(ctx, state, 52, '900');
   ctx.textAlign = 'center';
-  ctx.fillText((tr(state, 'level_complete_title') || '').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 4);
+  const titleY = H / 2 - 120 + Math.sin(tSec) * 4;
+  ctx.fillText((tr(state, 'level_complete_title') || '').toUpperCase(), W / 2, titleY);
+  
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+  ctx.fillText((tr(state, 'level_complete_title') || '').toUpperCase(), W / 2, titleY);
   ctx.restore();
 
-  // Level Info Subtitle
+  // Level Info Subtitle with highlight
   ctx.fillStyle = '#64f0c0';
-  setUiFont(ctx, state, 20, '800');
-  ctx.fillText((tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }) || '').toUpperCase(), W / 2, H / 2 - 68);
+  setUiFont(ctx, state, 22, '800');
+  ctx.fillText((tr(state, 'level_complete_level_name', { level: state.currentLevel + 1, name: state.levelName }) || '').toUpperCase(), W / 2, H / 2 - 80);
 
   // Stats Grid
-  const gridY = H / 2 - 25;
-  const colW = 220;
+  const gridY = H / 2 - 35;
+  const colW = 210;
+  const cardH = 92;
 
   const drawStat = (x: number, label: string, value: string | number, color = '#ffffff', icon?: 'gem') => {
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRect(ctx, x - colW / 2 + 10, gridY - 15, colW - 20, 70, 12);
+    const cx = x - colW / 2 + 10;
+    const cy = gridY;
+    
+    // Card Background
+    const cardGrad = ctx.createLinearGradient(cx, cy, cx, cy + cardH);
+    cardGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    cardGrad.addColorStop(1, 'rgba(255, 255, 255, 0.03)');
+    ctx.fillStyle = cardGrad;
+    roundRect(ctx, cx, cy, colW - 20, cardH, 16);
     ctx.fill();
+    
+    // Border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, cx, cy, colW - 20, cardH, 16);
+    ctx.stroke();
 
-    ctx.fillStyle = 'rgba(100, 240, 192, 0.4)';
-    setUiFont(ctx, state, 10, '800');
-    ctx.fillText(label.toUpperCase(), x, gridY + 8);
+    // Bottom Decorative highlight
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.25;
+    roundRect(ctx, cx + 25, cy + cardH - 8, colW - 70, 3, 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = 'rgba(100, 240, 192, 0.75)';
+    setUiFont(ctx, state, 11, '800');
+    ctx.fillText(label.toUpperCase(), x, cy + 24);
 
     ctx.fillStyle = color;
-    setUiFont(ctx, state, 24, '800');
+    setDisplayFont(ctx, state, 28, '800');
     if (icon === 'gem') {
-      drawGemIcon(ctx, x - 25, gridY + 32, 11, nowMs);
+      drawGemIcon(ctx, x - 32, cy + 44, 13, nowMs);
       ctx.textAlign = 'left';
-      ctx.fillText(String(value), x - 5, gridY + 41);
+      ctx.fillText(String(value), x + 2, cy + 66);
       ctx.textAlign = 'center';
     } else {
-      ctx.fillText(String(value), x, gridY + 41);
+      ctx.fillText(String(value), x, cy + 66);
     }
   };
 
@@ -2426,134 +2502,135 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
   drawStat(W / 2 + colW, tr(state, 'level_complete_score', { score: '' }).split(':')[0].trim(), state.score, '#8ce8ff');
 
   if (state.gemsCollected >= state.totalGems && state.totalGems > 0) {
+    ctx.save();
     ctx.fillStyle = '#ffe38a';
-    setUiFont(ctx, state, 14, '700');
-    ctx.fillText("✨ " + tr(state, 'level_complete_all_gems_bonus') + " ✨", W / 2, H / 2 + 82);
+    ctx.shadowColor = '#ffaa00';
+    ctx.shadowBlur = 15;
+    setUiFont(ctx, state, 16, '800');
+    ctx.fillText("✨ " + tr(state, 'level_complete_all_gems_bonus') + " ✨", W / 2, H / 2 + 100);
+    ctx.restore();
   }
 
   // Next Instructions
-  const footerY = H / 2 + 132;
-  const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.08) * 0.4;
-  ctx.globalAlpha = blinkAlpha;
+  const footerY = H / 2 + 155;
+  const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.1) * 0.4;
+  
+  // Interactive area hint style
+  const btnW = 340;
+  const btnH = 52;
+  const bx = W / 2 - btnW / 2;
+  const by = footerY - 34;
+  
+  ctx.globalAlpha = blinkAlpha * 0.15;
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, bx, by, btnW, btnH, 26);
+  ctx.fill();
+  
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1.6;
+  roundRect(ctx, bx, by, btnW, btnH, 26);
+  ctx.stroke();
+
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 16, '800');
   const isVictory = state.currentLevel + 1 >= state.totalLevels;
   const nextKey = isVictory ? 'level_complete_click_victory' : 'level_complete_click_next';
   const nextKeyMobile = isVictory ? 'level_complete_tap_victory' : 'level_complete_tap_next';
   ctx.fillText(isMobile ? tr(state, nextKeyMobile as any) : tr(state, nextKey as any), W / 2, footerY);
-  ctx.globalAlpha = 1;
 }
 function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   drawBackdrop(ctx, state, W, H, ['#220611', '#321126', '#12040b']);
 
   const panelW = 740;
-  const panelH = 360;
+  const panelH = 400;
   const px = W / 2 - panelW / 2;
-  const py = H / 2 - 180;
+  const py = H / 2 - 200;
 
-  // Dark glowing panel
-  ctx.save();
-  ctx.shadowColor = '#ff3355';
-  ctx.shadowBlur = 40;
-  ctx.fillStyle = 'rgba(15, 5, 8, 0.95)';
-  roundRect(ctx, px, py, panelW, panelH, 24);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 51, 85, 0.4)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  
-  const innerGrad = ctx.createLinearGradient(px, py, px, py + panelH);
-  innerGrad.addColorStop(0, 'rgba(255, 51, 85, 0.15)');
-  innerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = innerGrad;
-  roundRect(ctx, px, py, panelW, panelH, 24);
-  ctx.fill();
-  ctx.restore();
+  // Premium Panel with thematic accent
+  drawPanel(ctx, px, py, panelW, panelH, 24, UI_THEME.danger);
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
-  ctx.shadowColor = '#ff3355';
-  ctx.shadowBlur = 30;
+  ctx.shadowColor = 'rgba(255, 80, 110, 0.5)';
+  ctx.shadowBlur = 40;
   ctx.fillStyle = '#ffffff';
-  setDisplayFont(ctx, state, 48, '800');
+  setDisplayFont(ctx, state, 52, '900');
   ctx.textAlign = 'center';
   const title = state.endlessWave !== undefined ? tr(state, 'game_over_wave') : tr(state, 'game_over_title');
-  ctx.fillText((title || '').toUpperCase(), W / 2, H / 2 - 105 + Math.sin(tSec) * 3);
+  ctx.fillText((title || '').toUpperCase(), W / 2, py + 100 + Math.sin(tSec) * 4);
   ctx.restore();
 
-  // Stats Layout
-  const gridY = H / 2 - 25;
-  const colW = 220;
+  // Failure Subtitle
+  ctx.fillStyle = '#ff8fa1';
+  setUiFont(ctx, state, 18, '700');
+  const causeKey = state.stickman.health <= 0 ? 'game_over_cause_health' : 'game_over_cause_fall';
+  ctx.fillText(tr(state, causeKey as any).toUpperCase(), W / 2, py + 135);
 
-  const drawStat = (x: number, label: string, value: string | number, color = '#ffffff') => {
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRect(ctx, x - colW / 2 + 10, gridY - 15, colW - 20, 80, 14);
+  // Stats Layout
+  const gridY = py + 185;
+  const colW = 210;
+  const cardH = 90;
+
+  const drawGameOverStat = (x: number, label: string, value: string | number, color: string) => {
+    const cx = x - colW / 2 + 10;
+    const cy = gridY;
+    
+    // Card BG
+    const cardGrad = ctx.createLinearGradient(cx, cy, cx, cy + cardH);
+    cardGrad.addColorStop(0, 'rgba(255, 100, 150, 0.08)');
+    cardGrad.addColorStop(1, 'rgba(255, 100, 150, 0.02)');
+    ctx.fillStyle = cardGrad;
+    roundRect(ctx, cx, cy, colW - 20, cardH, 16);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255, 107, 129, 0.5)';
-    setUiFont(ctx, state, 10, '800');
-    ctx.fillText(label.toUpperCase(), x, gridY + 12);
+
+    ctx.strokeStyle = 'rgba(255, 100, 150, 0.15)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, cx, cy, colW - 20, cardH, 16);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255, 143, 161, 0.6)';
+    setUiFont(ctx, state, 11, '800');
+    ctx.fillText(label.toUpperCase(), x, cy + 24);
+
     ctx.fillStyle = color;
-    setUiFont(ctx, state, 26, '800');
-    ctx.fillText(String(value), x, gridY + 48);
+    setDisplayFont(ctx, state, 28, '800');
+    ctx.fillText(String(value), x, cy + 65);
   };
 
   if (state.endlessWave !== undefined) {
-    drawStat(W / 2 - colW, "WAVE", state.endlessWave, '#ffe08f');
-    drawStat(W / 2, "KILLS", state.endlessKills ?? 0, '#ff8fa1');
-    drawStat(W / 2 + colW, "SCORE", state.score, '#8ce8ff');
-
-    const blinkAlpha = state.reducedMotion ? 1 : 0.6 + Math.sin(state.screenTimer * 0.08) * 0.4;
-    ctx.globalAlpha = blinkAlpha;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    setUiFont(ctx, state, 15, '800');
-    ctx.fillText(isMobile ? tr(state, 'game_over_tap_return').toUpperCase() : tr(state, 'game_over_press_return').toUpperCase(), W / 2, H / 2 + 130);
-    ctx.globalAlpha = 1;
+    drawGameOverStat(W / 2 - colW, "WAVE", state.endlessWave, '#ffe08f');
+    drawGameOverStat(W / 2, "KILLS", state.endlessKills ?? 0, '#ff8fa1');
+    drawGameOverStat(W / 2 + colW, "SCORE", state.score, '#ffffff');
   } else {
-    drawStat(W / 2 - colW / 2 - 10, "FINAL SCORE", state.score, '#ffffff');
-    drawStat(W / 2 + colW / 2 + 10, "BEST SCORE", state.highScore, '#ffe08f');
+    drawGameOverStat(W / 2 - colW, tr(state, 'game_over_total_kills', { kills: '' }).trim(), state.enemiesDefeated, '#ff8fa1');
+    drawGameOverStat(W / 2, tr(state, 'level_complete_score', { score: '' }).split(':')[0].trim(), state.score, '#ffffff');
+    drawGameOverStat(W / 2 + colW, tr(state, 'hud_best', { best: '' }).split(' ')[0].trim(), state.highScore, '#ffe08f');
+  }
+  // Action Hint Buttons
+  const footerY = py + 345;
+  const btnW = 240;
+  const btnH = 56;
+  const gap = 30;
+  const retryX = W / 2 - btnW - gap / 2;
+  const quitX = W / 2 + gap / 2;
 
-    // Campaign Buttons
-    const btnW = 194;
-    const btnH = 56;
-    const gap = 30;
-    const baseY = H / 2 + 85;
-    const retryX = W / 2 - btnW - gap / 2;
-    const quitX = W / 2 + gap / 2;
+  // Retry Area
+  drawPanel(ctx, retryX, footerY - 28, btnW, btnH, 16, '#62ffbc');
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 15, '800');
+  ctx.fillText(state.endlessWave !== undefined ? 'RETRY WAVE' : 'RETRY LEVEL', retryX + btnW / 2, footerY + 8);
 
-    // Retry Button
-    const retryGrad = ctx.createLinearGradient(retryX, baseY, retryX, baseY + btnH);
-    retryGrad.addColorStop(0, '#ff4766');
-    retryGrad.addColorStop(1, '#d62846');
-    ctx.fillStyle = retryGrad;
-    roundRect(ctx, retryX, baseY, btnW, btnH, 12);
-    ctx.fill();
-    ctx.save();
-    ctx.shadowColor = '#ff3355'; ctx.shadowBlur = 15;
-    ctx.strokeStyle = '#ff8fa1'; ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-    
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 16, '900');
-    ctx.textAlign = 'center';
-    ctx.fillText(tr(state, 'game_over_retry').toUpperCase(), retryX + btnW / 2, baseY + 36);
+  // Quit Area
+  drawPanel(ctx, quitX, footerY - 28, btnW, btnH, 16, '#ff6b81');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('RETURN TO MENU', quitX + btnW / 2, footerY + 8);
 
-    // Quit Button
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    roundRect(ctx, quitX, baseY, btnW, btnH, 12);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 16, '900');
-    ctx.fillText(tr(state, 'game_over_quit').toUpperCase(), quitX + btnW / 2, baseY + 36);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    setUiFont(ctx, state, 10, '700');
-    ctx.fillText("[ R ] RETRY    [ Q ] QUIT", W / 2, baseY + btnH + 26);
+  if (!isMobile) {
+    ctx.globalAlpha = 0.5;
+    setUiFont(ctx, state, 11, '700');
+    ctx.fillText("[ R ] RETRY    [ Q ] QUIT", W / 2, py + panelH + 20);
+    ctx.globalAlpha = 1;
   }
 }
 function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
