@@ -1,7 +1,5 @@
-import type { GameState, Element } from './types';
+import type { GameState, Element, Difficulty, ShopTab } from './types';
 import { elementName, t } from './i18n';
-import { getLeaderboard, getLeaderboardStatus } from './services/leaderboard';
-import { getCloudSyncStatus } from './services/cloud';
 import { getProgressionSnapshot } from './services/progression';
 import { getCurrentTutorialStep } from './systems/tutorial';
 
@@ -71,11 +69,7 @@ function formatFramesAsTime(frames: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function shortAccountId(accountId: string): string {
-  if (!accountId) return 'UNKNOWN';
-  const compact = accountId.replace(/^anon_/, '').replace(/^ephemeral_/, '');
-  return compact.slice(-8).toUpperCase();
-}
+
 
 function drawBackdrop(
   ctx: CanvasRenderingContext2D,
@@ -236,9 +230,11 @@ export function render(
   const lowQuality = state.graphicsQuality === 'low';
   const highContrast = state.highContrast;
 
-  if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
-  if (state.screen === 'shop') { drawShopScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
-  if (state.screen === 'levelSelect') { drawLevelSelectScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
+  if (state.screen === 'menu') { drawMenuScreen(ctx, state, W, H); ctx.restore(); return; }
+  if (state.screen === 'challenges') { drawChallengesScreen(ctx, state, W, H); ctx.restore(); return; }
+  if (state.screen === 'survivalDifficulty') { drawSurvivalDifficultyScreen(ctx, state, W, H); ctx.restore(); return; }
+  if (state.screen === 'shop') { drawShopScreen(ctx, state, W, H); ctx.restore(); return; }
+  if (state.screen === 'levelSelect') { drawLevelSelectScreen(ctx, state, W, H); ctx.restore(); return; }
   if (state.screen === 'levelComplete') { drawLevelCompleteScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'gameOver') { drawGameOverScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
   if (state.screen === 'victory') { drawVictoryScreen(ctx, state, W, H, isMobile); ctx.restore(); return; }
@@ -2206,243 +2202,134 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.fillText(state.elementHint, W / 2, H / 2 + 82);
   ctx.restore();
 }
-function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   drawBackdrop(ctx, state, W, H, ['#060b1f', '#0d1e45', '#1d1033']);
-  const progression = getProgressionSnapshot(state);
-  const leaderboard = getLeaderboard(3);
-  const boardStatus = getLeaderboardStatus();
-  const cloudStatus = getCloudSyncStatus();
-
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.02;
-  ctx.save();
-  ctx.fillStyle = UI_THEME.paper;
-  setUiFont(ctx, state, 12, '600');
-  ctx.textAlign = 'center';
-  ctx.globalAlpha = 0.78;
-  ctx.fillText('ELEMENTAL ACTION PLATFORMER', W / 2, 82);
-  ctx.globalAlpha = 1;
 
-  // Fullscreen Prompt for Mobile (Landscape)
-  if (!document.fullscreenElement && isMobile) {
+  // Background Particles
+  if (!state.reducedMotion) {
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 220, 100, 0.12)';
-    const fW = 180; const fH = 42;
-    roundRect(ctx, W - fW - 20, 20, fW, fH, 20);
-    ctx.fill();
-    ctx.strokeStyle = '#ffd97a';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = '#ffd97a';
-    setUiFont(ctx, state, 11, '800');
-    ctx.textAlign = 'center';
-    ctx.fillText("GO FULLSCREEN ⛶", W - fW / 2 - 20, 46);
+    for (let i = 0; i < 20; i++) {
+      // const speed = 0.5 + (i % 5) * 0.2; // Removed unused variable 'speed'
+      const x = (W * 1.5 + (Math.sin(tSec * 0.1 + i) * 500)) % (W + 200) - 100;
+      const y = (H * 1.5 + (Math.cos(tSec * 0.15 + i * 2) * 500)) % (H + 200) - 100;
+      const size = 2 + (i % 4) * 2;
+      const alpha = 0.1 + (i % 10) * 0.02;
+      const colors = ['#ff4400', '#0088ff', '#66aa33', '#aabbee'];
+      ctx.fillStyle = colors[i % 4];
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
-
+  
+  // Title Section
+  ctx.save();
   ctx.shadowColor = '#49c8ff';
   ctx.shadowBlur = Math.sin(tSec * 2) * 5 + 15;
   ctx.fillStyle = '#e8f3ff';
+  setDisplayFont(ctx, state, 72, '800');
+  ctx.textAlign = 'center';
+  ctx.fillText("ELEMENTAL", W / 2, 160 + Math.sin(tSec) * 5);
   setDisplayFont(ctx, state, 64, '800');
-  ctx.fillText(tr(state, 'menu_title_line_1'), W / 2, 140 + Math.sin(tSec) * 4);
-
-  ctx.shadowColor = '#74f0d4';
-  ctx.shadowBlur = Math.sin(tSec * 2 + 1) * 5 + 15;
   ctx.fillStyle = '#95e9ff';
-  setDisplayFont(ctx, state, 58, '800');
-  ctx.fillText(tr(state, 'menu_title_line_2'), W / 2, 205 + Math.sin(tSec + 0.7) * 4);
+  ctx.fillText("STICKMAN", W / 2, 230 + Math.sin(tSec + 0.5) * 5);
   ctx.restore();
 
-  ctx.fillStyle = '#a1b6d1';
-  setUiFont(ctx, state, 16, '600');
-  ctx.fillText(tr(state, 'menu_subtitle'), W / 2, 250);
+  // Grid for Primary Actions
+  const cardW = 280;
+  const cardH = 120;
+  const gap = 30;
+  const startX = W / 2 - cardW - gap / 2;
+  const startY = 320;
 
-  const elements: Element[] = ['fire', 'water', 'earth', 'wind'];
-  const colors = ['#ff845f', '#61b9ff', '#8de67f', '#d5e3ff'];
-  for (let i = 0; i < elements.length; i++) {
-    drawPanel(ctx, W / 2 - 245 + i * 122, 265, 112, 36, 10, colors[i]);
-    ctx.fillStyle = colors[i];
-    setUiFont(ctx, state, 13, '700');
-    ctx.fillText((elementName(state.locale, elements[i]) || '').toUpperCase(), W / 2 - 189 + i * 122, 288);
-  }
+  const actions = [
+    { title: "CAMPAIGN", subtitle: "Story Mode", color: '#62eeb8', icon: '🔥', screen: 'levelSelect' },
+    { title: "SURVIVAL", subtitle: "Endless Waves", color: '#ff7688', icon: '⚡', screen: 'survivalDifficulty' },
+    { title: "SHOP", subtitle: "Upgrades & More", color: '#53b8ff', icon: '🛒', screen: 'shop' },
+    { title: "CHALLENGES", subtitle: "Daily Missions", color: '#ffd36a', icon: '🏆', screen: 'challenges' }
+  ];
 
-  const btnW = 280;
-  const btnH = 80;
-  const gap = 40;
-  const baseY = 320;
-  const campX = W / 2 - btnW - gap / 2;
-  const waveX = W / 2 + gap / 2;
+  actions.forEach((a, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = startX + col * (cardW + gap);
+    const y = startY + row * (cardH + gap);
+    const isHovered = state.selectedMenuButton === i;
 
-  // Draw Campaign Button
-  const isCampHovered = state.selectedMenuButton === 0;
-  ctx.save();
-  if (isCampHovered && !state.reducedMotion) {
-    ctx.shadowColor = '#75f2b4';
-    ctx.shadowBlur = 25;
-  }
-  drawPanel(ctx, campX, baseY, btnW, btnH, 16, isCampHovered ? '#8dfbcc' : '#64e5a4');
-  ctx.restore();
-
-  ctx.fillStyle = isCampHovered ? '#ffffff' : '#cbffe9';
-  setDisplayFont(ctx, state, 22, '700');
-  ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'menu_campaign'), campX + btnW / 2, baseY + 35);
-  ctx.fillStyle = isCampHovered ? '#aaffde' : '#88d9b7';
-  setUiFont(ctx, state, 12, '600');
-  ctx.fillText(tr(state, 'menu_campaign_subtitle'), campX + btnW / 2, baseY + 56);
-  ctx.fillStyle = isCampHovered ? '#2d654f' : '#3e765f';
-  setUiFont(ctx, state, 11, '800');
-  ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_campaign'), campX + btnW / 2, baseY + 74);
-
-  // Draw Wave Button
-  const isWaveHovered = state.selectedMenuButton === 1;
-  ctx.save();
-  if (isWaveHovered && !state.reducedMotion) {
-    ctx.shadowColor = '#ff9e7b';
-    ctx.shadowBlur = 25;
-  }
-  drawPanel(ctx, waveX, baseY, btnW, btnH, 16, isWaveHovered ? '#ffaa8b' : '#f08964');
-  ctx.restore();
-
-  ctx.fillStyle = isWaveHovered ? '#ffffff' : '#ffe5db';
-  setDisplayFont(ctx, state, 22, '700');
-  ctx.fillText(tr(state, 'menu_wave'), waveX + btnW / 2, baseY + 35);
-  ctx.fillStyle = isWaveHovered ? '#ffded1' : '#ffc3af';
-  setUiFont(ctx, state, 12, '600');
-  ctx.fillText(tr(state, 'menu_wave_subtitle'), waveX + btnW / 2, baseY + 56);
-  ctx.fillStyle = isWaveHovered ? '#693728' : '#8a4b37';
-  setUiFont(ctx, state, 11, '800');
-  ctx.fillText(isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_wave'), waveX + btnW / 2, baseY + 74);
-
-  const barY = baseY + btnH + 40;
-  const diffColors: Record<string, string> = { easy: '#7df6b9', normal: '#ffd56e', hard: '#ff8896' };
-  drawPanel(ctx, W / 2 - 255, barY - 24, 230, 58, 12, diffColors[state.difficulty] || '#ffd56e');
-  ctx.fillStyle = diffColors[state.difficulty] || '#ffd56e';
-  setUiFont(ctx, state, 14, '700');
-  ctx.fillText(tr(state, 'menu_difficulty', { difficulty: (state.difficulty || '').toUpperCase() }), W / 2 - 140, barY - 2);
-  ctx.fillStyle = UI_THEME.muted;
-  setUiFont(ctx, state, 11, '600');
-  ctx.fillText(isMobile ? tr(state, 'menu_tap_cycle') : tr(state, 'menu_key_cycle'), W / 2 - 140, barY + 18);
-
-  drawPanel(ctx, W / 2 + 20, barY - 24, 220, 58, 12, '#89d8ff');
-  ctx.fillStyle = '#dff5ff';
-  setUiFont(ctx, state, 16, '700');
-  ctx.fillText(tr(state, 'menu_shop'), W / 2 + 130, barY - 1);
-  ctx.fillStyle = UI_THEME.muted;
-  setUiFont(ctx, state, 11, '600');
-  ctx.fillText(isMobile ? tr(state, 'menu_tap_open') : tr(state, 'menu_key_open'), W / 2 + 130, barY + 18);
-
-  // MODERN DAILY CHALLENGES SECTION
-  const dailyX = W - 355;
-  const dailyY = 84;
-  drawPanel(ctx, dailyX, dailyY, 320, 236, 14, '#84cfff');
-
-  ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 14, '800');
-  ctx.textAlign = 'left';
-  ctx.fillText((tr(state, 'menu_daily_title') || '').toUpperCase(), dailyX + 15, dailyY + 28);
-
-  ctx.fillStyle = '#aac4e7';
-  setUiFont(ctx, state, 11, '600');
-  ctx.fillText(progression.daily.title, dailyX + 15, dailyY + 48);
-
-  const isDone = progression.daily.completed;
-  ctx.fillStyle = isDone ? '#74f0b8' : '#ffe28f';
-  setUiFont(ctx, state, 11, '700');
-  ctx.fillText(
-    isDone
-      ? tr(state, 'menu_daily_complete')
-      : tr(state, 'menu_daily_progress', { current: progression.daily.current, target: progression.daily.target }),
-    dailyX + 15,
-    dailyY + 66,
-  );
-
-  const dailyBarW = 290;
-  const dailyBarX = dailyX + 15;
-  const dailyBarY = dailyY + 74;
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  roundRect(ctx, dailyBarX, dailyBarY, dailyBarW, 12, 6); ctx.fill();
-
-  if (progression.daily.progress > 0) {
-    const barGrad = ctx.createLinearGradient(dailyBarX, 0, dailyBarX + dailyBarW, 0);
-    barGrad.addColorStop(0, isDone ? '#66efc0' : '#84c8ff');
-    barGrad.addColorStop(1, '#ffffff');
-    ctx.fillStyle = barGrad;
-    roundRect(ctx, dailyBarX, dailyBarY, dailyBarW * progression.daily.progress, 12, 6);
-    ctx.fill();
-  }
-
-  // Achievements Progress
-  ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 12, '800');
-  ctx.fillText((tr(state, 'menu_achievements_title') || '').toUpperCase(), dailyX + 15, dailyY + 104);
-  ctx.fillStyle = '#8fdcbf';
-  setUiFont(ctx, state, 11, '700');
-  ctx.fillText(tr(state, 'menu_achievements_progress', {
-    unlocked: progression.achievementsUnlocked.length,
-    total: progression.totalAchievements,
-  }).toUpperCase(), dailyX + 15, dailyY + 122);
-
-  // Mini Leaderboard
-  ctx.fillStyle = '#def3ff';
-  setUiFont(ctx, state, 12, '800');
-  ctx.fillText((tr(state, 'menu_leaderboard_title') || '').toUpperCase(), dailyX + 15, dailyY + 148);
-  if (leaderboard.length === 0) {
-    ctx.fillStyle = '#8ca6ca';
-    setUiFont(ctx, state, 11, '600');
-    ctx.fillText(tr(state, 'menu_leaderboard_empty'), dailyX + 15, dailyY + 168);
-  } else {
-    for (let i = 0; i < Math.min(3, leaderboard.length); i++) {
-      const row = leaderboard[i];
-      ctx.fillStyle = i === 0 ? '#ffe18f' : '#a9c9ea';
-      setUiFont(ctx, state, 11, '700');
-      ctx.fillText(
-        `${i + 1}. ${shortAccountId(row.accountId)} - ${row.score}`,
-        dailyX + 15,
-        dailyY + 168 + i * 18,
-      );
+    ctx.save();
+    if (isHovered) {
+      ctx.shadowColor = a.color;
+      ctx.shadowBlur = 20;
+      ctx.translate(0, -5);
     }
-  }
+    drawPanel(ctx, x, y, cardW, cardH, 16, a.color);
+    ctx.restore();
 
-  ctx.fillStyle = '#8199bb';
-  setUiFont(ctx, state, 10, '600');
-  ctx.fillText(
-    tr(state, 'menu_sync_status', {
-      queue: cloudStatus.pending + boardStatus.pendingSubmissions,
-      remote: boardStatus.remoteEnabled ? 'online' : 'local',
-    }),
-    dailyX + 15,
-    dailyY + 225,
-  );
+    ctx.fillStyle = '#ffffff';
+    setDisplayFont(ctx, state, 20, '800');
+    ctx.textAlign = 'left';
+    ctx.fillText(a.title, x + 25, y + 45);
+    
+    setUiFont(ctx, state, 13, '600');
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText(a.subtitle, x + 25, y + 70);
 
-  // BOTTOM STATS BAR (Modernized with Gem Icon)
-  const statsY = H - 76;
-  drawPanel(ctx, W / 2 - 350, statsY, 700, 52, 12, '#6fb2ff');
-  ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    setUiFont(ctx, state, 24, '400');
+    ctx.fillText(a.icon, x + cardW - 60, y + 55);
+    
+    if (isHovered) {
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      roundRect(ctx, x + 25, y + 82, 100, 24, 6);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      setUiFont(ctx, state, 10, '800');
+      ctx.fillText("TAP TO PLAY", x + 35, y + 98);
+    }
 
-  // Best Score
+    const snap = getProgressionSnapshot(state);
+    const completedChallenges = snap.dailies.filter(d => d.completed && !d.claimed).length;
+
+    if (a.screen === 'challenges' && completedChallenges > 0) {
+      const badgeSize = 24;
+      ctx.save();
+      ctx.fillStyle = '#ff3b3b';
+      ctx.shadowColor = '#ff3b3b';
+      ctx.shadowBlur = 10;
+      roundRect(ctx, x + cardW - 35, y - 10, badgeSize, badgeSize, 12);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      setUiFont(ctx, state, 12, '900');
+      ctx.textAlign = 'center';
+      ctx.fillText(completedChallenges.toString(), x + cardW - 23, y + 7);
+      ctx.restore();
+    }
+  });
+
+  // Small Settings Icon in top corner
+  const sX = W - 60;
+  const sY = 30;
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  roundRect(ctx, sX, sY, 40, 40, 10);
+  ctx.fill();
   ctx.fillStyle = '#ffffff';
-  setUiFont(ctx, state, 13, '800');
-  ctx.fillText((tr(state, 'hud_best', { best: state.highScore }) || '').toUpperCase(), W / 2 - 200, statsY + 32);
-
-  // Gems in the middle with icon
-  const gemX = W / 2;
-  drawGemIcon(ctx, gemX - 35, statsY + 28, 10, performance.now());
-  ctx.fillStyle = '#ffdf8c';
-  setUiFont(ctx, state, 20, '800');
-  ctx.textAlign = 'left';
-  ctx.fillText(String(state.gemsCurrency), gemX - 10, statsY + 36);
-
-  // Level info
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'right';
-  setUiFont(ctx, state, 13, '800');
-  ctx.fillText(`LEVEL ${state.furthestLevel + 1}`, W / 2 + 250, statsY + 32);
-
-  ctx.fillStyle = UI_THEME.muted;
+  setUiFont(ctx, state, 18, '400');
   ctx.textAlign = 'center';
-  setUiFont(ctx, state, 11, '600');
-  ctx.fillText(isMobile ? tr(state, 'menu_controls_mobile') : tr(state, 'menu_controls_desktop'), W / 2, H - 15);
+  ctx.fillText("⚙️", sX + 20, sY + 28);
+
+  // Stats Bar at bottom
+  const barY = H - 50;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, barY, W, 50);
+  ctx.fillStyle = '#a1b6d1';
+  setUiFont(ctx, state, 12, '700');
+  ctx.textAlign = 'center';
+  ctx.fillText(`BEST: ${state.highScore}  |  GEMS: ${state.gemsCurrency}  |  LEVEL: ${state.furthestLevel + 1}`, W / 2, barY + 30);
 }
+
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
   const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#051527', '#0f2e45', '#143e39']);
@@ -2764,130 +2651,212 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   const nowMs = performance.now();
   drawBackdrop(ctx, state, W, H, ['#080d1f', '#102545', '#0f1631']);
 
-  // Outer Border Panel
-  const panelW = 760;
-  const panelH = 640;
-  drawPanel(ctx, W / 2 - panelW / 2, 26, panelW, panelH, 22, '#75cbff');
-
-  // Title
-  ctx.fillStyle = UI_THEME.paper;
-  setDisplayFont(ctx, state, 42, '800');
-  ctx.textAlign = 'center';
-  ctx.fillText(tr(state, 'shop_title'), W / 2, 86);
-
-  // CURRENCY DISPLAY (Modernized)
-  const gemBoxY = 104;
-  drawPanel(ctx, W / 2 - 160, gemBoxY, 320, 52, 12, '#ffd37f');
-  drawGemIcon(ctx, W / 2 - 120, gemBoxY + 26, 12, nowMs);
+  // Header Section
   ctx.fillStyle = '#ffffff';
-  setUiFont(ctx, state, 24, '800');
+  setDisplayFont(ctx, state, 48, '800');
+  ctx.textAlign = 'center';
+  ctx.fillText("ELEMENTAL SHOP", W / 2, 80);
+
+  // Currency Display
+  const gemX = W / 2 + 300;
+  const gemY = 55;
+  drawPanel(ctx, gemX - 120, gemY - 25, 200, 50, 12, '#ffd37f');
+  drawGemIcon(ctx, gemX - 90, gemY + 1, 12, nowMs);
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 22, '800');
   ctx.textAlign = 'left';
-  ctx.fillText(String(state.gemsCurrency), W / 2 - 95, gemBoxY + 34);
-  setUiFont(ctx, state, 12, '700');
-  ctx.fillStyle = '#694100';
-  ctx.textAlign = 'right';
-  ctx.fillText(tr(state, 'shop_currency', { gems: '' }).trim(), W / 2 + 140, gemBoxY + 32);
+  ctx.fillText(String(state.gemsCurrency), gemX - 65, gemY + 8);
 
-  const upg = state.upgrades;
-  const costs = {
-    health: (upg.healthLevel + 1) * 30,
-    mana: (upg.manaLevel + 1) * 30,
-    regen: (upg.regenLevel + 1) * 50,
-    damage: (upg.damageLevel + 1) * 60,
-    doubleJump: (upg.doubleJumpLevel + 1) * 100,
-    dashDistance: (upg.dashDistanceLevel + 1) * 80,
-  };
+  // Tabs
+  const tabs: {id: ShopTab, label: string}[] = [
+    { id: 'upgrades', label: 'UPGRADES' },
+    { id: 'skins', label: 'SKINS' },
+    { id: 'powerups', label: 'POWERUPS' },
+    { id: 'currency', label: 'GEMS' },
+    { id: 'special', label: 'OFFERS' }
+  ];
+  const tabW = 160;
+  const tabStartX = W / 2 - (tabW * 5) / 2;
+  const tabY = 120;
 
-  const spacing = 72;
-  const startY = 180;
-
-  const drawRow = (idx: number, y: number, name: string, level: number, cost: number) => {
-    const isSelected = state.shopSelectionIndex === idx - 1;
-    const maxed = level >= 5;
-    const canAfford = state.gemsCurrency >= cost || maxed;
-
-    // Modern Row Background
+  tabs.forEach((tab, i) => {
+    const x = tabStartX + i * tabW;
+    const isSelected = state.shopTab === tab.id;
+    
     ctx.save();
     if (isSelected) {
-      ctx.shadowColor = maxed ? '#8bffaf' : '#75cbff';
-      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#53b8ff';
+      ctx.shadowBlur = 15;
     }
-    const rowGrad = ctx.createLinearGradient(W / 2 - 320, y - 30, W / 2 + 320, y + 30);
-    rowGrad.addColorStop(0, isSelected ? 'rgba(57, 147, 255, 0.4)' : 'rgba(255,255,255,0.04)');
-    rowGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
-    ctx.fillStyle = rowGrad;
-    roundRect(ctx, W / 2 - 320, y - 28, 640, 60, 12);
+    ctx.fillStyle = isSelected ? '#53b8ff' : 'rgba(255,255,255,0.05)';
+    roundRect(ctx, x + 5, tabY, tabW - 10, 44, 12);
     ctx.fill();
-    if (isSelected) {
-      ctx.strokeStyle = maxed ? '#8effaf' : '#7acaff';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-    }
     ctx.restore();
 
-    // Icon Placeholder or Label
-    ctx.textAlign = 'left';
-    ctx.fillStyle = isSelected ? '#ffffff' : '#b2d8ff';
-    setUiFont(ctx, state, 18, '700');
-    ctx.fillText(name.toUpperCase(), W / 2 - 290, y + 8);
+    ctx.fillStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)';
+    setUiFont(ctx, state, 14, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText(tab.label, x + tabW / 2, tabY + 28);
+  });
 
-    // Modern Level pips
-    for (let i = 0; i < 5; i++) {
-      const boxX = W / 2 + 10 + i * 36;
-      const active = i < level;
+  if (state.shopTab === 'upgrades') {
+    const upg = state.upgrades;
+    const costs = [
+       (upg.healthLevel + 1) * 30,
+       (upg.manaLevel + 1) * 30,
+       (upg.regenLevel + 1) * 50,
+       (upg.damageLevel + 1) * 60,
+       (upg.doubleJumpLevel + 1) * 100,
+       (upg.dashDistanceLevel + 1) * 80,
+    ];
+    const names = ["Max Health", "Max Mana", "Mana Regen", "Spell Damage", "Double Jump", "Dash Range"];
+    const levels = [upg.healthLevel, upg.manaLevel, upg.regenLevel, upg.damageLevel, upg.doubleJumpLevel, upg.dashDistanceLevel];
 
-      ctx.save();
-      if (active) {
-        ctx.shadowColor = '#6be2ff';
-        ctx.shadowBlur = 8;
-      }
-      ctx.fillStyle = active ? '#6be2ff' : 'rgba(255,255,255,0.1)';
-      roundRect(ctx, boxX, y - 16, 28, 26, 6);
-      ctx.fill();
-      ctx.restore();
+    const cardW = 340;
+    const cardH = 140;
+    const gap = 20;
+    const startX = W / 2 - cardW - gap / 2;
+    const startY = 200;
+
+    for (let i = 0; i < 6; i++) {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const x = startX + col * (cardW + gap);
+        const y = startY + row * (cardH + gap);
+        const isSelected = state.shopSelectionIndex === i;
+        const maxed = levels[i] >= 5;
+        const canAfford = state.gemsCurrency >= costs[i] || maxed;
+
+        ctx.save();
+        if (isSelected) {
+            ctx.shadowColor = maxed ? '#8bffaf' : '#75cbff';
+            ctx.shadowBlur = 20;
+        }
+        drawPanel(ctx, x, y, cardW, cardH, 18, maxed ? '#62eeb8' : (isSelected ? '#53b8ff' : '#22325a'));
+        ctx.restore();
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        setUiFont(ctx, state, 18, '800');
+        ctx.fillText(names[i].toUpperCase(), x + 20, y + 40);
+
+        // Progress Pips
+        for (let p = 0; p < 5; p++) {
+            ctx.fillStyle = p < levels[i] ? '#ffffff' : 'rgba(255,255,255,0.2)';
+            roundRect(ctx, x + 20 + p * 28, y + 60, 22, 10, 4);
+            ctx.fill();
+        }
+
+        if (maxed) {
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            setUiFont(ctx, state, 14, '800');
+            ctx.fillText("MAXED", x + 20, y + 100);
+        } else {
+            ctx.fillStyle = canAfford ? '#ffd36a' : '#ff7688';
+            setUiFont(ctx, state, 20, '900');
+            ctx.fillText(`${costs[i]}`, x + 20, y + 100);
+            drawGemIcon(ctx, x + 20 + ctx.measureText(String(costs[i])).width + 15, y + 92, 10, nowMs);
+        }
+        
+        if (isSelected && !maxed) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            roundRect(ctx, x + cardW - 100, y + 80, 80, 36, 10);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            setUiFont(ctx, state, 12, '800');
+            ctx.textAlign = 'center';
+            ctx.fillText("BUY", x + cardW - 60, y + 104);
+        }
     }
+  } else if (state.shopTab === 'currency') {
+    const bundles = [
+        { name: "Pouch of Gems", amount: 50, price: "$0.99", color: '#53b8ff' },
+        { name: "Chest of Gems", amount: 250, price: "$3.99", color: '#ffd36a' },
+        { name: "Vault of Gems", amount: 1000, price: "$9.99", color: '#62eeb8' },
+        { name: "Free Gems", amount: 10, price: "WATCH AD", color: '#ff7688' }
+    ];
+    const cardW = 340; const cardH = 100; const gap = 20;
+    const startX = W / 2 - cardW - gap / 2;
+    const startY = 200;
 
-    // Cost side
-    ctx.textAlign = 'right';
-    if (maxed) {
-      ctx.fillStyle = '#8effaf';
-      setUiFont(ctx, state, 14, '800');
-      ctx.fillText(tr(state, 'shop_maxed').toUpperCase(), W / 2 + 300, y + 8);
-    } else {
-      ctx.fillStyle = canAfford ? '#ffe08f' : '#ff7b89';
-      setUiFont(ctx, state, 20, '800');
-      ctx.fillText(String(cost), W / 2 + 275, y + 10);
-      drawGemIcon(ctx, W / 2 + 292, y + 1, 8, nowMs);
-    }
-  };
+    bundles.forEach((b, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const x = startX + col * (cardW + gap);
+        const y = startY + row * (cardH + gap);
+        drawPanel(ctx, x, y, cardW, cardH, 16, b.color);
+        
+        ctx.fillStyle = '#ffffff';
+        setUiFont(ctx, state, 18, '800');
+        ctx.textAlign = 'left';
+        ctx.fillText(b.name, x + 20, y + 40);
+        
+        ctx.fillStyle = b.color;
+        setUiFont(ctx, state, 20, '900');
+        ctx.fillText(`+${b.amount}`, x + 20, y + 70);
+        drawGemIcon(ctx, x + 20 + ctx.measureText(`+${b.amount}`).width + 15, y + 62, 10, nowMs);
 
-  drawRow(1, startY, tr(state, 'shop_max_health'), upg.healthLevel, costs.health);
-  drawRow(2, startY + spacing, tr(state, 'shop_max_mana'), upg.manaLevel, costs.mana);
-  drawRow(3, startY + spacing * 2, tr(state, 'shop_mana_regen'), upg.regenLevel, costs.regen);
-  drawRow(4, startY + spacing * 3, tr(state, 'shop_spell_damage'), upg.damageLevel, costs.damage);
-  drawRow(5, startY + spacing * 4, tr(state, 'shop_double_jump'), upg.doubleJumpLevel, costs.doubleJump);
-  drawRow(6, startY + spacing * 5, tr(state, 'shop_dash_distance'), upg.dashDistanceLevel, costs.dashDistance);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        roundRect(ctx, x + cardW - 120, y + 55, 100, 32, 8);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        setUiFont(ctx, state, 11, '800');
+        ctx.textAlign = 'center';
+        ctx.fillText(b.price, x + cardW - 70, y + 76);
+    });
+  } else if (state.shopTab === 'skins') {
+    const skins = [
+        { name: "Origin", icon: '👤', color: '#ffffff' },
+        { name: "Inferno", icon: '🔥', color: '#ff4400' },
+        { name: "Tidal", icon: '💧', color: '#0088ff' },
+        { name: "Grounded", icon: '🌿', color: '#66aa33' },
+        { name: "Zephyr", icon: '🌪️', color: '#aabbee' },
+        { name: "Void", icon: '🌑', color: '#aa00ff' }
+    ];
+    const cardW = 160; const cardH = 160; const gap = 20;
+    const startX = W / 2 - (cardW * 3 + gap * 2) / 2;
+    const startY = 200;
 
-  // Footer / Instructions
-  drawPanel(ctx, W / 2 - 360, H - 98, 720, 68, 12, '#89d6ff');
-  ctx.textAlign = 'center';
-
-  if (isMobile) {
-    ctx.fillStyle = UI_THEME.paper;
-    setUiFont(ctx, state, 16, '700');
-    ctx.fillText(tr(state, 'shop_back').toUpperCase(), W / 2, H - 65);
+    skins.forEach((s, i) => {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const x = startX + col * (cardW + gap);
+        const y = startY + row * (cardH + gap);
+        drawPanel(ctx, x, y, cardW, cardH, 16, s.color);
+        
+        ctx.fillStyle = '#ffffff';
+        setUiFont(ctx, state, 48, '400');
+        ctx.textAlign = 'center';
+        ctx.fillText(s.icon, x + cardW / 2, y + 80);
+        
+        setUiFont(ctx, state, 14, '800');
+        ctx.fillText(s.name.toUpperCase(), x + cardW / 2, y + 120);
+        
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        roundRect(ctx, x + 20, y + 130, cardW - 40, 20, 6);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        setUiFont(ctx, state, 10, '700');
+        ctx.fillText("OWNED", x + cardW / 2, y + 144);
+    });
   } else {
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 14, '700');
-    ctx.fillText(tr(state, 'shop_press_buy').toUpperCase(), W / 2, H - 72);
-    ctx.fillStyle = '#a7c6e7';
-    setUiFont(ctx, state, 12, '600');
-    ctx.fillText(tr(state, 'shop_press_back'), W / 2, H - 52);
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    setUiFont(ctx, state, 32, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText("COMING SOON", W / 2, H / 2 + 100);
   }
+
+  // Footer Instructions
+  const backY = H - 80;
+  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 18, '700');
+  ctx.textAlign = 'center';
+  ctx.fillText("BACK", W / 2, backY + 32);
 }
 function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) {
   const cam = state.camera;
@@ -2945,7 +2914,7 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) 
   ctx.restore();
 }
 
-function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   drawBackdrop(ctx, state, W, H, ['#0a1230', '#112755', '#14193d']);
 
   // Larger, modern main panel
@@ -3038,7 +3007,8 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 15, '800');
-  const startText = isMobile ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start');
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const startText = isTouch ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start');
   ctx.fillText(startText.toUpperCase(), W / 2, H - 62);
 
   ctx.fillStyle = '#1c3e66';
@@ -3363,3 +3333,176 @@ function drawTutorialOverlay(
   ctx.restore();
 }
 
+
+function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  drawBackdrop(ctx, state, W, H, ['#0a1428', '#0f2a4a', '#1a3a5a']);
+  const progression = getProgressionSnapshot(state);
+  
+  // Title
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 42, '800');
+  ctx.textAlign = 'center';
+  ctx.fillText("DAILY CHALLENGES", W / 2, 80);
+  
+  // Milestone Progress
+  const mX = W / 2 - 200;
+  const mY = 110;
+  const mW = 400;
+  const mH = 12;
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  roundRect(ctx, mX, mY, mW, mH, 6);
+  ctx.fill();
+  
+  const mProgress = progression.milestoneProgress / progression.milestoneTarget;
+  ctx.fillStyle = '#62eeb8';
+  roundRect(ctx, mX, mY, mW * Math.min(1, mProgress), mH, 6);
+  ctx.fill();
+  
+  setUiFont(ctx, state, 14, '700');
+  ctx.fillStyle = '#62eeb8';
+  ctx.fillText(`Milestone: ${progression.milestoneProgress}/${progression.milestoneTarget} Challenges`, W / 2, mY + 32);
+
+  const startY = 180;
+  const cardW = 600;
+  const cardH = 100;
+  const gap = 20;
+
+  progression.dailies.forEach((d, i) => {
+    const y = startY + i * (cardH + gap);
+    
+    drawPanel(ctx, W / 2 - cardW / 2, y, cardW, cardH, 16, d.completed ? '#62eeb8' : '#53b8ff');
+    
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    setUiFont(ctx, state, 20, '700');
+    ctx.fillText(d.title.toUpperCase(), W / 2 - cardW / 2 + 20, y + 40);
+    
+    // Progress Bar in card
+    const pbX = W / 2 - cardW / 2 + 20;
+    const pbY = y + 55;
+    const pbW = 400;
+    const pbH = 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    roundRect(ctx, pbX, pbY, pbW, pbH, 4);
+    ctx.fill();
+    ctx.fillStyle = d.completed ? '#62eeb8' : '#53b8ff';
+    roundRect(ctx, pbX, pbY, pbW * d.progress, pbH, 4);
+    ctx.fill();
+    
+    setUiFont(ctx, state, 12, '600');
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText(`Progress: ${Math.floor(d.current)} / ${d.target}`, pbX, pbY + 24);
+    
+    // Reward
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffd36a';
+    setUiFont(ctx, state, 16, '800');
+    ctx.fillText(`+${d.rewardAmount} 💎`, W / 2 + cardW / 2 - 120, y + 55);
+    
+    // Claim Button
+    if (d.completed && !d.claimed) {
+      const cbW = 80; const cbH = 40;
+      const cbX = W / 2 + cardW / 2 - 100;
+      const cbY = y + 30;
+      ctx.fillStyle = '#62eeb8';
+      roundRect(ctx, cbX, cbY, cbW, cbH, 8);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      setUiFont(ctx, state, 12, '800');
+      ctx.textAlign = 'center';
+      ctx.fillText("CLAIM", cbX + cbW / 2, cbY + 25);
+    } else if (d.claimed) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      setUiFont(ctx, state, 12, '700');
+      ctx.textAlign = 'right';
+      ctx.fillText("CLAIMED", W / 2 + cardW / 2 - 20, y + 55);
+    }
+  });
+
+  // Back Button
+  const backY = H - 80;
+  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 18, '700');
+  ctx.textAlign = 'center';
+  ctx.fillText("BACK", W / 2, backY + 32);
+}
+
+function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  drawBackdrop(ctx, state, W, H, ['#1a0a28', '#2a0f4a', '#3a1a5a']);
+  
+  ctx.fillStyle = '#ffffff';
+  setDisplayFont(ctx, state, 42, '800');
+  ctx.textAlign = 'center';
+  ctx.fillText("WAVE SURVIVAL", W / 2, 100);
+  ctx.fillStyle = '#a1b6d1';
+  setUiFont(ctx, state, 16, '600');
+  ctx.fillText("SELECT YOUR DIFFICULTY", W / 2, 140);
+
+  const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
+  const labels = ['EASY', 'NORMAL', 'HARD', 'INSANE'];
+  const colors = ['#62eeb8', '#ffd36a', '#ff7688', '#aa00ff'];
+  const descs = [
+    "Slower enemies, more health. 1x Multiplier.",
+    "Standard experience. 1.5x Multiplier.",
+    "Fast enemies, high damage. 2.5x Multiplier.",
+    "Pure chaos. 5x Multiplier."
+  ];
+
+  const cardW = 220;
+  const cardH = 300;
+  const gap = 20;
+  const startX = W / 2 - (cardW * 4 + gap * 3) / 2;
+  const startY = 200;
+
+  diffs.forEach((d, i) => {
+    const x = startX + i * (cardW + gap);
+    const isHovered = state.difficulty === d;
+    
+    ctx.save();
+    if (isHovered) {
+      ctx.shadowColor = colors[i];
+      ctx.shadowBlur = 20;
+    }
+    drawPanel(ctx, x, startY, cardW, cardH, 16, colors[i]);
+    ctx.restore();
+
+    ctx.fillStyle = '#ffffff';
+    setDisplayFont(ctx, state, 24, '800');
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + cardW / 2, startY + 50);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    setUiFont(ctx, state, 13, '600');
+    const words = descs[i].split(' ');
+    let line = '';
+    let yy = startY + 100;
+    words.forEach(word => {
+        if ((line + word).length > 20) {
+            ctx.fillText(line, x + cardW / 2, yy);
+            line = word + ' ';
+            yy += 18;
+        } else {
+            line += word + ' ';
+        }
+    });
+    ctx.fillText(line, x + cardW / 2, yy);
+
+    // Select button hint
+    const btnY = startY + cardH - 50;
+    ctx.fillStyle = isHovered ? '#ffffff' : 'rgba(255,255,255,0.2)';
+    roundRect(ctx, x + 20, btnY, cardW - 40, 36, 8);
+    ctx.fill();
+    ctx.fillStyle = isHovered ? '#000000' : 'rgba(255,255,255,0.4)';
+    setUiFont(ctx, state, 12, '800');
+    ctx.fillText("SELECT", x + cardW / 2, btnY + 22);
+  });
+
+  // Back Button
+  const backY = H - 80;
+  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  ctx.fillStyle = '#ffffff';
+  setUiFont(ctx, state, 18, '700');
+  ctx.textAlign = 'center';
+  ctx.fillText("BACK", W / 2, backY + 32);
+}

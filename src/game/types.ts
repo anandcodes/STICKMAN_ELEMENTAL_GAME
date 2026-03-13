@@ -1,6 +1,7 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'modeSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'levelSelect' | 'relicSelection';
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type GameScreen = 'menu' | 'levelSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'challenges' | 'survivalDifficulty' | 'relicSelection';
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'insane';
+export type ShopTab = 'upgrades' | 'skins' | 'powerups' | 'currency' | 'special';
 export type Locale = 'en' | 'hi';
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 export type KeyboardLayout = 'wasd' | 'arrows' | 'both';
@@ -212,6 +213,7 @@ export interface GameState {
   levelSelectionIndex: number;
   selectedMenuButton: number;
   shopSelectionIndex: number;
+  shopTab: ShopTab;
   totalLevels: number;
   stickman: Stickman;
   platforms: Platform[];

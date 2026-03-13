@@ -43,7 +43,18 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
   easy: { playerHealth: 150, playerMana: 150, enemyDamageMult: 0.5, enemySpeedMult: 0.8, manaRegenRate: 0.15, label: 'Easy', color: '#44cc44' },
   normal: { playerHealth: 100, playerMana: 100, enemyDamageMult: 1.0, enemySpeedMult: 1.0, manaRegenRate: 0.08, label: 'Normal', color: '#ffcc00' },
   hard: { playerHealth: 75, playerMana: 80, enemyDamageMult: 1.5, enemySpeedMult: 1.3, manaRegenRate: 0.04, label: 'Hard', color: '#ff4444' },
+  insane: { playerHealth: 50, playerMana: 60, enemyDamageMult: 2.2, enemySpeedMult: 1.6, manaRegenRate: 0.02, label: 'Insane', color: '#aa00ff' },
 };
+
+/**
+ * Returns difficulty settings based on the player's level/progression.
+ * Early: 0-4, Mid: 5-9, High: 10+
+ */
+export function getDifficultyForLevel(level: number): Difficulty {
+  if (level < 5) return 'easy';
+  if (level < 10) return 'normal';
+  return 'hard';
+}
 
 function createTutorialHints(level: number): TutorialHint[] {
   if (level !== -1) return [];
@@ -57,7 +68,10 @@ function createTutorialHints(level: number): TutorialHint[] {
 
 export function createInitialState(level = 0, score = 0, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
   const def = getLevel(level);
-  const ds = DIFFICULTY_SETTINGS[difficulty];
+  
+  // Level-based difficulty scaling for campaign, otherwise use provided difficulty (for survival)
+  const actualDifficulty = level === 15 ? difficulty : getDifficultyForLevel(level);
+  const ds = DIFFICULTY_SETTINGS[actualDifficulty];
 
   const savedData = loadSave();
   const runtimeSettings = loadSettings();
@@ -140,9 +154,10 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     paused: false,
     screenShake: 0,
     floatingTexts: [],
-    difficulty,
+    difficulty: actualDifficulty,
     upgrades: upg,
     onIce: false,
+    shopTab: 'upgrades',
     tutorialHints: createTutorialHints(level),
     tutorialSteps: createTutorialSteps(level),
     tutorialStepIndex: 0,
@@ -712,8 +727,9 @@ export function update(state: GameState): void {
         spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `ACHIEVEMENT: ${getAchievementLabel(achievementId)}`, '#ffe066', 14);
         offset += 20;
       }
-      if (progression.dailyJustCompleted) {
-        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `DAILY COMPLETE: ${progression.dailyChallenge.title}`, '#66ffcc', 12);
+      if (progression.dailiesCompleted.length > 0) {
+        spawnFloatingText(state, s.x + s.width / 2, s.y - offset, `${progression.dailiesCompleted.length} DAILY CHALLENGES COMPLETE!`, '#66ffcc', 12);
+        Audio.playSuperEffective();
       }
     }
     if (obj.type === 'spike' && s.invincibleTimer <= 0) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { update, DIFFICULTY_SETTINGS, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
-import type { Difficulty, Element, GameSettings, GameState } from './game/types';
+import type { Difficulty, Element, GameSettings, GameState, ShopTab } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
@@ -18,6 +18,7 @@ import {
   buildTutorialState,
   buildRestartLevelState,
 } from './game/stateFactory';
+import { claimDailyReward, getProgressionSnapshot } from './game/services/progression';
 import {
   createTouchControlsState,
   handleTouchStart,
@@ -36,7 +37,8 @@ const CANVAS_H = 700;
 const DIFFICULTY_CYCLE: Record<Difficulty, Difficulty> = {
   easy: 'normal',
   normal: 'hard',
-  hard: 'easy',
+  hard: 'insane',
+  insane: 'easy'
 };
 
 function applySettingsToState(state: GameState, settings: GameSettings): void {
@@ -302,48 +304,137 @@ function App() {
       if (s.screen === 'menu') {
         if (tx === undefined || ty === undefined) return;
 
-        // Mode Buttons logic (synchronized with renderer coordinates)
-        const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
-        const campX = CANVAS_W / 2 - btnW - gap / 2;
-        const waveX = CANVAS_W / 2 + gap / 2;
+        // Grid buttons
+        const cardW = 280; const cardH = 120; const gap = 30;
+        const startX = CANVAS_W / 2 - cardW - gap / 2;
+        const startY = 320;
 
-        // Click Campaign -> Go to Level Select
-        if (tx >= campX && tx <= campX + btnW && ty >= baseY && ty <= baseY + btnH) {
-          Audio.initAudio();
+        for (let i = 0; i < 4; i++) {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const x = startX + col * (cardW + gap);
+          const y = startY + row * (cardH + gap);
+          if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
+             Audio.playMenuSelect();
+             if (i === 0) s.screen = 'levelSelect';
+             if (i === 1) s.screen = 'survivalDifficulty';
+             if (i === 2) s.screen = 'shop';
+             if (i === 3) s.screen = 'challenges';
+             enterMobileImmersive();
+             return;
+          }
+        }
+        
+        // Settings Icon
+        if (tx > CANVAS_W - 60 && ty < 80) {
+           setShowSettings(true);
+           return;
+        }
+        return;
+      }
+
+      if (s.screen === 'survivalDifficulty') {
+        if (tx === undefined || ty === undefined) return;
+        
+        const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
+        const cardW = 220; const cardH = 300; const gap = 20;
+        const startX = CANVAS_W / 2 - (cardW * 4 + gap * 3) / 2;
+        const startY = 200;
+
+        for (let i = 0; i < 4; i++) {
+          const x = startX + i * (cardW + gap);
+          if (tx >= x && tx <= x + cardW && ty >= startY && ty <= startY + cardH) {
+             s.difficulty = diffs[i];
+             const saved = loadSave();
+             assignState(buildEndlessState(saved.highScore, s.difficulty));
+             Audio.initAudio();
+             Audio.playMenuSelect();
+             Audio.startMusic(15);
+             enterMobileImmersive();
+             return;
+          }
+        }
+        
+        // Back button
+        if (ty > CANVAS_H - 100) {
+          s.screen = 'menu';
           Audio.playMenuSelect();
-          s.screen = 'levelSelect';
-          enterMobileImmersive();
-          return;
+        }
+        return;
+      }
+
+      if (s.screen === 'challenges') {
+        if (tx === undefined || ty === undefined) return;
+        
+        // Claim buttons logic
+        const snap = getProgressionSnapshot(s);
+        const startY = 180; const cardW = 600; const cardH = 100; const gap = 20;
+        let claimed = false;
+        snap.dailies.forEach((d, i) => {
+          const y = startY + i * (cardH + gap);
+          const cbX = CANVAS_W / 2 + cardW / 2 - 100;
+          const cbY = y + 30;
+          if (d.completed && !d.claimed) {
+            if (tx >= cbX && tx <= cbX + 80 && ty >= cbY && ty <= cbY + 40) {
+              claimDailyReward(d.id, s);
+              Audio.playGemCollect();
+              claimed = true;
+            }
+          }
+        });
+        if (claimed) return;
+
+        // Back button
+        if (ty > CANVAS_H - 100) {
+          s.screen = 'menu';
+          Audio.playMenuSelect();
+        }
+        return;
+      }
+
+      if (s.screen === 'shop') {
+        const tx_val = tx ?? s.mousePos.x;
+        const ty_val = ty ?? s.mousePos.y;
+
+        // Tabs
+        const tabW = 160;
+        const tabStartX = CANVAS_W / 2 - (tabW * 5) / 2;
+        const tabY = 120;
+        if (ty_val >= tabY && ty_val <= tabY + 44) {
+          const tabIdx = Math.floor((tx_val - tabStartX) / tabW);
+          if (tabIdx >= 0 && tabIdx < 5) {
+            const tabs: ShopTab[] = ['upgrades', 'skins', 'powerups', 'currency', 'special'];
+            s.shopTab = tabs[tabIdx];
+            Audio.playMenuSelect();
+            return;
+          }
         }
 
-        // Fullscreen Toggle on Mobile
-        if (isMobileRef.current && tx > CANVAS_W - 100 && ty < 80) {
-          enterMobileImmersive();
-          return;
+        if (s.shopTab === 'upgrades') {
+          const cardW = 340; const cardH = 140; const gap = 20;
+          const startX = CANVAS_W / 2 - cardW - gap / 2;
+          const startY = 200;
+          for (let i = 0; i < 6; i++) {
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const x = startX + col * (cardW + gap);
+            const y = startY + row * (cardH + gap);
+            if (tx_val >= x && tx_val <= x + cardW && ty_val >= y && ty_val <= y + cardH) {
+              if (s.shopSelectionIndex === i) {
+                handleShopPurchase(i);
+              } else {
+                s.shopSelectionIndex = i;
+                Audio.playMenuSelect();
+              }
+              return;
+            }
+          }
         }
 
-        // Click Wave Survival -> Start Endless
-        if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
-          const saved = loadSave();
-          assignState(buildEndlessState(saved.highScore, s.difficulty));
-          Audio.initAudio();
+        // Back button
+        if (ty_val > CANVAS_H - 100) {
+          s.screen = 'menu';
           Audio.playMenuSelect();
-          Audio.startMusic(15);
-          enterMobileImmersive();
-          return;
-        }
-
-        // Bottom Bar: Difficulty + Shop
-        const barY = baseY + btnH + 40;
-        if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
-          s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
-          Audio.playMenuSelect();
-          return;
-        }
-        if (tx > CANVAS_W / 2 + 20 && tx < CANVAS_W / 2 + 220 && ty >= barY - 18 && ty <= barY + 22) {
-          s.screen = 'shop';
-          Audio.playMenuSelect();
-          return;
         }
         return;
       }
@@ -715,22 +806,8 @@ function App() {
       if (handleDialogAdvance()) return;
 
       if (s.screen === 'shop') {
-        const spacing = 72; const startY = 180;
-        const ty = s.mousePos.y;
-        const tx = s.mousePos.x;
-        if (isMobileRef.current && ty > CANVAS_H - 100) {
-          const saved = loadSave();
-          assignState(buildMenuState(saved.highScore, s.difficulty));
-          Audio.playMenuSelect();
-          return;
-        }
-        for (let i = 0; i < 6; i++) {
-          const rowY = startY + i * spacing;
-          if (ty >= rowY - 28 && ty <= rowY + 32 && tx >= CANVAS_W / 2 - 320 && tx <= CANVAS_W / 2 + 320) {
-            handleShopPurchase(i);
-            return;
-          }
-        }
+        handleScreenTransition();
+        return;
       }
 
       if (s.screen !== 'playing') {
@@ -817,136 +894,7 @@ function App() {
         return screenToCanvas(t0.clientX, t0.clientY, rect);
       };
 
-      if (s.screen === 'shop') {
-        const { x: tx, y: ty } = mapFirstTouch();
-
-        // Check Back Button (roughly W/2 - 60, H - 70, 120x40)
-        if (tx > CANVAS_W / 2 - 80 && tx < CANVAS_W / 2 + 80 && ty > CANVAS_H - 90 && ty < CANVAS_H - 10) {
-          s.screen = 'menu';
-          Audio.playMenuSelect();
-          return;
-        }
-
-        // Check Upgrade Rows
-        const startY = 194;
-        const spacing = 70;
-        for (let i = 0; i < 6; i++) {
-          const rowY = startY + i * spacing;
-          if (ty > rowY - 30 && ty < rowY + 30) {
-            // Replicate shop buy logic
-            const key = (i + 1).toString();
-            let bought = false;
-            const costHealth = (s.upgrades.healthLevel + 1) * 30;
-            const costMana = (s.upgrades.manaLevel + 1) * 30;
-            const costRegen = (s.upgrades.regenLevel + 1) * 50;
-            const costDamage = (s.upgrades.damageLevel + 1) * 60;
-            const costDoubleJump = (s.upgrades.doubleJumpLevel + 1) * 100;
-            const costDashDistance = (s.upgrades.dashDistanceLevel + 1) * 80;
-
-            if (key === '1' && s.gemsCurrency >= costHealth && s.upgrades.healthLevel < 5) {
-              s.gemsCurrency -= costHealth; s.upgrades.healthLevel++; bought = true;
-            } else if (key === '2' && s.gemsCurrency >= costMana && s.upgrades.manaLevel < 5) {
-              s.gemsCurrency -= costMana; s.upgrades.manaLevel++; bought = true;
-            } else if (key === '3' && s.gemsCurrency >= costRegen && s.upgrades.regenLevel < 5) {
-              s.gemsCurrency -= costRegen; s.upgrades.regenLevel++; bought = true;
-            } else if (key === '4' && s.gemsCurrency >= costDamage && s.upgrades.damageLevel < 5) {
-              s.gemsCurrency -= costDamage; s.upgrades.damageLevel++; bought = true;
-            } else if (key === '5' && s.gemsCurrency >= costDoubleJump && s.upgrades.doubleJumpLevel < 5) {
-              s.gemsCurrency -= costDoubleJump; s.upgrades.doubleJumpLevel++; bought = true;
-            } else if (key === '6' && s.gemsCurrency >= costDashDistance && s.upgrades.dashDistanceLevel < 5) {
-              s.gemsCurrency -= costDashDistance; s.upgrades.dashDistanceLevel++; bought = true;
-            }
-
-            if (bought) {
-              Audio.playGemCollect();
-              saveProgress(s);
-              const ds = DIFFICULTY_SETTINGS[s.difficulty];
-              s.stickman.maxHealth = ds.playerHealth + s.upgrades.healthLevel * 25;
-              s.stickman.maxMana = ds.playerMana + s.upgrades.manaLevel * 25;
-              s.stickman.health = s.stickman.maxHealth;
-              s.stickman.mana = s.stickman.maxMana;
-            }
-            return;
-          }
-        }
-        return;
-      }
-
       if (s.screen !== 'playing') {
-        // Menu touch handling with proper button hit-testing
-        if (s.screen === 'menu') {
-          const { x: tx, y: ty } = mapFirstTouch();
-
-          // Button layout matches renderer: btnW=280, btnH=80, gap=40, baseY=320
-          const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
-          const campX = CANVAS_W / 2 - btnW - gap / 2;
-          const waveX = CANVAS_W / 2 + gap / 2;
-
-          // Campaign Button -> GO TO LEVEL SELECT
-          if (tx >= campX && tx <= campX + btnW && ty >= baseY && ty <= baseY + btnH) {
-            Audio.initAudio();
-            Audio.playMenuSelect();
-            s.screen = 'levelSelect';
-            enterMobileImmersive();
-            return;
-          }
-
-          // Wave Survival Button
-          if (tx >= waveX && tx <= waveX + btnW && ty >= baseY && ty <= baseY + btnH) {
-            const saved = loadSave();
-            assignState(buildEndlessState(saved.highScore, s.difficulty));
-            Audio.initAudio();
-            Audio.playMenuSelect();
-            Audio.startMusic(15);
-            enterMobileImmersive();
-            return;
-          }
-
-          // Difficulty cycle (bottom-left area)
-          const barY = baseY + btnH + 40;
-          if (tx < CANVAS_W / 2 && ty >= barY - 20 && ty <= barY + 30) {
-            s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
-            Audio.playMenuSelect();
-            return;
-          }
-
-          // Shop button (bottom-right area)
-          if (tx > CANVAS_W / 2 + 20 && tx < CANVAS_W / 2 + 220 && ty >= barY - 18 && ty <= barY + 22) {
-            s.screen = 'shop';
-            Audio.playMenuSelect();
-            return;
-          }
-
-          return; // On menu but no button hit
-        }
-
-        // Game Over Screen (Campaign)
-        if (s.screen === 'gameOver' && s.endlessWave === undefined) {
-          const { x: tx, y: ty } = mapFirstTouch();
-
-          const btnW = 194; const btnH = 56; const gap = 30; const baseY = CANVAS_H / 2 + 85;
-          const retryX = CANVAS_W / 2 - btnW - gap / 2;
-          const quitX = CANVAS_W / 2 + gap / 2;
-
-          if (ty >= baseY && ty <= baseY + btnH) {
-            if (tx >= retryX && tx <= retryX + btnW) {
-              const saved = loadSave();
-              assignState(buildRestartLevelState(s, saved.highScore));
-              Audio.playMenuSelect();
-              Audio.startMusic(s.currentLevel);
-              return;
-            }
-            if (tx >= quitX && tx <= quitX + btnW) {
-              const saved = loadSave();
-              assignState(buildMenuState(saved.highScore, s.difficulty));
-              Audio.playMenuSelect();
-              Audio.stopMusic();
-              return;
-            }
-          }
-        }
-
-        // Other non-playing screens
         const { x: tx, y: ty } = mapFirstTouch();
         handleScreenTransition(tx, ty);
         return;
