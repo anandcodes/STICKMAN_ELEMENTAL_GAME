@@ -938,7 +938,16 @@ function App() {
       if (s.paused) {
         const { x: tx, y: ty } = mapFirstTouch();
 
-        // Check each pause menu option (matches renderer layout: y = H/2 - 30 + i * 55)
+        // Allow unpausing via the pause button cluster
+        const pb = controls.pauseButton;
+        const dist = Math.sqrt((tx - pb.x) ** 2 + (ty - pb.y) ** 2);
+        if (dist < pb.radius * 2.2) {
+          s.paused = false;
+          Audio.playUnpause();
+          return;
+        }
+
+        // Check each pause menu option
         for (let i = 0; i < 3; i++) {
           const optionY = CANVAS_H / 2 - 30 + i * 55;
           if (tx > CANVAS_W / 2 - 160 && tx < CANVAS_W / 2 + 160 &&

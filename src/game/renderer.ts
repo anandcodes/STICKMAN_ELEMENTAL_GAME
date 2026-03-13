@@ -1910,9 +1910,12 @@ function drawHUD(
     setUiFont(ctx, state, 11, '700');
     ctx.textAlign = 'center';
     ctx.fillText((elementName(state.locale, entry.elem) || '').toUpperCase(), x + tileW / 2, 42);
-    ctx.fillStyle = UI_THEME.muted;
-    setUiFont(ctx, state, 10, '700');
-    ctx.fillText(`[${entry.key}]`, x + tileW / 2, 61);
+    
+    if (!isMobile) {
+      ctx.fillStyle = UI_THEME.muted;
+      setUiFont(ctx, state, 10, '700');
+      ctx.fillText(`[${entry.key}]`, x + tileW / 2, 61);
+    }
   }
 
   drawPanel(ctx, W - 214, 10, 204, 106, 12, '#88d8ff');
@@ -1951,11 +1954,13 @@ function drawHUD(
     ctx.restore();
   }
 
-  const s2 = state.stickman;
-  const dashReady = s2.dashCooldown <= 0;
-  ctx.fillStyle = dashReady ? '#8bf4c7' : '#ffb0ba';
-  setUiFont(ctx, state, 11, '700');
-  ctx.fillText(dashReady ? tr(state, 'hud_dash_ready') : tr(state, 'hud_dash_cd', { seconds: Math.ceil(s.dashCooldown / 6) }), W - 20, 96);
+  if (!isMobile) {
+    const s2 = state.stickman;
+    const dashReady = s2.dashCooldown <= 0;
+    ctx.fillStyle = dashReady ? '#8bf4c7' : '#ffb0ba';
+    setUiFont(ctx, state, 11, '700');
+    ctx.fillText(dashReady ? tr(state, 'hud_dash_ready') : tr(state, 'hud_dash_cd', { seconds: Math.ceil(s2.dashCooldown / 6) }), W - 20, 96);
+  }
 
   if (state.comboCount > 1 && state.comboTimer > 0) {
     const alpha = Math.min(1, state.comboTimer / 30);
