@@ -1,13 +1,16 @@
 import type { GameState, Element } from '../types';
 import * as Audio from '../audio';
 
-const MAX_PARTICLES = 300;
+
 
 export function spawnParticles(state: GameState, x: number, y: number, element: Element, count: number) {
     // BUG-7 FIX: Cap particles to prevent frame drops on mobile
-    if (state.particles.length >= MAX_PARTICLES) return;
-    const available = MAX_PARTICLES - state.particles.length;
-    const actual = Math.min(count, available);
+    const maxParticles = state.graphicsQuality === 'low' ? 80 : (state.graphicsQuality === 'medium' ? 180 : 350);
+    if (state.particles.length >= maxParticles) return;
+    const available = maxParticles - state.particles.length;
+    let actual = Math.min(count, available);
+    if (state.graphicsQuality === 'low') actual = Math.min(actual, 5);
+    if (state.graphicsQuality === 'medium') actual = Math.min(actual, 15);
 
     const colors: Record<Element, string[]> = {
         fire: ['#ff4400', '#ff8800', '#ffcc00', '#ff6600'],

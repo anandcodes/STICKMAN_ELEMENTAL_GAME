@@ -11,6 +11,7 @@ const ELEMENT_GLOW: Record<Element, string> = {
   earth: 'rgba(80, 160, 40, 0.3)', wind: 'rgba(180, 200, 240, 0.3)',
 };
 
+
 const UI_THEME = {
   paper: '#e9f2ff',
   muted: '#8aa2c6',
@@ -108,7 +109,7 @@ function drawBackdrop(
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  if (!state.graphicsQuality || state.graphicsQuality !== 'low') {
+  if (!state.graphicsQuality || state.graphicsQuality === 'high') {
     for (let i = 0; i < 5; i++) {
       const cx = (Math.sin(time * (0.6 + i * 0.08) + i * 1.7) * 0.5 + 0.5) * W;
       const cy = (Math.cos(time * (0.45 + i * 0.07) + i) * 0.5 + 0.5) * H;
@@ -118,6 +119,18 @@ function drawBackdrop(
       orb.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = orb;
       ctx.fillRect(0, 0, W, H);
+    }
+  } else if (state.graphicsQuality === 'medium') {
+    // Only 2 orbs for medium
+    for (let i = 0; i < 2; i++) {
+        const cx = (Math.sin(time * 0.6 + i) * 0.5 + 0.5) * W;
+        const cy = (Math.cos(time * 0.45 + i) * 0.5 + 0.5) * H;
+        const radius = 200;
+        const orb = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        orb.addColorStop(0, 'rgba(110, 206, 255, 0.05)');
+        orb.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = orb;
+        ctx.fillRect(0, 0, W, H);
     }
   }
 
@@ -138,6 +151,7 @@ function drawBackdrop(
 
 function drawPanel(
   ctx: CanvasRenderingContext2D,
+  state: GameState,
   x: number,
   y: number,
   w: number,
@@ -147,10 +161,14 @@ function drawPanel(
 ): void {
   ctx.save();
   
-  // Outer Shadow for depth
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctx.shadowBlur = 35;
-  ctx.shadowOffsetY = 12;
+  const lowQuality = state.graphicsQuality === 'low';
+  
+  // Outer Shadow for depth - Skip on low quality
+  if (!lowQuality) {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = state.graphicsQuality === 'medium' ? 15 : 35;
+    ctx.shadowOffsetY = state.graphicsQuality === 'medium' ? 6 : 12;
+  }
   
   const bg = ctx.createLinearGradient(x, y, x + w, y + h);
   bg.addColorStop(0, UI_THEME.panelA);
@@ -178,10 +196,12 @@ function drawPanel(
   roundRect(ctx, x, y, w, h, radius);
   ctx.stroke();
 
-  // Top Accent with Glow
+  // Top Accent with Glow - Skip glow on low quality
   ctx.save();
-  ctx.shadowColor = accent;
-  ctx.shadowBlur = 12;
+  if (!lowQuality) {
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = state.graphicsQuality === 'medium' ? 6 : 12;
+  }
   ctx.fillStyle = accent;
   roundRect(ctx, x + radius, y, w - radius * 2, 3, 1.5);
   ctx.fill();
@@ -190,14 +210,17 @@ function drawPanel(
   ctx.restore();
 }
 
-function drawGemIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, nowMs: number) {
+function drawGemIcon(ctx: CanvasRenderingContext2D, state: GameState, x: number, y: number, size: number, nowMs: number) {
   const pulse = Math.sin(nowMs * 0.005) * 0.15 + 1;
   const s = size * pulse;
   ctx.save();
   ctx.translate(x, y);
 
-  ctx.shadowColor = '#49c8ff';
-  ctx.shadowBlur = 10 * pulse;
+  const lowQuality = state.graphicsQuality === 'low';
+  if (!lowQuality) {
+    ctx.shadowColor = '#49c8ff';
+    ctx.shadowBlur = (state.graphicsQuality === 'medium' ? 5 : 10) * pulse;
+  }
 
   // Outer shape
   ctx.fillStyle = '#1e90ff';
@@ -1680,8 +1703,8 @@ function drawHUD(
     const leftW = 236;
     const rightW = 190;
 
-    drawPanel(ctx, 10, 10, leftW, 104, 12, '#7bd3ff');
-    drawPanel(ctx, W - rightW - 10, 10, rightW, 104, 12, '#88d8ff');
+    drawPanel(ctx, state, 10, 10, leftW, 104, 12, '#7bd3ff');
+    drawPanel(ctx, state, W - rightW - 10, 10, rightW, 104, 12, '#88d8ff');
 
     ctx.fillStyle = '#d8eeff';
     setUiFont(ctx, state, 11, '700');
@@ -1758,7 +1781,7 @@ function drawHUD(
       const bx = W / 2 - barW / 2;
       const by = 118;
       const pct = Math.max(0, bossCompact.health / Math.max(1, bossCompact.maxHealth));
-      drawPanel(ctx, bx - 10, by - 18, barW + 20, 48, 9, '#ff90a0');
+      drawPanel(ctx, state, bx - 10, by - 18, barW + 20, 48, 9, '#ff90a0');
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       roundRect(ctx, bx, by, barW, barH, 7); ctx.fill();
       const bossGrad = ctx.createLinearGradient(bx, 0, bx + barW, 0);
@@ -1802,7 +1825,7 @@ function drawHUD(
     ctx.restore();
   }
 
-  drawPanel(ctx, 10, 10, 286, 132, 12, '#7bd3ff');
+  drawPanel(ctx, state, 10, 10, 286, 132, 12, '#7bd3ff');
 
   ctx.fillStyle = '#d8eeff';
   setUiFont(ctx, state, 12, '700');
@@ -1902,7 +1925,7 @@ function drawHUD(
   const tileGap = 8;
   const totalW = unlocked.length * (tileW + tileGap) - tileGap;
   const startX = W / 2 - totalW / 2;
-  drawPanel(ctx, startX - 12, 10, totalW + 24, 72, 12, ELEMENT_COLORS[state.selectedElement]);
+  drawPanel(ctx, state, startX - 12, 10, totalW + 24, 72, 12, ELEMENT_COLORS[state.selectedElement]);
 
   for (let i = 0; i < unlocked.length; i++) {
     const entry = unlocked[i];
@@ -1941,7 +1964,7 @@ function drawHUD(
     }
   }
 
-  drawPanel(ctx, W - 214, 10, 204, 106, 12, '#88d8ff');
+  drawPanel(ctx, state, W - 214, 10, 204, 106, 12, '#88d8ff');
   ctx.fillStyle = '#f3fbff';
   setDisplayFont(ctx, state, 26, '800');
   ctx.textAlign = 'right';
@@ -2009,7 +2032,7 @@ function drawHUD(
     const by = 88;
     const pct = Math.max(0, boss.health / Math.max(1, boss.maxHealth));
 
-    drawPanel(ctx, bx - 12, by - 22, barW + 24, 58, 10, '#ff90a0');
+    drawPanel(ctx, state, bx - 12, by - 22, barW + 24, 58, 10, '#ff90a0');
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     roundRect(ctx, bx, by, barW, barH, 8); ctx.fill();
 
@@ -2032,7 +2055,7 @@ function drawHUD(
     ctx.fillText(bossName, W / 2, by - 6);
   }
 
-  drawPanel(ctx, W / 2 - 300, _H - 36, 600, 28, 9, '#7bcaff');
+  drawPanel(ctx, state, W / 2 - 300, _H - 36, 600, 28, 9, '#7bcaff');
   ctx.fillStyle = '#d9ecff';
   setUiFont(ctx, state, 11, '600');
   ctx.textAlign = 'center';
@@ -2192,7 +2215,7 @@ function drawLevelIntro(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ctx.scale(scale, scale);
   ctx.translate(-W / 2, -H / 2);
 
-  drawPanel(ctx, W / 2 - 320, H / 2 - 130, 640, 260, 20, '#78cfff');
+  drawPanel(ctx, state, W / 2 - 320, H / 2 - 130, 640, 260, 20, '#78cfff');
 
   // Staggered element alphas
   const alphaTitle = Math.min(alpha, progress > 0.15 ? (progress - 0.15) / 0.1 : 0);
@@ -2288,7 +2311,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
       ctx.shadowBlur = 20;
       ctx.translate(0, -3);
     }
-    drawPanel(ctx, x, y, cardW, cardH, 16, a.color);
+    drawPanel(ctx, state, x, y, cardW, cardH, 16, a.color);
     ctx.restore();
 
     ctx.fillStyle = '#ffffff';
@@ -2335,8 +2358,7 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Small Settings Icon in top corner
   const sX = W - 60;
   const sY = 30;
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  roundRect(ctx, sX, sY, 40, 40, 10);
+  drawPanel(ctx, state, sX, sY, 40, 40, 10);
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 18, '400');
@@ -2378,7 +2400,7 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
 
   const panelW = 740;
   const panelH = 400;
-  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#64f0c0');
+  drawPanel(ctx, state, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#64f0c0');
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
@@ -2438,7 +2460,7 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
     ctx.fillStyle = color;
     setDisplayFont(ctx, state, 28, '800');
     if (icon === 'gem') {
-      drawGemIcon(ctx, x - 32, cy + 44, 13, nowMs);
+      drawGemIcon(ctx, state, x - 32, cy + 44, 13, nowMs);
       ctx.textAlign = 'left';
       ctx.fillText(String(value), x + 2, cy + 66);
       ctx.textAlign = 'center';
@@ -2498,7 +2520,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   const py = H / 2 - 200;
 
   // Premium Panel with thematic accent
-  drawPanel(ctx, px, py, panelW, panelH, 24, UI_THEME.danger);
+  drawPanel(ctx, state, px, py, panelW, panelH, 24, UI_THEME.danger);
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
@@ -2567,13 +2589,13 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   const quitX = W / 2 + gap / 2;
 
   // Retry Area
-  drawPanel(ctx, retryX, footerY - 28, btnW, btnH, 16, '#62ffbc');
+  drawPanel(ctx, state, retryX, footerY - 28, btnW, btnH, 16, '#62ffbc');
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 15, '800');
   ctx.fillText(state.endlessWave !== undefined ? 'RETRY WAVE' : 'RETRY LEVEL', retryX + btnW / 2, footerY + 8);
 
   // Quit Area
-  drawPanel(ctx, quitX, footerY - 28, btnW, btnH, 16, '#ff6b81');
+  drawPanel(ctx, state, quitX, footerY - 28, btnW, btnH, 16, '#ff6b81');
   ctx.fillStyle = '#ffffff';
   ctx.fillText('RETURN TO MENU', quitX + btnW / 2, footerY + 8);
 
@@ -2606,7 +2628,7 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
 
   const panelW = 760;
   const panelH = 400;
-  drawPanel(ctx, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#8ce8ff');
+  drawPanel(ctx, state, W / 2 - panelW / 2, H / 2 - 200, panelW, panelH, 24, '#8ce8ff');
 
   const tSec = state.reducedMotion ? 0 : state.screenTimer * 0.03;
   ctx.save();
@@ -2639,7 +2661,7 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
     ctx.fillStyle = color;
     setUiFont(ctx, state, 26, '800');
     if (icon === 'gem') {
-      drawGemIcon(ctx, x - 25, gridY + 38, 12, nowMs);
+      drawGemIcon(ctx, state, x - 25, gridY + 38, 12, nowMs);
       ctx.textAlign = 'left';
       ctx.fillText(String(value), x - 4, gridY + 48);
       ctx.textAlign = 'center';
@@ -2674,8 +2696,8 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   // Currency Display
   const gemX = W / 2 + 300;
   const gemY = 55;
-  drawPanel(ctx, gemX - 120, gemY - 25, 200, 50, 12, '#ffd37f');
-  drawGemIcon(ctx, gemX - 90, gemY + 1, 12, nowMs);
+  drawPanel(ctx, state, gemX - 120, gemY - 25, 200, 50, 12, '#ffd37f');
+  drawGemIcon(ctx, state, gemX - 90, gemY + 1, 12, nowMs);
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 22, '800');
   ctx.textAlign = 'left';
@@ -2748,7 +2770,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
             ctx.shadowColor = maxed ? '#8bffaf' : '#75cbff';
             ctx.shadowBlur = 20;
         }
-        drawPanel(ctx, x, y, cardW, cardH, 18, maxed ? '#62eeb8' : (isSelected ? '#53b8ff' : '#22325a'));
+        drawPanel(ctx, state, x, y, cardW, cardH, 18, maxed ? '#62eeb8' : (isSelected ? '#53b8ff' : '#22325a'));
         ctx.restore();
 
         ctx.textAlign = 'left';
@@ -2771,7 +2793,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
             ctx.fillStyle = canAfford ? '#ffd36a' : '#ff7688';
             setUiFont(ctx, state, 20, '900');
             ctx.fillText(`${costs[i]}`, x + 20, y + (isMobileLayout ? 90 : 100));
-            drawGemIcon(ctx, x + 20 + ctx.measureText(String(costs[i])).width + 15, y + (isMobileLayout ? 82 : 92), 10, nowMs);
+            drawGemIcon(ctx, state, x + 20 + ctx.measureText(String(costs[i])).width + 15, y + (isMobileLayout ? 82 : 92), 10, nowMs);
         }
         
         if (isSelected && !maxed) {
@@ -2800,7 +2822,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
         const row = Math.floor(i / 2);
         const x = startX + col * (cardW + gap);
         const y = startY + row * (cardH + gap);
-        drawPanel(ctx, x, y, cardW, cardH, 16, b.color);
+        drawPanel(ctx, state, x, y, cardW, cardH, 16, b.color);
         
         ctx.fillStyle = '#ffffff';
         setUiFont(ctx, state, 18, '800');
@@ -2810,7 +2832,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
         ctx.fillStyle = b.color;
         setUiFont(ctx, state, 20, '900');
         ctx.fillText(`+${b.amount}`, x + 20, y + 70);
-        drawGemIcon(ctx, x + 20 + ctx.measureText(`+${b.amount}`).width + 15, y + 62, 10, nowMs);
+        drawGemIcon(ctx, state, x + 20 + ctx.measureText(`+${b.amount}`).width + 15, y + 62, 10, nowMs);
 
         ctx.fillStyle = 'rgba(255,255,255,0.2)';
         roundRect(ctx, x + cardW - 120, y + 55, 100, 32, 8);
@@ -2838,7 +2860,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
         const row = Math.floor(i / 3);
         const x = startX + col * (cardW + gap);
         const y = startY + row * (cardH + gap);
-        drawPanel(ctx, x, y, cardW, cardH, 16, s.color);
+        drawPanel(ctx, state, x, y, cardW, cardH, 16, s.color);
         
         ctx.fillStyle = '#ffffff';
         setUiFont(ctx, state, 48, '400');
@@ -2864,13 +2886,16 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 
   // Footer Instructions
   const backY = H - 80;
-  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  drawPanel(ctx, state, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 18, '700');
   ctx.textAlign = 'center';
   ctx.fillText("BACK", W / 2, backY + 32);
 }
 function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) {
+  if (state.graphicsQuality === 'low') return;
+  const isMedium = state.graphicsQuality === 'medium';
+  
   const cam = state.camera;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -2879,24 +2904,24 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) 
   const s = state.stickman;
   const px = s.x + s.width / 2 - cam.x;
   const py = s.y + s.height / 2 - cam.y;
-  const pGrad = ctx.createRadialGradient(px, py, 0, px, py, 120);
+  const pGrad = ctx.createRadialGradient(px, py, 0, px, py, isMedium ? 80 : 120);
   const pColor = ELEMENT_COLORS[state.selectedElement];
   pGrad.addColorStop(0, pColor + '44');
   pGrad.addColorStop(1, 'transparent');
   ctx.fillStyle = pGrad;
   ctx.beginPath();
-  ctx.arc(px, py, 120, 0, Math.PI * 2);
+  ctx.arc(px, py, isMedium ? 80 : 120, 0, Math.PI * 2);
   ctx.fill();
 
   // 2. Projectile lights
   for (const p of state.projectiles) {
     const lx = p.x - cam.x;
     const ly = p.y - cam.y;
-    const lGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 60);
+    const lGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, isMedium ? 40 : 60);
     lGrad.addColorStop(0, ELEMENT_COLORS[p.element] + '66');
     lGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = lGrad;
-    ctx.beginPath(); ctx.arc(lx, ly, 60, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(lx, ly, isMedium ? 40 : 60, 0, Math.PI * 2); ctx.fill();
   }
 
   // 3. Env Light Sources
@@ -2907,12 +2932,12 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number) 
     if (ox < -150 || ox > W + 150) continue;
 
     let lightColor = '';
-    let size = 60;
+    let size = isMedium ? 40 : 60;
 
-    if (obj.type === 'gem') { lightColor = '#ffcc0044'; size = 50; }
-    else if (obj.type === 'mana_crystal') { lightColor = '#0088ff44'; size = 50; }
-    else if (obj.type === 'portal') { lightColor = state.portalOpen ? '#aa44ff66' : '#5522aa33'; size = 180; }
-    else if (obj.type === 'fire_pit' || obj.state === 'burning') { lightColor = '#ff440044'; size = 90; }
+    if (obj.type === 'gem') { lightColor = '#ffcc0044'; size = isMedium ? 35 : 50; }
+    else if (obj.type === 'mana_crystal') { lightColor = '#0088ff44'; size = isMedium ? 35 : 50; }
+    else if (obj.type === 'portal') { lightColor = state.portalOpen ? '#aa44ff66' : '#5522aa33'; size = isMedium ? 120 : 180; }
+    else if (obj.type === 'fire_pit' || obj.state === 'burning') { lightColor = '#ff440044'; size = isMedium ? 60 : 90; }
 
     if (lightColor) {
       const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, size);
@@ -2932,7 +2957,7 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
   // Larger, modern main panel
   const panelW = 1080;
   const panelH = 630;
-  drawPanel(ctx, W / 2 - panelW / 2, 30, panelW, panelH, 24, '#74c8ff');
+  drawPanel(ctx, state, W / 2 - panelW / 2, 30, panelW, panelH, 24, '#74c8ff');
 
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 42, '800');
@@ -3014,7 +3039,7 @@ function drawLevelSelectScreen(ctx: CanvasRenderingContext2D, state: GameState, 
   // Modern Footer
   const footerW = 800;
   const footerH = 68;
-  drawPanel(ctx, W / 2 - footerW / 2, H - 90, footerW, footerH, 12, '#86d2ff');
+  drawPanel(ctx, state, W / 2 - footerW / 2, H - 90, footerW, footerH, 12, '#86d2ff');
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
@@ -3043,11 +3068,11 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   ctx.fillRect(0, 0, W, H);
 
   // Dialog Box Background
-  drawPanel(ctx, panelX, panelY, panelW, panelH, 12, '#ffffff');
+  drawPanel(ctx, state, panelX, panelY, panelW, panelH, 12, '#ffffff');
 
   // Speaker Name Plate
   const nameW = Math.max(140, ctx.measureText(dialog.speaker).width + 60);
-  drawPanel(ctx, panelX + 20, panelY - 18, nameW, 36, 6, '#7ae8ff');
+  drawPanel(ctx, state, panelX + 20, panelY - 18, nameW, 36, 6, '#7ae8ff');
   ctx.fillStyle = '#102545';
   setDisplayFont(ctx, state, 18, '800');
   ctx.textAlign = 'center';
@@ -3060,7 +3085,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   const portraitY = panelY + 30;
 
   // Enhanced Portrait Container
-  drawPanel(ctx, portraitX, portraitY, portraitSize, portraitSize, 12, 'rgba(16, 37, 69, 0.85)');
+  drawPanel(ctx, state, portraitX, portraitY, portraitSize, portraitSize, 12, 'rgba(16, 37, 69, 0.85)');
   ctx.strokeStyle = 'rgba(122, 232, 255, 0.5)';
   ctx.lineWidth = 2;
   roundRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 12);
@@ -3156,7 +3181,7 @@ function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameStat
     const ry = startY;
     
     // Hover logic would be here, but we'll use a subtle pulse for all cards
-    drawPanel(ctx, rx, ry, cardW, cardH, 20, relic.rarity === 'legendary' ? '#ffcc00' : (relic.rarity === 'rare' ? '#6ad2ff' : '#ffffff'));
+    drawPanel(ctx, state, rx, ry, cardW, cardH, 20, relic.rarity === 'legendary' ? '#ffcc00' : (relic.rarity === 'rare' ? '#6ad2ff' : '#ffffff'));
 
     // Rarity Badge
     const badgeW = 100;
@@ -3383,7 +3408,7 @@ function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W
   progression.dailies.forEach((d, i) => {
     const y = startY + i * (cardH + gap);
     
-    drawPanel(ctx, W / 2 - cardW / 2, y, cardW, cardH, 16, d.completed ? '#62eeb8' : '#53b8ff');
+    drawPanel(ctx, state, W / 2 - cardW / 2, y, cardW, cardH, 16, d.completed ? '#62eeb8' : '#53b8ff');
     
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
@@ -3434,7 +3459,7 @@ function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W
 
   // Back Button
   const backY = H - 80;
-  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  drawPanel(ctx, state, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 18, '700');
   ctx.textAlign = 'center';
@@ -3482,7 +3507,7 @@ function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: Game
       ctx.shadowColor = colors[i];
       ctx.shadowBlur = 20;
     }
-    drawPanel(ctx, x, y, cardW, cardH, 16, colors[i]);
+    drawPanel(ctx, state, x, y, cardW, cardH, 16, colors[i]);
     ctx.restore();
 
     ctx.fillStyle = '#ffffff';
@@ -3519,7 +3544,7 @@ function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: Game
 
   // Back Button
   const backY = H - 80;
-  drawPanel(ctx, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
+  drawPanel(ctx, state, W / 2 - 100, backY, 200, 50, 12, '#ff7688');
   ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 18, '700');
   ctx.textAlign = 'center';

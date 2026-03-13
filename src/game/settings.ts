@@ -6,7 +6,7 @@ export const SETTINGS_SCHEMA_VERSION = 1;
 export const DEFAULT_SETTINGS: GameSettings = {
   version: SETTINGS_SCHEMA_VERSION,
   locale: 'en',
-  graphicsQuality: 'high',
+  graphicsQuality: 'low',
   textScale: 1,
   reducedMotion: false,
   highContrast: false,
