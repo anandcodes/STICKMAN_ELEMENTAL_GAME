@@ -11,7 +11,7 @@ const DEFAULT_SAVE: SaveData = {
   version: SAVE_SCHEMA_VERSION,
   integrity: '',
   highScore: 0,
-  furthestLevel: 0,
+  furthestLevel: 19, // Unlocked for testing
   totalGemsEver: 0,
   totalEnemiesDefeated: 0,
   difficulty: 'normal',
@@ -127,7 +127,7 @@ function normalizeSaveData(raw: unknown): SaveData {
     version: SAVE_SCHEMA_VERSION,
     integrity: typeof data.integrity === 'string' ? data.integrity : '',
     highScore: clamp(coerceNonNegativeInt(data.highScore, DEFAULT_SAVE.highScore), 0, MAX_HIGH_SCORE),
-    furthestLevel: clamp(coerceNonNegativeInt(data.furthestLevel, DEFAULT_SAVE.furthestLevel), 0, Math.max(TOTAL_LEVELS - 1, 0)),
+    furthestLevel: TOTAL_LEVELS - 1,
     totalGemsEver: clamp(coerceNonNegativeInt(data.totalGemsEver, DEFAULT_SAVE.totalGemsEver), 0, MAX_COUNTER),
     gemsCurrency: clamp(coerceNonNegativeInt(data.gemsCurrency, DEFAULT_SAVE.gemsCurrency), 0, MAX_COUNTER),
     totalEnemiesDefeated: clamp(coerceNonNegativeInt(data.totalEnemiesDefeated, DEFAULT_SAVE.totalEnemiesDefeated), 0, MAX_COUNTER),
@@ -170,7 +170,7 @@ export function loadSave(): SaveData {
     // localStorage unavailable or corrupted
   }
 
-  return { ...DEFAULT_SAVE };
+  return { ...DEFAULT_SAVE, furthestLevel: TOTAL_LEVELS - 1 };
 }
 
 export function saveProgress(state: GameState): void {

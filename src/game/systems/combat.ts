@@ -1,5 +1,5 @@
 import type { GameState, Projectile, EnvObject } from '../types';
-import { DIFFICULTY_SETTINGS } from '../engine';
+import { DIFFICULTY_SETTINGS } from '../constants';
 import { spawnParticles, spawnFloatingText, addScore, createSynergyZone, handleEnemyHit } from './utils';
 
 import { projectilePool } from '../services/poolManager';

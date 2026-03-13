@@ -1,6 +1,6 @@
 import type { GameState } from './types';
 import * as Audio from './audio';
-import { DASH_BASE_COOLDOWN } from './engine';
+import { DASH_BASE_COOLDOWN } from './constants';
 
 export interface TouchControl {
   id: string;
@@ -235,7 +235,7 @@ export function handleTouchStart(
       controls.castTouchId = touch.identifier;
       controls.castDragActive = false;
       controls.castDragPos = { x: tx, y: ty };
-      
+
       if (!state.aimToShoot) {
         state.mouseDown = true;
       }
@@ -287,10 +287,10 @@ export function handleTouchMove(
       const dx = tx - controls.castDragPos.x;
       const dy = ty - controls.castDragPos.y;
       const mag = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (mag > 15) {
         controls.castDragActive = true;
-        
+
         // If aimToShoot is on, we don't rapid fire while dragging
         if (state.aimToShoot) {
           state.mouseDown = false;
@@ -404,7 +404,7 @@ export function renderTouchControls(
     alpha = 0.3,
   ) => {
     ctx.save();
-    
+
     const isLow = state.graphicsQuality === 'low';
 
     // Outer Glow - DISABLED ON LOW
@@ -417,7 +417,7 @@ export function renderTouchControls(
     const grad = ctx.createRadialGradient(x, y - radius * 0.2, 0, x, y, radius);
     grad.addColorStop(0, active ? color : 'rgba(255, 255, 255, 0.4)');
     grad.addColorStop(1, active ? color : 'rgba(255, 255, 255, 0.15)');
-    
+
     ctx.globalAlpha = active ? 0.8 : alpha;
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -434,26 +434,26 @@ export function renderTouchControls(
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     if (controlsIconSheet && icon) {
-        // Map icon labels to sprite regions
-        type IconKey = 'jump' | 'shoot' | 'dash' | 'swap' | 'pause';
-        const regions: Record<IconKey, [number, number, number, number]> = {
-            jump: [40, 40, 430, 430],
-            shoot: [550, 40, 430, 430],
-            dash: [300, 300, 424, 424],
-            swap: [40, 550, 430, 430],
-            pause: [550, 550, 430, 430]
-        };
-        const keyMap: Record<string, IconKey> = {
-            '⬆️': 'jump', '🎯': 'shoot', '💨': 'dash', '🔄': 'swap', '⏸️': 'pause',
-            '🔥': 'swap', '💧': 'swap', '🪨': 'swap', '🌪️': 'swap'
-        };
-        const region = regions[keyMap[icon as string] || 'shoot'];
-        if (region) {
-            const iconSize = radius * 1.3;
-            ctx.drawImage(controlsIconSheet, region[0], region[1], region[2], region[3], x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
-        }
+      // Map icon labels to sprite regions
+      type IconKey = 'jump' | 'shoot' | 'dash' | 'swap' | 'pause';
+      const regions: Record<IconKey, [number, number, number, number]> = {
+        jump: [40, 40, 430, 430],
+        shoot: [550, 40, 430, 430],
+        dash: [300, 300, 424, 424],
+        swap: [40, 550, 430, 430],
+        pause: [550, 550, 430, 430]
+      };
+      const keyMap: Record<string, IconKey> = {
+        '⬆️': 'jump', '🎯': 'shoot', '💨': 'dash', '🔄': 'swap', '⏸️': 'pause',
+        '🔥': 'swap', '💧': 'swap', '🪨': 'swap', '🌪️': 'swap'
+      };
+      const region = regions[keyMap[icon as string] || 'shoot'];
+      if (region) {
+        const iconSize = radius * 1.3;
+        ctx.drawImage(controlsIconSheet, region[0], region[1], region[2], region[3], x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+      }
     } else if (icon) {
       ctx.font = `700 ${Math.round(radius * 0.9)}px sans-serif`;
       ctx.fillText(icon, x, y);
@@ -477,7 +477,7 @@ export function renderTouchControls(
   ctx.beginPath();
   ctx.arc(dpc.x, dpc.y, controls.dpadRadius, 0, Math.PI * 2);
   ctx.stroke();
-  
+
   // Inner base
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
   ctx.fill();
@@ -498,11 +498,11 @@ export function renderTouchControls(
   const thumbX = dpc.x + controls.dpadDirection.x * controls.dpadRadius * 0.8;
   const thumbY = dpc.y + controls.dpadDirection.y * controls.dpadRadius * 0.8;
   const thumbR = controls.dpadRadius * 0.4;
-  
+
   const thumbGrad = ctx.createRadialGradient(thumbX, thumbY, 0, thumbX, thumbY, thumbR);
   thumbGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
   thumbGrad.addColorStop(1, 'rgba(200, 200, 200, 0.4)');
-  
+
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
   ctx.shadowBlur = 10;
@@ -554,7 +554,7 @@ export function renderTouchControls(
   const db = controls.dashButton;
   const dashReady = state.stickman.dashCooldown <= 0;
   drawPremiumButton(db.x, db.y, db.radius, dashReady ? '#44ffaa' : '#555555', db.label.toUpperCase(), db.active, db.icon, dashReady ? 0.3 : 0.1);
-  
+
   if (!dashReady) {
     const pct = 1 - (state.stickman.dashCooldown / DASH_BASE_COOLDOWN);
     const isLow = state.graphicsQuality === 'low';

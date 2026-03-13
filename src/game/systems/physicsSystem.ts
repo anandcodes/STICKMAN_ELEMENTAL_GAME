@@ -1,4 +1,4 @@
-import type { GameState, Platform, EnvObject } from '../types';
+import type { GameState } from '../types';
 import { GRAVITY, FRICTION } from '../constants';
 
 export function applyPhysics(state: GameState) {
@@ -60,18 +60,18 @@ export function applyPhysics(state: GameState) {
   // EnvObject collisions (crates, etc)
   for (const obj of state.envObjects) {
     if (!obj.solid || obj.state === 'destroyed' || obj.state === 'collected') continue;
-    
+
     // Top collision
     if (s.vy > 0 && s.y + s.height > obj.y && s.y < obj.y + 10 && s.x + s.width > obj.x + 5 && s.x < obj.x + obj.width - 5) {
-       s.y = obj.y - s.height;
-       s.vy = 0;
-       s.onGround = true;
-       s.jumping = false;
+      s.y = obj.y - s.height;
+      s.vy = 0;
+      s.onGround = true;
+      s.jumping = false;
     }
     // Bottom collision
     if (s.vy < 0 && s.y > obj.y + obj.height - 10 && s.y < obj.y + obj.height && s.x + s.width > obj.x + 5 && s.x < obj.x + obj.width - 5) {
-       s.y = obj.y + obj.height;
-       s.vy = 0;
+      s.y = obj.y + obj.height;
+      s.vy = 0;
     }
     // Side collision
     if (s.y + s.height > obj.y + 5 && s.y < obj.y + obj.height - 5) {

@@ -1,7 +1,7 @@
 import type { GameState } from '../types';
 import { DIFFICULTY_SETTINGS } from '../constants';
-import { spawnFloatingText, spawnParticles, handleEnemyHit, vibrate } from './utils';
-import { projectilePool } from '../services/poolManager';
+import { handleEnemyHit, vibrate } from './utils';
+
 import { BEHAVIORS } from './enemyBehaviors';
 
 export function updateEnemies(state: GameState): void {
@@ -39,7 +39,7 @@ export function updateEnemies(state: GameState): void {
         if (enemy.type !== 'bat' && enemy.type !== 'fire_spirit' && enemy.type !== 'ice_spirit' && enemy.type !== 'thunder_hawk' && enemy.type !== 'void_titan') {
             enemy.vy += 0.5; // Gravity
         }
-        
+
         enemy.x += enemy.vx;
         enemy.y += enemy.vy;
 
@@ -63,7 +63,7 @@ export function updateEnemies(state: GameState): void {
 
         // Player Collision
         const touchingPlayer = s.x + s.width > enemy.x && s.x < enemy.x + enemy.width &&
-                               s.y + s.height > enemy.y && s.y < enemy.y + enemy.height;
+            s.y + s.height > enemy.y && s.y < enemy.y + enemy.height;
 
         if (touchingPlayer && s.isDashing) {
             handleEnemyHit(state, {

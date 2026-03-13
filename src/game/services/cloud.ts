@@ -74,6 +74,8 @@ function sanitizeSaveForCloud(save: SaveData): SaveData {
           .filter(([, v]) => Number.isFinite(v)),
       )
       : {},
+    hapticsEnabled: typeof save.hapticsEnabled === 'boolean' ? save.hapticsEnabled : true,
+    graphicsQuality: (save.graphicsQuality === 'low' || save.graphicsQuality === 'medium' || save.graphicsQuality === 'high') ? save.graphicsQuality : 'low',
   };
 }
 
@@ -140,6 +142,8 @@ export function mergeCloudSave(local: SaveData, remote: SaveData): SaveData {
       dashDistanceLevel: Math.max(a.upgrades.dashDistanceLevel, b.upgrades.dashDistanceLevel),
     },
     bestTimes: mergeBestTimes(a.bestTimes, b.bestTimes),
+    hapticsEnabled: b.furthestLevel > a.furthestLevel ? b.hapticsEnabled : a.hapticsEnabled,
+    graphicsQuality: b.furthestLevel > a.furthestLevel ? b.graphicsQuality : a.graphicsQuality,
   };
 
   return clampEconomy(merged);
@@ -276,6 +280,8 @@ function hasMeaningfulSaveDelta(a: SaveData, b: SaveData): boolean {
     a.upgrades.damageLevel !== b.upgrades.damageLevel ||
     a.upgrades.doubleJumpLevel !== b.upgrades.doubleJumpLevel ||
     a.upgrades.dashDistanceLevel !== b.upgrades.dashDistanceLevel ||
+    a.hapticsEnabled !== b.hapticsEnabled ||
+    a.graphicsQuality !== b.graphicsQuality ||
     bestTimesDiffer
   );
 }

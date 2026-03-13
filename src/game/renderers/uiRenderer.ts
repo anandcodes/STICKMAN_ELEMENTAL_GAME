@@ -1,11 +1,11 @@
-import type { GameState, ShopTab, Enemy, EnvObject } from '../types';
-import { UI_THEME, ELEMENT_COLORS, FONT_UI, FONT_DISPLAY } from './renderConstants';
-import { roundRect, setUiFont, setDisplayFont, tr, uiScale } from './renderUtils';
-import { assetLoader } from '../services/assetLoader';
+import type { GameState, ShopTab } from '../types';
+import { UI_THEME, ELEMENT_COLORS } from './renderConstants';
+import { roundRect, setUiFont, setDisplayFont, tr } from './renderUtils';
+
 
 export function drawPanel(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
+  _state: GameState,
   x: number,
   y: number,
   width: number,
@@ -36,7 +36,7 @@ export function drawPanel(
 
 export function drawGemIcon(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
+  _state: GameState,
   x: number,
   y: number,
   size: number,
@@ -61,7 +61,7 @@ export function drawGemIcon(
 
 export function drawBackdrop(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
+  _state: GameState,
   W: number,
   H: number,
   colors: [string, string, string],
@@ -89,25 +89,25 @@ export function drawUIRenderer(
   W: number,
   H: number,
   nowMs: number,
-  isMobile: boolean,
+  _isMobile: boolean,
   isPortraitMobile: boolean,
 ) {
   if (state.screen === 'shop') {
-    drawShopScreen(ctx, state, W, H, nowMs);
+    drawShopScreen(ctx, state, W, H);
     return;
   }
 
   if (state.screen === 'settings') {
-    drawSettingsScreen(ctx, state, W, H, nowMs);
+    drawSettingsScreen(ctx, state, W, H);
     return;
   }
 
   if (state.screen === 'relicSelection') {
-    drawRelicSelectionScreen(ctx, state, W, H, isMobile);
+    drawRelicSelectionScreen(ctx, state, W, H);
     return;
   }
 
-  drawHUD(ctx, state, W, H, nowMs, isMobile, isPortraitMobile);
+  drawHUD(ctx, state, W, nowMs, isPortraitMobile);
 
   if (state.activeDialog.length > 0) {
     drawDialogSystem(ctx, state, W, H, nowMs, isPortraitMobile);
@@ -126,9 +126,7 @@ function drawHUD(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   W: number,
-  H: number,
   nowMs: number,
-  isMobile: boolean,
   isPortraitMobile: boolean,
 ) {
   const s = state.stickman;
@@ -205,13 +203,13 @@ function drawHUD(
   }
 }
 
-function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
+function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   drawBackdrop(ctx, state, W, H, ['#080d1f', '#102545', '#0f1631']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 48, '800');
   ctx.textAlign = 'center';
   ctx.fillText("ELEMENTAL SHOP", W / 2, 80);
-  
+
   // Tabs
   const tabs: ShopTab[] = ['upgrades', 'skins', 'powerups', 'currency', 'special'];
   const tabW = 160;
@@ -257,12 +255,12 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
       const isMaxed = item.level >= 5;
 
       drawPanel(ctx, state, ix, iy, cardW, cardH, 8, selected ? UI_THEME.accent : UI_THEME.panelBorder, selected ? 1 : 0.8);
-      
+
       ctx.fillStyle = '#ffffff';
       setUiFont(ctx, state, isMobileLayout ? 16 : 20, '700');
       ctx.textAlign = 'left';
       ctx.fillText(item.name, ix + 20, iy + (isMobileLayout ? 30 : 45));
-      
+
       setUiFont(ctx, state, isMobileLayout ? 12 : 14, '600');
       ctx.fillStyle = UI_THEME.muted;
       ctx.fillText(`LVL ${item.level} / 5`, ix + 20, iy + (isMobileLayout ? 55 : 75));
@@ -271,7 +269,7 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
       ctx.fillStyle = isMaxed ? '#ffd37f' : '#ffffff';
       setUiFont(ctx, state, isMobileLayout ? 14 : 18, '800');
       ctx.fillText(isMaxed ? tr(state, 'shop_maxed') : `${item.cost} 💎`, ix + cardW - 20, iy + (isMobileLayout ? 45 : 45));
-      
+
       // Progress dots
       for (let dot = 0; dot < 5; dot++) {
         ctx.fillStyle = dot < item.level ? UI_THEME.accent : 'rgba(255,255,255,0.1)';
@@ -343,7 +341,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   setUiFont(ctx, state, isPortraitMobile ? 14 : 18, '600');
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  
+
   // Basic line wrapping
   const words = textToDraw.split(' ');
   let line = '';
@@ -383,7 +381,7 @@ function drawPauseOverlay(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   ctx.fillText(tr(state, 'pause_title').toUpperCase(), W / 2, H / 2 - 110);
 }
 
-function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile = false) {
+function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   drawBackdrop(ctx, state, W, H, ['#051020', '#102040', '#0a1020']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 48, '900');
@@ -395,23 +393,23 @@ function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameStat
     const rx = W / 2 - 350 + i * 240;
     const ry = 180;
     const selected = state.shopSelectionIndex === i;
-    
+
     drawPanel(ctx, state, rx, ry, 220, 320, 15, selected ? UI_THEME.accent : UI_THEME.panelBorder, selected ? 1 : 0.85);
-    
+
     // Icon (Placeholder)
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
     roundRect(ctx, rx + 40, ry + 30, 140, 140, 10); ctx.fill();
-    
+
     ctx.fillStyle = '#ffffff';
     setUiFont(ctx, state, 20, '800');
     ctx.textAlign = 'center';
     ctx.fillText(relic.name.toUpperCase(), rx + 110, ry + 200);
-    
+
     setUiFont(ctx, state, 14, '600');
     ctx.fillStyle = UI_THEME.muted;
     // Multi-line wrap would be better, but for now simple
     ctx.fillText(relic.description, rx + 110, ry + 230);
-    
+
     const rarityColors = { common: '#8aa2c6', rare: '#53b8ff', legendary: '#aa44ff' };
     ctx.fillStyle = rarityColors[relic.rarity];
     setUiFont(ctx, state, 12, '800');
@@ -419,7 +417,7 @@ function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameStat
   });
 }
 
-function drawSettingsScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
+function drawSettingsScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   drawBackdrop(ctx, state, W, H, ['#0a1020', '#152540', '#0a1020']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 42, '800');
@@ -438,12 +436,12 @@ function drawSettingsScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
     const sy = 160 + i * 70;
     const selected = state.shopSelectionIndex === i;
     drawPanel(ctx, state, W / 2 - 250, sy - 30, 500, 60, 8, selected ? UI_THEME.accent : UI_THEME.panelBorder, selected ? 1 : 0.8);
-    
+
     ctx.fillStyle = '#ffffff';
     setUiFont(ctx, state, 18, '700');
     ctx.textAlign = 'left';
     ctx.fillText(s.label, W / 2 - 220, sy + 8);
-    
+
     ctx.textAlign = 'right';
     ctx.fillStyle = selected ? UI_THEME.accentStrong : UI_THEME.muted;
     ctx.fillText(s.value, W / 2 + 220, sy + 8);

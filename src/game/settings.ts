@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   sfxVolume: 0.7,
   controlsScale: 1,
   aimToShoot: true,
+  hapticsEnabled: true,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -69,6 +70,7 @@ function normalizeSettings(raw: unknown): GameSettings {
     sfxVolume: clamp(asNumber(data.sfxVolume, DEFAULT_SETTINGS.sfxVolume), 0, 1),
     controlsScale: clamp(asNumber(data.controlsScale, DEFAULT_SETTINGS.controlsScale), 0.5, 2),
     aimToShoot: !!asBoolean(data.aimToShoot, DEFAULT_SETTINGS.aimToShoot),
+    hapticsEnabled: asBoolean(data.hapticsEnabled, DEFAULT_SETTINGS.hapticsEnabled),
   };
 }
 

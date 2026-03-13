@@ -6,7 +6,7 @@ import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
 import { advanceLoopClock, createLoopClock } from './game/loop';
-import { initTelemetrySession, trackError, setTelemetryOptOut } from './game/telemetry';
+import { initTelemetrySession, trackError } from './game/telemetry';
 import { loadSettings, saveSettings } from './game/settings';
 import { t } from './game/i18n';
 import { refreshRemoteLeaderboard } from './game/services/leaderboard';
@@ -15,7 +15,6 @@ import {
   buildMenuState,
   buildNextLevelState,
   buildPlayingState,
-  buildTutorialState,
   buildRestartLevelState,
 } from './game/stateFactory';
 import { claimDailyReward, getProgressionSnapshot } from './game/services/progression';
@@ -29,7 +28,6 @@ import {
   isMobileDevice,
   type TouchControlsState,
 } from './game/touchControls';
-import { getInitialAdsDisabled, requestRemoveAdsPurchase, setupAdsStatusListener } from './nativeBridge';
 import { assetLoader } from './game/services/assetLoader';
 
 let CANVAS_W = 1200;
@@ -93,23 +91,13 @@ function App() {
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
-  const [adsDisabled, setAdsDisabled] = useState<boolean>(() => getInitialAdsDisabled());
-  const [telemetryOptOut, setTelemetryOptOutState] = useState<boolean>(() => {
-    if (typeof localStorage === 'undefined') return false;
-    try {
-      return localStorage.getItem('elemental_stickman_telemetry_opt_out') === '1';
-    } catch {
-      return false;
-    }
-  });
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
   };
 
   useEffect(() => {
-    setupAdsStatusListener(setAdsDisabled);
-    
+
     // Load all game assets
     assetLoader.loadAssets({
       boss1: '/bosses/boss1.png',
@@ -336,29 +324,29 @@ function App() {
           const x = startX + col * (cardW + gap);
           const y = startY + row * (cardH + gap);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
-             Audio.playMenuSelect();
-             if (i === 0) s.screen = 'levelSelect';
-             if (i === 1) s.screen = 'survivalDifficulty';
-             if (i === 2) s.screen = 'shop';
-             if (i === 3) s.screen = 'challenges';
-             enterMobileImmersive();
-             return;
+            Audio.playMenuSelect();
+            if (i === 0) s.screen = 'levelSelect';
+            if (i === 1) s.screen = 'survivalDifficulty';
+            if (i === 2) s.screen = 'shop';
+            if (i === 3) s.screen = 'challenges';
+            enterMobileImmersive();
+            return;
           }
         }
-        
+
         // Settings Icon
         if (tx > CANVAS_W - 60 && ty < 80) {
-           s.screen = 'settings';
-           s.shopSelectionIndex = 0; // Use for settings navigation
-           Audio.playMenuSelect();
-           return;
+          s.screen = 'settings';
+          s.shopSelectionIndex = 0; // Use for settings navigation
+          Audio.playMenuSelect();
+          return;
         }
         return;
       }
 
       if (s.screen === 'survivalDifficulty') {
         if (tx === undefined || ty === undefined) return;
-        
+
         const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
         const isMobileLayout = CANVAS_W < 600;
         const cardW = isMobileLayout ? CANVAS_W / 2 - 30 : 220;
@@ -374,17 +362,17 @@ function App() {
           const x = startX + col * (cardW + gap);
           const y = startY + row * (cardH + gap);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
-             s.difficulty = diffs[i];
-             const saved = loadSave();
-             assignState(buildEndlessState(saved.highScore, s.difficulty));
-             Audio.initAudio();
-             Audio.playMenuSelect();
-             Audio.startMusic(15);
-             enterMobileImmersive();
-             return;
+            s.difficulty = diffs[i];
+            const saved = loadSave();
+            assignState(buildEndlessState(saved.highScore, s.difficulty));
+            Audio.initAudio();
+            Audio.playMenuSelect();
+            Audio.startMusic(15);
+            enterMobileImmersive();
+            return;
           }
         }
-        
+
         // Back button
         if (ty > CANVAS_H - 100) {
           s.screen = 'menu';
@@ -430,13 +418,13 @@ function App() {
 
       if (s.screen === 'challenges') {
         if (tx === undefined || ty === undefined) return;
-        
+
         // Claim buttons logic
         const snap = getProgressionSnapshot(s);
         const isMobileLayout = CANVAS_W < 600;
-        const startY = 180; 
-        const cardW = isMobileLayout ? CANVAS_W - 40 : 600; 
-        const cardH = 100; 
+        const startY = 180;
+        const cardW = isMobileLayout ? CANVAS_W - 40 : 600;
+        const cardH = 100;
         const gap = 20;
 
         let claimed = false;
@@ -609,7 +597,7 @@ function App() {
         const startY = 180;
 
         for (let i = 0; i < s.relicChoices.length; i++) {
-          const rx = startX + i * 240;
+          const rx = startX + i * (cardW + gap);
           if (tx >= rx && tx <= rx + cardW && ty >= startY && ty <= startY + cardH) {
             assignState(selectRelic({ ...s }, i));
             Audio.playMenuSelect();

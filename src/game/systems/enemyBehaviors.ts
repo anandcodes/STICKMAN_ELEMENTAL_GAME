@@ -118,7 +118,6 @@ export const VoidTitanBehavior: EnemyBehavior = {
     const s = state.stickman;
     const dx = (s.x + s.width / 2) - (enemy.x + enemy.width / 2);
     const dy = (s.y + s.height / 2) - (enemy.y + enemy.height / 2);
-    const dist = Math.sqrt(dx * dx + dy * dy);
     
     enemy.attackTimer = (enemy.attackTimer || 0) + 1;
     if (enemy.attackTimer >= 200) {
