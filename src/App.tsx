@@ -492,7 +492,7 @@ function App() {
           Audio.playMenuSelect();
           e.preventDefault();
         } else if (keyLower === 's' || key === 'ArrowDown') {
-          s.pauseSelection = Math.min(2, s.pauseSelection + 1);
+          s.pauseSelection = Math.min(3, s.pauseSelection + 1);
           Audio.playMenuSelect();
           e.preventDefault();
         } else if (key === 'Enter' || key === ' ') {
@@ -509,6 +509,8 @@ function App() {
             assignState(buildMenuState(saved.highScore, s.difficulty));
             Audio.playMenuSelect();
             Audio.stopMusic();
+          } else if (s.pauseSelection === 3) {
+            setShowSettings(true);
           }
           e.preventDefault();
         }
@@ -740,8 +742,8 @@ function App() {
       if (s.paused) {
         const mx = s.mousePos.x;
         const my = s.mousePos.y;
-        for (let i = 0; i < 3; i++) {
-          const optionY = CANVAS_H / 2 - 30 + i * 55;
+        for (let i = 0; i < 4; i++) {
+          const optionY = CANVAS_H / 2 - 50 + i * 58;
           if (mx > CANVAS_W / 2 - 160 && mx < CANVAS_W / 2 + 160 &&
             my > optionY - 18 && my < optionY + 24) {
             if (i === 0) {
@@ -757,6 +759,8 @@ function App() {
               assignState(buildMenuState(saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.stopMusic();
+            } else if (i === 3) {
+              setShowSettings(true);
             }
             return;
           }
@@ -962,8 +966,8 @@ function App() {
         }
 
         // Check each pause menu option
-        for (let i = 0; i < 3; i++) {
-          const optionY = CANVAS_H / 2 - 30 + i * 55;
+        for (let i = 0; i < 4; i++) {
+          const optionY = CANVAS_H / 2 - 50 + i * 58;
           if (tx > CANVAS_W / 2 - 160 && tx < CANVAS_W / 2 + 160 &&
             ty > optionY - 18 && ty < optionY + 24) {
             if (i === 0) {
@@ -982,6 +986,9 @@ function App() {
               assignState(buildMenuState(saved.highScore, s.difficulty));
               Audio.playMenuSelect();
               Audio.stopMusic();
+            } else if (i === 3) {
+              // Open Settings
+              setShowSettings(true);
             }
             return;
           }
@@ -1141,37 +1148,39 @@ function App() {
         touchAction: 'none',
       }}
     >
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={showSettings}
-        onClick={() => setShowSettings(true)}
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 30,
-          border: '1.5px solid rgba(125, 184, 255, 0.4)',
-          background: 'rgba(9, 23, 44, 0.7)',
-          backdropFilter: 'blur(8px)',
-          color: '#e8f2ff',
-          borderRadius: 10,
-          padding: '10px 18px',
-          fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
-          fontWeight: 700,
-          letterSpacing: '0.05em',
-          fontSize: `${Math.round(13 * settings.textScale)}px`,
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: '1.1em', opacity: 0.8 }}>⚙</span>
-        {t(settings.locale, 'app_open_settings').toUpperCase()}
-      </button>
+      {!isMobile && (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={showSettings}
+          onClick={() => setShowSettings(true)}
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 30,
+            border: '1.5px solid rgba(125, 184, 255, 0.4)',
+            background: 'rgba(9, 23, 44, 0.7)',
+            backdropFilter: 'blur(8px)',
+            color: '#e8f2ff',
+            borderRadius: 10,
+            padding: '10px 18px',
+            fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            fontSize: `${Math.round(13 * settings.textScale)}px`,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: '1.1em', opacity: 0.8 }}>⚙</span>
+          {t(settings.locale, 'app_open_settings').toUpperCase()}
+        </button>
+      )}
       <canvas
         ref={canvasRef}
         width={canvasWidth}

@@ -115,8 +115,8 @@ export function updateTouchControlsLayout(
 
   // Right Side Action Cluster – relative to canvas, not viewport pixels.
   const actionRadius = clamp(base * (portrait ? 0.085 : 0.075), 34, portrait ? 125 : 105);
-  const clusterX = canvasW - margin - actionRadius * 1.6;
-  const clusterY = canvasH - margin - actionRadius * (portrait ? 1.6 : 1.4);
+  const clusterX = canvasW - margin - actionRadius * 2.1;
+  const clusterY = canvasH - margin - actionRadius * (portrait ? 2.1 : 1.9);
 
   // Main Cast Button (Center of cluster)
   controls.castButton.radius = actionRadius * 1.15;

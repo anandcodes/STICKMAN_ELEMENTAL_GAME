@@ -628,10 +628,15 @@ export function render(
     ctx.fillRect(W / 2 - 25, H / 2 - 80, 50, 2);
 
     // Menu options
-    const options = [tr(state, 'pause_resume'), tr(state, 'pause_restart'), tr(state, 'pause_quit')];
-    const optionColors = ['#8bf5c8', '#ffd782', '#ff9da8'];
+    const options = [
+      tr(state, 'pause_resume'),
+      tr(state, 'pause_restart'),
+      tr(state, 'pause_quit'),
+      tr(state, 'pause_settings' as any) || 'SETTINGS',
+    ];
+    const optionColors = ['#8bf5c8', '#ffd782', '#ff9da8', '#6ad2ff'];
     for (let i = 0; i < options.length; i++) {
-      const y = H / 2 - 34 + i * 62;
+      const y = H / 2 - 50 + i * 58;
       const selected = state.pauseSelection === i;
 
       // Background
