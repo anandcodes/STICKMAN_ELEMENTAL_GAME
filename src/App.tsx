@@ -48,6 +48,7 @@ function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.reducedMotion = settings.reducedMotion;
   state.highContrast = settings.highContrast;
   state.controlsScale = settings.controlsScale;
+  state.aimToShoot = settings.aimToShoot;
 }
 
 function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
@@ -107,6 +108,14 @@ function App() {
 
   useEffect(() => {
     setupAdsStatusListener(setAdsDisabled);
+  }, []);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/assets/controls.png';
+    img.onload = () => {
+      import('./game/touchControls').then(tc => tc.setControlsIconSheet(img));
+    };
   }, []);
 
   const assignState = (next: GameState) => {
@@ -1315,6 +1324,18 @@ function App() {
                     onChange={(e) => patchSettings({ controlsScale: Number(e.target.value) })}
                     style={{ width: '100%', marginTop: 4 }}
                   />
+                </label>
+                <label style={{ display: 'block', marginTop: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.aimToShoot}
+                    onChange={(e) => patchSettings({ aimToShoot: e.target.checked })}
+                    style={{ marginRight: 8 }}
+                  />
+                  {t(settings.locale, 'settings_aim_to_shoot')}
+                  <div style={{ fontSize: '11px', opacity: 0.6, marginLeft: 24 }}>
+                    {t(settings.locale, 'settings_aim_to_shoot_desc')}
+                  </div>
                 </label>
               </section>
 

@@ -37,6 +37,11 @@ export interface TouchControlsState {
 }
 
 const DPAD_RADIUS = 55;
+let controlsIconSheet: HTMLImageElement | null = null;
+
+export function setControlsIconSheet(img: HTMLImageElement) {
+  controlsIconSheet = img;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -181,7 +186,7 @@ export function handleTouchStart(
   for (const touch of touches) {
     const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
-    if (dist(tx, ty, controls.pauseButton.x, controls.pauseButton.y) < controls.pauseButton.radius * 2.0) {
+    if (dist(tx, ty, controls.pauseButton.x, controls.pauseButton.y) < controls.pauseButton.radius * 2.5) {
       if (state.screen === 'playing') {
         state.paused = !state.paused;
         if (state.paused) Audio.playPause(); else Audio.playUnpause();
@@ -189,7 +194,7 @@ export function handleTouchStart(
       return;
     }
 
-    if (dist(tx, ty, controls.cycleButton.x, controls.cycleButton.y) < controls.cycleButton.radius * 1.8) {
+    if (dist(tx, ty, controls.cycleButton.x, controls.cycleButton.y) < controls.cycleButton.radius * 2.2) {
       const idx = state.unlockedElements.indexOf(state.selectedElement);
       const nextIdx = (idx + 1) % state.unlockedElements.length;
       state.selectedElement = state.unlockedElements[nextIdx];
@@ -198,7 +203,7 @@ export function handleTouchStart(
       return;
     }
 
-    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 1.8 && controls.jumpTouchId === null) {
+    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 2.2 && controls.jumpTouchId === null) {
       controls.jumpActive = true;
       controls.jumpTouchId = touch.identifier;
       controls.jumpButton.active = true;
@@ -206,7 +211,7 @@ export function handleTouchStart(
       continue;
     }
 
-    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 1.8 && controls.dashTouchId === null) {
+    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 2.2 && controls.dashTouchId === null) {
       controls.dashActive = true;
       controls.dashTouchId = touch.identifier;
       controls.dashButton.active = true;
@@ -224,20 +229,16 @@ export function handleTouchStart(
       continue;
     }
 
-    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 1.8) {
+    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 2.5) {
       controls.castActive = true;
       controls.castButton.active = true;
       controls.castTouchId = touch.identifier;
       controls.castDragActive = false;
       controls.castDragPos = { x: tx, y: ty };
-      const s = state.stickman;
-      // Initial aim
-      state.mousePos = {
-        x: s.x + s.facing * 220 - state.camera.x,
-        y: s.y - 20 - state.camera.y,
-      };
-      // Start shooting
-      state.mouseDown = true;
+      
+      if (!state.aimToShoot) {
+        state.mouseDown = true;
+      }
       continue;
     }
 
@@ -285,22 +286,27 @@ export function handleTouchMove(
     if (touch.identifier === controls.castTouchId && controls.castActive) {
       const dx = tx - controls.castDragPos.x;
       const dy = ty - controls.castDragPos.y;
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      const mag = Math.sqrt(dx * dx + dy * dy);
+      
+      if (mag > 15) {
         controls.castDragActive = true;
-        // User is aiming; stop rapid firing
-        state.mouseDown = false;
+        
+        // If aimToShoot is on, we don't rapid fire while dragging
+        if (state.aimToShoot) {
+          state.mouseDown = false;
+        } else {
+          state.mouseDown = true;
+        }
+
         const s = state.stickman;
-        const mag = Math.sqrt(dx * dx + dy * dy);
-        const range = 260;
+        const range = 280;
         state.mousePos = {
           x: s.x + s.width / 2 + (dx / mag) * range - state.camera.x,
           y: s.y + s.height / 2 + (dy / mag) * range - state.camera.y,
         };
-      } else {
-        // User moved back to center or didn't move far enough
+      } else if (!state.aimToShoot) {
         controls.castDragActive = false;
-        state.mousePos = { x: tx, y: ty };
-        state.mouseDown = true; // resume rapid fire if in center
+        state.mouseDown = true;
       }
     }
   }
@@ -322,12 +328,12 @@ export function handleTouchEnd(
     }
 
     if (touch.identifier === controls.castTouchId) {
-      if (controls.castDragActive) {
-        // Trigger a shot on release since they were aiming
+      if (state.aimToShoot && controls.castDragActive) {
+        // Shoot on release
         state.mouseDown = true;
         setTimeout(() => {
           state.mouseDown = false;
-        }, 50);
+        }, 30);
       } else {
         state.mouseDown = false;
       }
@@ -399,8 +405,10 @@ export function renderTouchControls(
   ) => {
     ctx.save();
     
-    // Outer Glow
-    if (active) {
+    const isLow = state.graphicsQuality === 'low';
+
+    // Outer Glow - DISABLED ON LOW
+    if (active && !isLow) {
       ctx.shadowColor = color;
       ctx.shadowBlur = 15;
     }
@@ -427,7 +435,26 @@ export function renderTouchControls(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    if (icon) {
+    if (controlsIconSheet && icon) {
+        // Map icon labels to sprite regions
+        type IconKey = 'jump' | 'shoot' | 'dash' | 'swap' | 'pause';
+        const regions: Record<IconKey, [number, number, number, number]> = {
+            jump: [40, 40, 430, 430],
+            shoot: [550, 40, 430, 430],
+            dash: [300, 300, 424, 424],
+            swap: [40, 550, 430, 430],
+            pause: [550, 550, 430, 430]
+        };
+        const keyMap: Record<string, IconKey> = {
+            '⬆️': 'jump', '🎯': 'shoot', '💨': 'dash', '🔄': 'swap', '⏸️': 'pause',
+            '🔥': 'swap', '💧': 'swap', '🪨': 'swap', '🌪️': 'swap'
+        };
+        const region = regions[keyMap[icon as string] || 'shoot'];
+        if (region) {
+            const iconSize = radius * 1.3;
+            ctx.drawImage(controlsIconSheet, region[0], region[1], region[2], region[3], x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+        }
+    } else if (icon) {
       ctx.font = `700 ${Math.round(radius * 0.9)}px sans-serif`;
       ctx.fillText(icon, x, y);
     } else {
@@ -530,8 +557,9 @@ export function renderTouchControls(
   
   if (!dashReady) {
     const pct = 1 - (state.stickman.dashCooldown / DASH_BASE_COOLDOWN);
+    const isLow = state.graphicsQuality === 'low';
     ctx.strokeStyle = '#44ffaa';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = isLow ? 2 : 3;
     ctx.beginPath();
     ctx.arc(db.x, db.y, db.radius + 3, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
     ctx.stroke();

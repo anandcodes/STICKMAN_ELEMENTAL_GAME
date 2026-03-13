@@ -205,6 +205,7 @@ export interface GameSettings {
   musicVolume: number;
   sfxVolume: number;
   controlsScale: number;
+  aimToShoot: boolean;
 }
 
 export interface GameState {
@@ -277,6 +278,7 @@ export interface GameState {
   reducedMotion: boolean;
   highContrast: boolean;
   controlsScale: number;
+  aimToShoot: boolean;
   onDamage?: () => void;
   deathAnimTimer: number;
   deathType?: 'fall' | 'enemy' | 'spike';

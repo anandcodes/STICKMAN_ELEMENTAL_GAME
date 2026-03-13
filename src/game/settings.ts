@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.25,
   sfxVolume: 0.7,
   controlsScale: 1,
+  aimToShoot: true,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -67,6 +68,7 @@ function normalizeSettings(raw: unknown): GameSettings {
     musicVolume: clamp(asNumber(data.musicVolume, DEFAULT_SETTINGS.musicVolume), 0, 1),
     sfxVolume: clamp(asNumber(data.sfxVolume, DEFAULT_SETTINGS.sfxVolume), 0, 1),
     controlsScale: clamp(asNumber(data.controlsScale, DEFAULT_SETTINGS.controlsScale), 0.5, 2),
+    aimToShoot: !!asBoolean(data.aimToShoot, DEFAULT_SETTINGS.aimToShoot),
   };
 }
 
