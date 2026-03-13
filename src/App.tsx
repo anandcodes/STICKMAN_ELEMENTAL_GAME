@@ -6,7 +6,7 @@ import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
 import { advanceLoopClock, createLoopClock } from './game/loop';
-import { initTelemetrySession, trackError } from './game/telemetry';
+import { initTelemetrySession, trackError, setTelemetryOptOut } from './game/telemetry';
 import { loadSettings, saveSettings } from './game/settings';
 import { t } from './game/i18n';
 import { refreshRemoteLeaderboard } from './game/services/leaderboard';
@@ -28,6 +28,7 @@ import {
   isMobileDevice,
   type TouchControlsState,
 } from './game/touchControls';
+import { getInitialAdsDisabled, requestRemoveAdsPurchase, setupAdsStatusListener } from './nativeBridge';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -87,10 +88,23 @@ function App() {
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
+  const [adsDisabled, setAdsDisabled] = useState<boolean>(() => getInitialAdsDisabled());
+  const [telemetryOptOut, setTelemetryOptOutState] = useState<boolean>(() => {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      return localStorage.getItem('elemental_stickman_telemetry_opt_out') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
   };
+
+  useEffect(() => {
+    setupAdsStatusListener(setAdsDisabled);
+  }, []);
 
   const assignState = (next: GameState) => {
     applySettingsToState(next, settingsRef.current);
@@ -1337,6 +1351,33 @@ function App() {
                 </button>
               </section>
 
+              {typeof window !== 'undefined' && window.AndroidBridge && (
+                <section>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Monetization</div>
+                  {adsDisabled ? (
+                    <div style={{ color: '#9ab7d8' }}>Ads have been disabled for this device.</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => requestRemoveAdsPurchase()}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        background: '#0f766e',
+                        color: '#fff',
+                        border: '1px solid #14b8a6',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        marginTop: '4px',
+                      }}
+                    >
+                      Remove Ads (Google Play)
+                    </button>
+                  )}
+                </section>
+              )}
+
               <section>
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_graphics')}</div>
                 <label style={{ display: 'block' }}>
@@ -1385,6 +1426,27 @@ function App() {
                     style={{ marginLeft: 8 }}
                   />
                 </label>
+              </section>
+
+              <section>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Data & Privacy</div>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  Send anonymous gameplay analytics
+                  <input
+                    type="checkbox"
+                    checked={!telemetryOptOut}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      const optOut = !enabled;
+                      setTelemetryOptOut(optOut);
+                      setTelemetryOptOutState(optOut);
+                    }}
+                    style={{ marginLeft: 8 }}
+                  />
+                </label>
+                <div style={{ fontSize: Math.round(11 * settings.textScale), color: '#9ab7d8' }}>
+                  See our Privacy Policy on the store listing to learn how we use analytics and ads.
+                </div>
               </section>
 
               <div style={{ color: '#9ab7d8' }}>{t(settings.locale, 'settings_hint_close')}</div>

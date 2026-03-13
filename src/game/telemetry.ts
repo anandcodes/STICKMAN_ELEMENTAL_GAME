@@ -18,6 +18,7 @@ interface EventPayload {
 }
 
 const LAST_SESSION_KEY = 'elemental_stickman_last_session_at';
+const TELEMETRY_OPT_OUT_KEY = 'elemental_stickman_telemetry_opt_out';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ERROR_DEDUPE_MS = 2000;
 
@@ -69,12 +70,22 @@ export function readTelemetryConfig(env: EnvLike = readEnv()): TelemetryConfig {
   };
 }
 
+function isOptedOut(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem(TELEMETRY_OPT_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 function getConfig(): TelemetryConfig {
   return testConfigOverride ?? readTelemetryConfig();
 }
 
 function shouldSend(config: TelemetryConfig, force = false): boolean {
   if (!config.enabled || !config.endpoint) return false;
+  if (isOptedOut()) return false;
   if (force) return true;
   return Math.random() <= config.sampleRate;
 }
@@ -170,4 +181,13 @@ export function __setTelemetryConfigForTests(config: TelemetryConfig | null): vo
   testConfigOverride = config;
   sessionId = makeSessionId();
   recentErrorMap.clear();
+}
+
+export function setTelemetryOptOut(enabled: boolean): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(TELEMETRY_OPT_OUT_KEY, enabled ? '1' : '0');
+  } catch {
+    // ignore storage failures
+  }
 }

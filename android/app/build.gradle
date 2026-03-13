@@ -1,0 +1,45 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "com.yourstudio.elementalstickman"
+    compileSdkVersion 35
+
+    defaultConfig {
+        applicationId "com.yourstudio.elementalstickman"
+        minSdkVersion 24
+        targetSdkVersion 35
+        versionCode 1
+        versionName "1.0.0"
+
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ["/META-INF/{AL2.0,LGPL2.1}"]
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation "com.google.android.material:material:1.12.0"
+    implementation "com.google.android.gms:play-services-ads:25.0.0"
+    implementation "com.android.billingclient:billing:8.3.0"
+}
+

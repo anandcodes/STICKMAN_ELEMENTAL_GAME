@@ -98,26 +98,25 @@ export function updateTouchControlsLayout(
   const safeViewH = Math.max(1, viewH);
   const portrait = safeViewH > safeViewW;
 
-  const logicalPerPixelX = canvasW / safeViewW;
-  const logicalPerPixelY = canvasH / safeViewH;
-  // Scale based on screen size, but keep buttons reachable
-  const scale = clamp(Math.max(logicalPerPixelX, logicalPerPixelY), 0.75, portrait ? 4 : 1.5);
+  // Base everything on logical canvas size so that controls
+  // stay in consistent places regardless of device DPI.
+  const base = Math.min(canvasW, canvasH);
+  const margin = clamp(base * (portrait ? 0.035 : 0.025), 10, 40);
 
-  const margin = (portrait ? 20 : 12) * scale;
-  const dpadRadius = clamp((portrait ? 80 : 54) * scale, 45, portrait ? 240 : 140);
+  const dpadRadius = clamp(base * (portrait ? 0.11 : 0.09), 40, portrait ? 130 : 110);
   controls.dpadRadius = dpadRadius;
-  
+
   if (controls.dpadTouchId === null) {
     controls.dpadCenter = {
-      x: margin + dpadRadius + (portrait ? 10 : 20),
-      y: canvasH - margin - dpadRadius - (portrait ? 20 : 10),
+      x: margin + dpadRadius * 1.05,
+      y: canvasH - margin - dpadRadius * (portrait ? 0.9 : 0.7),
     };
   }
 
-  // Right Side Action Cluster
-  const actionRadius = clamp((portrait ? 64 : 42) * scale, 35, portrait ? 200 : 110);
-  const clusterX = canvasW - margin - actionRadius * 1.8;
-  const clusterY = canvasH - margin - actionRadius * 1.8;
+  // Right Side Action Cluster – relative to canvas, not viewport pixels.
+  const actionRadius = clamp(base * (portrait ? 0.085 : 0.075), 34, portrait ? 125 : 105);
+  const clusterX = canvasW - margin - actionRadius * 1.6;
+  const clusterY = canvasH - margin - actionRadius * (portrait ? 1.6 : 1.4);
 
   // Main Cast Button (Center of cluster)
   controls.castButton.radius = actionRadius * 1.15;
@@ -126,31 +125,31 @@ export function updateTouchControlsLayout(
 
   // Jump Button (Bottom Right of Cast)
   controls.jumpButton.radius = actionRadius * 0.85;
-  controls.jumpButton.x = clusterX + actionRadius * 1.6;
-  controls.jumpButton.y = clusterY + actionRadius * 0.6;
+  controls.jumpButton.x = clusterX + actionRadius * 1.5;
+  controls.jumpButton.y = clusterY + actionRadius * 0.75;
 
   // Dash Button (Top Right of Cast)
   controls.dashButton.radius = actionRadius * 0.7;
   controls.dashButton.x = clusterX + actionRadius * 1.1;
-  controls.dashButton.y = clusterY - actionRadius * 1.4;
+  controls.dashButton.y = clusterY - actionRadius * 1.25;
 
   // Cycle Button (Left of Cast)
   controls.cycleButton.radius = actionRadius * 0.7;
-  controls.cycleButton.x = clusterX - actionRadius * 1.6;
-  controls.cycleButton.y = clusterY - actionRadius * 0.2;
+  controls.cycleButton.x = clusterX - actionRadius * 1.5;
+  controls.cycleButton.y = clusterY - actionRadius * 0.1;
 
   // Adjustment for portrait
   if (portrait) {
-    controls.jumpButton.x = clusterX + actionRadius * 1.2;
-    controls.jumpButton.y = clusterY + actionRadius * 1.4;
-    controls.dashButton.x = clusterX + actionRadius * 1.2;
-    controls.dashButton.y = clusterY - actionRadius * 1.1;
+    controls.jumpButton.x = clusterX + actionRadius * 1.35;
+    controls.jumpButton.y = clusterY + actionRadius * 1.15;
+    controls.dashButton.x = clusterX + actionRadius * 1.15;
+    controls.dashButton.y = clusterY - actionRadius * 1.05;
     controls.cycleButton.x = clusterX - actionRadius * 1.25;
-    controls.cycleButton.y = clusterY;
+    controls.cycleButton.y = clusterY + actionRadius * 0.1;
   }
 
   // Pause Button (Top Right corner)
-  controls.pauseButton.radius = clamp(20 * scale, 22, 50);
+  controls.pauseButton.radius = clamp(base * 0.03, 20, 44);
   controls.pauseButton.x = canvasW - margin - controls.pauseButton.radius;
   controls.pauseButton.y = margin + controls.pauseButton.radius;
 }
@@ -494,7 +493,32 @@ export function renderTouchControls(
   }[state.selectedElement];
 
   const cb = controls.castButton;
-  drawPremiumButton(cb.x, cb.y, cb.radius, elemColor, (tr(state, 'cast_label' as any) || 'CAST').toUpperCase(), cb.active, undefined, 0.4);
+  const isAiming = controls.castActive || controls.castDragActive;
+  const castBaseAlpha = isAiming ? 0.75 : 0.4;
+
+  drawPremiumButton(
+    cb.x,
+    cb.y,
+    cb.radius,
+    elemColor,
+    (tr(state, 'cast_label' as any) || 'CAST').toUpperCase(),
+    cb.active || controls.castDragActive,
+    undefined,
+    castBaseAlpha,
+  );
+
+  if (isAiming) {
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    ctx.strokeStyle = elemColor;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.arc(cb.x, cb.y, cb.radius * 1.4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 
   const jb = controls.jumpButton;
   drawPremiumButton(jb.x, jb.y, jb.radius, '#ffffff', (tr(state, 'jump_label' as any) || 'JUMP').toUpperCase(), jb.active);
