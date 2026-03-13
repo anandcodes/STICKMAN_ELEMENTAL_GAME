@@ -1,6 +1,6 @@
 import type { GameState } from '../types';
 
-export type AchievementId = 'first_blood' | 'collector_100' | 'collector_500' | 'campaign_clear' | 'wave_10' | 'wave_30' | 'score_10k' | 'score_50k';
+export type AchievementId = 'first_blood' | 'gem_hunter' | 'elemental_novice' | 'survivor' | 'slayer' | 'rich' | 'collector_100' | 'collector_500' | 'campaign_clear' | 'wave_10' | 'wave_30' | 'score_10k' | 'score_50k';
 export type DailyChallengeId = 'gems_20' | 'kills_50' | 'reach_wave_5' | 'reach_level_5' | 'spend_100_gems' | 'collect_50_gems' | 'defeat_100_enemies';
 
 interface ProgressionStore {
@@ -49,6 +49,11 @@ const DEFAULT_STORE: ProgressionStore = {
 
 const ACHIEVEMENT_LABELS: Record<AchievementId, string> = {
   first_blood: 'First Blood',
+  gem_hunter: 'Gem Hunter',
+  elemental_novice: 'Elemental Novice',
+  survivor: 'Survivor',
+  slayer: 'Slayer',
+  rich: 'Rich',
   collector_100: 'Gem Hoarder',
   collector_500: 'Gem Lord',
   campaign_clear: 'Campaign Conqueror',
@@ -171,11 +176,20 @@ export function updateProgression(state: GameState): ProgressionUpdate {
 
   // Achievements
   const unlockedAchievements: AchievementId[] = [];
-  if (state.enemiesDefeated >= 1 && !store.achievements.includes('first_blood')) {
-    store.achievements.push('first_blood');
-    unlockedAchievements.push('first_blood');
-  }
-  // ... (Add other achievement evaluations as needed)
+  
+  const check = (id: AchievementId, condition: boolean) => {
+    if (condition && !store.achievements.includes(id)) {
+      store.achievements.push(id);
+      unlockedAchievements.push(id);
+    }
+  };
+
+  check('first_blood', state.enemiesDefeated >= 1);
+  check('gem_hunter', state.totalGemsEver >= 10);
+  check('elemental_novice', state.furthestLevel >= 1);
+  check('survivor', (state.endlessWave || 0) >= 5);
+  check('slayer', state.enemiesDefeated >= 50);
+  check('rich', state.totalGemsEver >= 100);
 
   saveStore(store);
   return { unlockedAchievements, dailiesCompleted: newlyCompleted };

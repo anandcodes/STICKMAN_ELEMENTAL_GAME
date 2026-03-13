@@ -1,8 +1,7 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from 'vitest';
 
 import { createInitialState } from '../engine';
-import { getDailyChallenge, getProgressionSnapshot, updateProgression } from '../services/progression';
+import { getProgressionSnapshot, updateProgression, getDailyChallengesForToday } from '../services/progression';
 import { setMockStorage } from './testHelpers';
 
 test('updateProgression unlocks achievements based on state milestones', () => {
@@ -14,18 +13,17 @@ test('updateProgression unlocks achievements based on state milestones', () => {
   state.endlessWave = 12;
 
   const update = updateProgression(state);
-  assert.ok(update.unlockedAchievements.length >= 4);
+  expect(update.unlockedAchievements.length).toBeGreaterThanOrEqual(4);
 
   const second = updateProgression(state);
-  assert.equal(second.unlockedAchievements.length, 0);
+  expect(second.unlockedAchievements.length).toBe(0);
 });
 
-test('getDailyChallenge is deterministic for same date', () => {
-  const date = new Date('2026-03-08T00:00:00.000Z');
-  const a = getDailyChallenge(date);
-  const b = getDailyChallenge(date);
-  assert.equal(a.id, b.id);
-  assert.equal(a.title, b.title);
+test('getDailyChallengesForToday returns consistent results', () => {
+  const a = getDailyChallengesForToday();
+  const b = getDailyChallengesForToday();
+  expect(a.length).toBeGreaterThan(0);
+  expect(a[0].id).toBe(b[0].id);
 });
 
 test('getProgressionSnapshot returns challenge progress and achievement totals', () => {
@@ -37,8 +35,9 @@ test('getProgressionSnapshot returns challenge progress and achievement totals',
   state.endlessWave = 2;
 
   const snapshot = getProgressionSnapshot(state);
-  assert.equal(typeof snapshot.totalAchievements, 'number');
-  assert.ok(snapshot.totalAchievements >= 5);
-  assert.ok(snapshot.daily.progress >= 0);
-  assert.ok(snapshot.daily.progress <= 1);
+  expect(typeof snapshot.totalAchievements).toBe('number');
+  expect(snapshot.totalAchievements).toBeGreaterThanOrEqual(5);
+  expect(snapshot.dailies.length).toBeGreaterThan(0);
+  expect(snapshot.dailies[0].progress).toBeGreaterThanOrEqual(0);
+  expect(snapshot.dailies[0].progress).toBeLessThanOrEqual(1);
 });

@@ -197,6 +197,17 @@ export function playMenuSelect(): void {
     playTone(660, 0.08, 'sine', 0.12, 0, 0.05);
 }
 
+export function playDash(): void {
+    playNoise(0.15, 0.1, 1500);
+    playTone(400, 0.15, 'sawtooth', 0.1);
+    playTone(800, 0.1, 'sawtooth', 0.05, 0, 0.05);
+}
+
+export function playCrateBreak(): void {
+    playNoise(0.2, 0.15, 400);
+    playTone(100, 0.2, 'square', 0.1);
+}
+
 export function playLevelComplete(): void {
     const notes = [523, 587, 659, 784, 880, 1047];
     notes.forEach((n, i) => {
@@ -234,11 +245,6 @@ export function playUnpause(): void {
 export function playSpikeHit(): void {
     playTone(180, 0.12, 'sawtooth', 0.18);
     playNoise(0.08, 0.1, 1200);
-}
-
-export function playCrateBreak(): void {
-    playNoise(0.15, 0.12, 600);
-    playTone(100, 0.1, 'square', 0.1);
 }
 
 export function playElementSwitch(): void {

@@ -1,10 +1,10 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect, describe } from 'vitest';
 
 import { update, createInitialState } from '../engine';
 import { loadSave } from '../persistence';
 import { handleElementInteraction, updateProjectiles } from '../systems/combat';
 import { setMockAudioContext, setMockStorage, withMockedRandom } from './testHelpers';
+import type { Projectile } from '../types';
 
 test('plant grows upward consistently after repeated water hits', () => {
   setMockStorage();
@@ -22,17 +22,17 @@ test('plant grows upward consistently after repeated water hits', () => {
     solid: false,
   };
 
-  const waterProj = { x: 210, y: 295, vx: 1, vy: 0, element: 'water' as const, life: 10, size: 8 };
+  const waterProj: Projectile = { x: 210, y: 295, vx: 1, vy: 0, element: 'water' as const, life: 10, size: 8, isEnemy: false };
 
   handleElementInteraction(state, waterProj, plant);
   handleElementInteraction(state, waterProj, plant);
   handleElementInteraction(state, waterProj, plant);
 
-  assert.equal(plant.state, 'grown');
-  assert.equal(plant.solid, true);
-  assert.equal(plant.width, 40);
-  assert.equal(plant.height, 80);
-  assert.equal(plant.y, 240); // Base Y stays anchored at original 320
+  expect(plant.state).toBe('grown');
+  expect(plant.solid).toBe(true);
+  expect(plant.width).toBe(40);
+  expect(plant.height).toBe(80);
+  expect(plant.y).toBe(240); // Base Y stays anchored at original 320
 });
 
 test('water + earth projectile synergy creates mud trap and consumes both projectiles', () => {
@@ -42,16 +42,16 @@ test('water + earth projectile synergy creates mud trap and consumes both projec
   state.enemies = [];
   state.platforms = [];
   state.projectiles = [
-    { x: 100, y: 100, vx: 0, vy: 0, element: 'water', life: 20, size: 8 },
-    { x: 103, y: 102, vx: 0, vy: 0, element: 'earth', life: 20, size: 8 },
+    { x: 100, y: 100, vx: 0, vy: 0, element: 'water', life: 20, size: 8, isEnemy: false },
+    { x: 103, y: 102, vx: 0, vy: 0, element: 'earth', life: 20, size: 8, isEnemy: false },
   ];
 
   withMockedRandom(0.5, () => updateProjectiles(state));
 
-  assert.equal(state.projectiles.length, 0);
+  expect(state.projectiles.length).toBe(0);
   const zone = state.envObjects.find(o => o.type === 'mud_trap');
-  assert.ok(zone);
-  assert.equal(zone.state, 'mud');
+  expect(zone).toBeTruthy();
+  expect(zone!.state).toBe('mud');
 });
 
 test('earth projectile hitting platform creates temporary earth platform', () => {
@@ -60,14 +60,14 @@ test('earth projectile hitting platform creates temporary earth platform', () =>
   state.platforms = [{ x: 0, y: 100, width: 300, height: 20, type: 'stone' }];
   state.envObjects = [];
   state.enemies = [];
-  state.projectiles = [{ x: 120, y: 105, vx: 0, vy: 0, element: 'earth', life: 20, size: 8 }];
+  state.projectiles = [{ x: 120, y: 105, vx: 0, vy: 0, element: 'earth', life: 20, size: 8, isEnemy: false }];
 
   withMockedRandom(0.5, () => updateProjectiles(state));
 
-  assert.equal(state.projectiles.length, 0);
+  expect(state.projectiles.length).toBe(0);
   const earthPlatform = state.platforms.find(p => p.type === 'earth');
-  assert.ok(earthPlatform);
-  assert.equal(earthPlatform.meltTimer, 300);
+  expect(earthPlatform).toBeTruthy();
+  expect(earthPlatform!.meltTimer).toBe(300);
 });
 
 test('touching active portal transitions to levelComplete and persists progression unlock', () => {
@@ -102,9 +102,9 @@ test('touching active portal transitions to levelComplete and persists progressi
 
   update(state);
 
-  assert.equal(state.screen, 'levelComplete');
-  assert.equal(state.furthestLevel, 3);
-  assert.equal(loadSave().furthestLevel, 3);
+  expect(state.screen).toBe('levelComplete');
+  expect(state.furthestLevel).toBe(3);
+  expect(loadSave().furthestLevel).toBe(3);
 });
 
 test('dash trigger is consumed so holding shift does not auto-recast', () => {
@@ -125,8 +125,8 @@ test('dash trigger is consumed so holding shift does not auto-recast', () => {
   state.stickman.dashTimer = 0;
 
   update(state);
-  assert.equal(state.stickman.isDashing, true);
-  assert.equal(state.keys.has('shift'), false);
+  expect(state.stickman.isDashing).toBe(true);
+  expect(state.keys.has('shift')).toBe(false);
 
   // Simulate dash end + cooldown expiry while key is still physically held:
   // since update consumed the key, it should not auto-trigger a second dash.
@@ -134,7 +134,7 @@ test('dash trigger is consumed so holding shift does not auto-recast', () => {
   state.stickman.dashTimer = 0;
   state.stickman.dashCooldown = 0;
   update(state);
-  assert.equal(state.stickman.isDashing, false);
+  expect(state.stickman.isDashing).toBe(false);
 });
 
 test('dashing into an enemy deals dash impact damage and can secure a kill', () => {
@@ -178,7 +178,7 @@ test('dashing into an enemy deals dash impact damage and can secure a kill', () 
 
   update(state);
 
-  assert.equal(state.enemies[0].state, 'dead');
-  assert.equal(state.enemiesDefeated, 1);
-  assert.equal(state.stickman.health, state.stickman.maxHealth);
+  expect(state.enemies[0].state).toBe('dead');
+  expect(state.enemiesDefeated).toBe(1);
+  expect(state.stickman.health).toBe(state.stickman.maxHealth);
 });

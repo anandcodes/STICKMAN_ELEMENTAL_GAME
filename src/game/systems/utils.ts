@@ -3,6 +3,16 @@ import * as Audio from '../audio';
 
 
 
+import { particlePool } from '../services/poolManager';
+
+/** Phase 2: Haptic feedback for mobile devices */
+export function vibrate(state: GameState, pattern: number | number[]): void {
+    if (!state.hapticsEnabled) return;
+    try {
+        if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch { /* vibration not supported / blocked */ }
+}
+
 export function spawnParticles(state: GameState, x: number, y: number, element: Element, count: number) {
     // BUG-7 FIX: Cap particles to prevent frame drops on mobile
     const maxParticles = state.graphicsQuality === 'low' ? 80 : (state.graphicsQuality === 'medium' ? 180 : 350);
@@ -22,22 +32,40 @@ export function spawnParticles(state: GameState, x: number, y: number, element: 
     for (let i = 0; i < actual; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 3 + 1;
-        state.particles.push({
-            x: x + (Math.random() - 0.5) * 10,
-            y: y + (Math.random() - 0.5) * 10,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 1,
-            life: 30 + Math.random() * 30,
-            maxLife: 60,
-            element,
-            size: Math.random() * 4 + 2,
-            color: colors[element][Math.floor(Math.random() * colors[element].length)],
-        });
+        const p = particlePool.get();
+        p.x = x + (Math.random() - 0.5) * 10;
+        p.y = y + (Math.random() - 0.5) * 10;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = Math.sin(angle) * speed - 1;
+        p.life = 30 + Math.random() * 30;
+        p.maxLife = 60;
+        p.element = element;
+        p.size = Math.random() * 4 + 2;
+        p.color = colors[element][Math.floor(Math.random() * colors[element].length)];
+        state.particles.push(p);
     }
 }
 
 export function spawnFloatingText(state: GameState, x: number, y: number, text: string, color: string, size = 14) {
     state.floatingTexts.push({ x, y, text, color, life: 60, maxLife: 60, size });
+}
+
+export function updateFloatingTexts(state: GameState): void {
+    for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+        const t = state.floatingTexts[i];
+        t.y -= 0.5;
+        t.life--;
+        if (t.life <= 0) state.floatingTexts.splice(i, 1);
+    }
+}
+
+export function updateShockwaves(state: GameState): void {
+    for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+        const s = state.shockwaves[i];
+        s.radius += 4;
+        s.life--;
+        if (s.life <= 0) state.shockwaves.splice(i, 1);
+    }
 }
 
 export function addScore(state: GameState, amount: number) {

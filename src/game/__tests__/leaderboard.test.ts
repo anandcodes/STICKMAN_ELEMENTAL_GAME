@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect, vi } from 'vitest';
 
 import {
   __clearLeaderboardStateForTests,
@@ -19,11 +18,11 @@ test('leaderboard stores entries and returns sorted results', async () => {
   await submitLeaderboardEntry(220, 4, 12);
 
   const board = getLeaderboard(3);
-  assert.equal(board.length, 3);
-  assert.equal(board[0].score, 220);
-  assert.equal(board[0].wave, 4);
-  assert.equal(board[1].score, 220);
-  assert.equal(board[2].score, 120);
+  expect(board.length).toBe(3);
+  expect(board[0].score).toBe(220);
+  expect(board[0].wave).toBe(4);
+  expect(board[1].score).toBe(220);
+  expect(board[2].score).toBe(120);
 });
 
 test('refreshRemoteLeaderboard merges remote entries with local board', async () => {
@@ -31,8 +30,7 @@ test('refreshRemoteLeaderboard merges remote entries with local board', async ()
   __clearLeaderboardStateForTests();
   __setLeaderboardEndpointForTests('https://api.example/leaderboard');
 
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (method === 'GET') {
       return {
@@ -46,16 +44,16 @@ test('refreshRemoteLeaderboard merges remote entries with local board', async ()
       } as Response;
     }
     return { ok: true } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   await submitLeaderboardEntry(120, 3, 10);
   await refreshRemoteLeaderboard(10);
   const board = getLeaderboard(3);
 
-  assert.equal(board[0].accountId, 'remote_a');
-  assert.equal(board[0].score, 999);
-  assert.ok(board.length >= 2);
+  expect(board[0].accountId).toBe('remote_a');
+  expect(board[0].score).toBe(999);
+  expect(board.length).toBeGreaterThanOrEqual(2);
 
-  globalThis.fetch = originalFetch;
   __setLeaderboardEndpointForTests(null);
 });

@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect, vi } from 'vitest';
 
 import {
   __setTelemetryConfigForTests,
@@ -31,71 +30,67 @@ test('readTelemetryConfig parses environment flags and clamps sample rate', () =
     VITE_APP_VERSION: '9.9.9',
   });
 
-  assert.equal(cfg.enabled, true);
-  assert.equal(cfg.endpoint, 'https://example.com/telemetry');
-  assert.equal(cfg.sampleRate, 1);
-  assert.equal(cfg.releaseChannel, 'production');
-  assert.equal(cfg.appVersion, '9.9.9');
+  expect(cfg.enabled).toBe(true);
+  expect(cfg.endpoint).toBe('https://example.com/telemetry');
+  expect(cfg.sampleRate).toBe(1);
+  expect(cfg.releaseChannel).toBe('production');
+  expect(cfg.appVersion).toBe('9.9.9');
 });
 
 test('trackEvent sends payload with force option when telemetry enabled', async () => {
   const sent: Record<string, unknown>[] = [];
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     const body = String(init?.body ?? '{}');
     sent.push(JSON.parse(body) as Record<string, unknown>);
     return { ok: true } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   __setTelemetryConfigForTests(makeConfig());
   trackEvent('session_start', { source: 'unit_test' }, { force: true });
   await Promise.resolve();
 
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0].event, 'session_start');
-  assert.equal(sent[0].releaseChannel, 'staging');
-  assert.equal((sent[0].payload as Record<string, unknown>).source, 'unit_test');
+  expect(sent.length).toBe(1);
+  expect(sent[0].event).toBe('session_start');
+  expect(sent[0].releaseChannel).toBe('staging');
+  expect((sent[0].payload as Record<string, unknown>).source).toBe('unit_test');
 
-  globalThis.fetch = originalFetch;
   __setTelemetryConfigForTests(null);
 });
 
 test('initTelemetrySession emits session_return when previous session exists', async () => {
   const sent: Record<string, unknown>[] = [];
-  const originalFetch = globalThis.fetch;
   const now = Date.now();
   setMockStorage({ elemental_stickman_last_session_at: String(now - 2 * 24 * 60 * 60 * 1000) });
 
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     sent.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
     return { ok: true } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   __setTelemetryConfigForTests(makeConfig());
   initTelemetrySession();
   await Promise.resolve();
 
   const names = sent.map((e) => String(e.event));
-  assert.ok(names.includes('session_start'));
-  assert.ok(names.includes('session_return'));
+  expect(names).toContain('session_start');
+  expect(names).toContain('session_return');
 
   const returnEvent = sent.find((e) => e.event === 'session_return');
-  assert.ok(returnEvent);
-  assert.equal(typeof (returnEvent.payload as Record<string, unknown>).daysSinceLastSession, 'number');
+  expect(returnEvent).toBeTruthy();
+  expect(typeof (returnEvent!.payload as Record<string, unknown>).daysSinceLastSession).toBe('number');
 
-  globalThis.fetch = originalFetch;
   __setTelemetryConfigForTests(null);
 });
 
 test('trackError deduplicates repeated errors in a short window', async () => {
   const sent: Record<string, unknown>[] = [];
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     sent.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
     return { ok: true } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   __setTelemetryConfigForTests(makeConfig());
 
@@ -103,8 +98,7 @@ test('trackError deduplicates repeated errors in a short window', async () => {
   trackError(new Error('boom'), { source: 'unit_test' });
   await Promise.resolve();
 
-  assert.equal(sent.filter((e) => e.event === 'client_error').length, 1);
+  expect(sent.filter((e) => e.event === 'client_error').length).toBe(1);
 
-  globalThis.fetch = originalFetch;
   __setTelemetryConfigForTests(null);
 });

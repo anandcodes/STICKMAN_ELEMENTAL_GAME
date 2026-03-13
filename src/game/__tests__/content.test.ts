@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from 'vitest';
 
 import { applyContentPack } from '../content';
 import type { LevelDef } from '../types';
@@ -29,11 +28,11 @@ test('applyContentPack overrides existing level metadata and appends new levels'
     appendedLevels: [makeLevel('C')],
   });
 
-  assert.equal(next.length, 3);
-  assert.equal(next[1].name, 'B2');
-  assert.equal(next[1].gemsRequired, 3);
-  assert.equal(next[2].name, 'C');
-  assert.equal(base[1].name, 'B');
+  expect(next.length).toBe(3);
+  expect(next[1].name).toBe('B2');
+  expect(next[1].gemsRequired).toBe(3);
+  expect(next[2].name).toBe('C');
+  expect(base[1].name).toBe('B');
 });
 
 test('applyContentPack ignores malformed overrides and malformed appended levels', () => {
@@ -50,8 +49,8 @@ test('applyContentPack ignores malformed overrides and malformed appended levels
     ],
   });
 
-  assert.equal(next.length, 3);
-  assert.equal(next[1].name, 'B3');
-  assert.equal(next[1].worldWidth, 1200);
-  assert.equal(next[2].name, 'C');
+  expect(next.length).toBe(3);
+  expect(next[1].name).toBe('B3');
+  expect(next[1].worldWidth).toBe(1200);
+  expect(next[2].name).toBe('C');
 });

@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from 'vitest';
 
 import { DEFAULT_SETTINGS, SETTINGS_KEY, loadSettings, saveSettings } from '../settings';
 import { setMockStorage } from './testHelpers';
@@ -7,7 +6,7 @@ import { setMockStorage } from './testHelpers';
 test('loadSettings returns defaults when empty', () => {
   setMockStorage();
   const settings = loadSettings();
-  assert.deepEqual(settings, DEFAULT_SETTINGS);
+  expect(settings).toEqual(DEFAULT_SETTINGS);
 });
 
 test('loadSettings sanitizes malformed values', () => {
@@ -28,17 +27,17 @@ test('loadSettings sanitizes malformed values', () => {
   });
 
   const settings = loadSettings();
-  assert.equal(settings.locale, 'en');
-  assert.equal(settings.graphicsQuality, 'high');
-  assert.equal(settings.textScale, 1.5);
-  assert.equal(settings.reducedMotion, false);
-  assert.equal(settings.highContrast, true);
-  assert.equal(settings.keyboardLayout, 'both');
-  assert.equal(settings.autoPauseOnBlur, false);
-  assert.equal(settings.muteAll, false);
-  assert.equal(settings.masterVolume, 0);
-  assert.equal(settings.musicVolume, 1);
-  assert.equal(settings.sfxVolume, 0.33);
+  expect(settings.locale).toBe('en');
+  expect(settings.graphicsQuality).toBe('low');
+  expect(settings.textScale).toBe(1.5);
+  expect(settings.reducedMotion).toBe(false);
+  expect(settings.highContrast).toBe(true);
+  expect(settings.keyboardLayout).toBe('both');
+  expect(settings.autoPauseOnBlur).toBe(false);
+  expect(settings.muteAll).toBe(false);
+  expect(settings.masterVolume).toBe(0);
+  expect(settings.musicVolume).toBe(1);
+  expect(settings.sfxVolume).toBe(0.33);
 });
 
 test('saveSettings persists normalized payload', () => {
@@ -54,12 +53,12 @@ test('saveSettings persists normalized payload', () => {
   });
 
   const reloaded = loadSettings();
-  assert.equal(saved.locale, 'hi');
-  assert.equal(reloaded.locale, 'hi');
-  assert.equal(reloaded.graphicsQuality, 'medium');
-  assert.equal(reloaded.textScale, 1.2);
-  assert.equal(reloaded.muteAll, true);
+  expect(saved.locale).toBe('hi');
+  expect(reloaded.locale).toBe('hi');
+  expect(reloaded.graphicsQuality).toBe('medium');
+  expect(reloaded.textScale).toBe(1.2);
+  expect(reloaded.muteAll).toBe(true);
 
   const raw = storage.getItem(SETTINGS_KEY);
-  assert.ok(raw);
+  expect(raw).toBeTruthy();
 });

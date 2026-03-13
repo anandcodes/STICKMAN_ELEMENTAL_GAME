@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect, describe } from 'vitest';
 
 import { createInitialState } from '../engine';
 import { loadSave, saveProgress, SAVE_KEY, SAVE_SCHEMA_VERSION } from '../persistence';
@@ -11,12 +10,12 @@ test('loadSave returns defaults when storage is empty', () => {
   setMockStorage();
   const save = loadSave();
 
-  assert.equal(save.highScore, 0);
-  assert.equal(save.furthestLevel, 0);
-  assert.equal(save.gemsCurrency, 0);
-  assert.equal(save.difficulty, 'normal');
-  assert.equal(save.version, SAVE_SCHEMA_VERSION);
-  assert.deepEqual(save.bestTimes, {});
+  expect(save.highScore).toBe(0);
+  expect(save.furthestLevel).toBe(0);
+  expect(save.gemsCurrency).toBe(0);
+  expect(save.difficulty).toBe('normal');
+  expect(save.version).toBe(SAVE_SCHEMA_VERSION);
+  expect(save.bestTimes).toEqual({});
 });
 
 test('saveProgress persists furthest unlocked level from state.furthestLevel', () => {
@@ -31,14 +30,14 @@ test('saveProgress persists furthest unlocked level from state.furthestLevel', (
   saveProgress(state);
 
   const raw = storage.getItem(SAVE_KEY);
-  assert.ok(raw);
-  const parsed = JSON.parse(raw);
+  expect(raw).toBeTruthy();
+  const parsed = JSON.parse(raw!);
 
-  assert.equal(parsed.version, SAVE_SCHEMA_VERSION);
-  assert.equal(parsed.furthestLevel, 7);
-  assert.equal(parsed.highScore, 120);
-  assert.equal(parsed.totalGemsEver, 50);
-  assert.equal(parsed.totalEnemiesDefeated, 22);
+  expect(parsed.version).toBe(SAVE_SCHEMA_VERSION);
+  expect(parsed.furthestLevel).toBe(7);
+  expect(parsed.highScore).toBe(120);
+  expect(parsed.totalGemsEver).toBe(50);
+  expect(parsed.totalEnemiesDefeated).toBe(22);
 });
 
 test('loadSave sanitizes malformed legacy save payloads', () => {
@@ -56,15 +55,15 @@ test('loadSave sanitizes malformed legacy save payloads', () => {
   });
 
   const save = loadSave();
-  assert.equal(save.version, SAVE_SCHEMA_VERSION);
-  assert.equal(save.highScore, 0);
-  assert.equal(save.furthestLevel, 0);
-  assert.equal(save.totalGemsEver, 42);
-  assert.equal(save.gemsCurrency, 0);
-  assert.equal(save.totalEnemiesDefeated, 12);
-  assert.equal(save.difficulty, 'normal');
-  assert.deepEqual(save.upgrades, { healthLevel: 1, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
-  assert.deepEqual(save.bestTimes, { 0: 123 });
+  expect(save.version).toBe(SAVE_SCHEMA_VERSION);
+  expect(save.highScore).toBe(0);
+  expect(save.furthestLevel).toBe(0);
+  expect(save.totalGemsEver).toBe(42);
+  expect(save.gemsCurrency).toBe(0);
+  expect(save.totalEnemiesDefeated).toBe(12);
+  expect(save.difficulty).toBe('normal');
+  expect(save.upgrades).toEqual({ healthLevel: 1, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
+  expect(save.bestTimes).toEqual({ 0: 123 });
 });
 
 test('loadSave clamps impossible progression values and economy budget', () => {
@@ -91,10 +90,10 @@ test('loadSave clamps impossible progression values and economy budget', () => {
     (save.upgrades.doubleJumpLevel * (save.upgrades.doubleJumpLevel + 1) * 100) / 2 +
     (save.upgrades.dashDistanceLevel * (save.upgrades.dashDistanceLevel + 1) * 80) / 2;
 
-  assert.ok(save.furthestLevel <= TOTAL_LEVELS - 1);
-  assert.ok(save.gemsCurrency <= save.totalGemsEver);
-  assert.ok(spend + save.gemsCurrency <= save.totalGemsEver);
-  assert.deepEqual(save.bestTimes, { 0: 123 });
+  expect(save.furthestLevel).toBeLessThanOrEqual(TOTAL_LEVELS - 1);
+  expect(save.gemsCurrency).toBeLessThanOrEqual(save.totalGemsEver);
+  expect(spend + save.gemsCurrency).toBeLessThanOrEqual(save.totalGemsEver);
+  expect(save.bestTimes).toEqual({ 0: 123 });
 });
 
 test('loadSave resets economy fields when integrity hash is tampered', () => {
@@ -114,22 +113,23 @@ test('loadSave resets economy fields when integrity hash is tampered', () => {
   });
 
   const save = loadSave();
-  assert.equal(save.gemsCurrency, 0);
-  assert.deepEqual(save.upgrades, { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
-  assert.ok(typeof save.integrity === 'string' && save.integrity.length > 0);
+  expect(save.gemsCurrency).toBe(0);
+  expect(save.upgrades).toEqual({ healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 });
+  expect(typeof save.integrity).toBe('string');
+  expect(save.integrity!.length).toBeGreaterThan(0);
 });
 
 test('stateFactory produces expected menu/endless states', () => {
   setMockStorage();
   const menu = buildMenuState(333, 'hard');
-  assert.equal(menu.screen, 'menu');
-  assert.equal(menu.difficulty, 'hard');
+  expect(menu.screen).toBe('menu');
+  expect(menu.difficulty).toBe('hard');
 
   const endless = buildEndlessState(333, 'easy');
-  assert.equal(endless.screen, 'playing');
-  assert.equal(endless.currentLevel, 15);
-  assert.equal(endless.showLevelIntro, true);
-  assert.equal(endless.levelIntroTimer, 180);
+  expect(endless.screen).toBe('playing');
+  expect(endless.currentLevel).toBe(15);
+  expect(endless.showLevelIntro).toBe(true);
+  expect(endless.levelIntroTimer).toBe(180);
 });
 
 test('stateFactory next/restart transitions preserve intended fields', () => {
@@ -139,14 +139,15 @@ test('stateFactory next/restart transitions preserve intended fields', () => {
   current.enemiesDefeated = 30;
 
   const next = buildNextLevelState(current, 1000);
-  assert.equal(next.currentLevel, 5);
-  assert.equal(next.score, 555);
-  assert.equal(next.totalGemsEver, 70);
-  assert.equal(next.enemiesDefeated, 30);
-  assert.equal(next.difficulty, 'hard');
+  expect(next.currentLevel).toBe(5);
+  expect(next.score).toBe(555);
+  expect(next.totalGemsEver).toBe(70);
+  expect(next.enemiesDefeated).toBe(30);
+  expect(next.difficulty).toBe('hard');
 
   const restart = buildRestartLevelState(current, 1000);
-  assert.equal(restart.currentLevel, 4);
-  assert.equal(restart.score, 0);
-  assert.equal(restart.difficulty, 'hard');
+  expect(restart.currentLevel).toBe(4);
+  expect(restart.score).toBe(0);
+  // Restarts of campaign levels use level-based difficulty (Level 4 = Easy)
+  expect(restart.difficulty).toBe('easy');
 });

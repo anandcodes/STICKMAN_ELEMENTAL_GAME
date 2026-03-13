@@ -1,7 +1,7 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'levelSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'challenges' | 'survivalDifficulty' | 'relicSelection';
+export type GameScreen = 'menu' | 'levelSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'challenges' | 'survivalDifficulty' | 'relicSelection' | 'settings';
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'insane';
-export type ShopTab = 'upgrades' | 'skins' | 'powerups' | 'currency' | 'special';
+export type ShopTab = 'upgrades' | 'skins' | 'powerups' | 'currency' | 'special' | 'relics';
 export type Locale = 'en' | 'hi';
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 export type KeyboardLayout = 'wasd' | 'arrows' | 'both';
@@ -63,6 +63,7 @@ export interface Enemy {
   animTimer: number;
   damage: number;
   speed: number;
+  onGround?: boolean;   // Added for slime jumping etc
   attackTimer?: number; // For boss attacks
   chargeTimer?: number; // For brute dashes
   phase?: number;       // For boss phases
@@ -137,8 +138,9 @@ export interface SaveData {
   difficulty?: Difficulty;
   upgrades: Upgrades;
   bestTimes: Record<number, number>; // level index -> time in frames
+  hapticsEnabled: boolean;
+  graphicsQuality: GraphicsQuality;
 }
-
 export interface DifficultySettings {
   playerHealth: number;
   playerMana: number;
@@ -196,6 +198,7 @@ export interface GameSettings {
   locale: Locale;
   graphicsQuality: GraphicsQuality;
   textScale: number;
+  hapticsEnabled: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
   keyboardLayout: KeyboardLayout;
@@ -238,6 +241,8 @@ export interface GameState {
   keys: Set<string>;
   mousePos: Vec2;
   mouseDown: boolean;
+  isAiming?: boolean;   // Current aiming state
+  aimAngle?: number;    // Current aim direction
   castCooldown: number;
   wind: { active: boolean; direction: number; timer: number };
   backgroundStars: { x: number; y: number; size: number; twinkle: number; speed?: number }[];
@@ -275,6 +280,7 @@ export interface GameState {
   locale: Locale;
   graphicsQuality: GraphicsQuality;
   textScale: number;
+  hapticsEnabled: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
   controlsScale: number;

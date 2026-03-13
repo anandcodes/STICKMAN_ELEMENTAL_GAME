@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { update, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
-import type { Difficulty, Element, GameSettings, GameState, ShopTab } from './game/types';
+import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
@@ -30,6 +30,7 @@ import {
   type TouchControlsState,
 } from './game/touchControls';
 import { getInitialAdsDisabled, requestRemoveAdsPurchase, setupAdsStatusListener } from './nativeBridge';
+import { assetLoader } from './game/services/assetLoader';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -45,6 +46,7 @@ function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.locale = settings.locale;
   state.graphicsQuality = settings.graphicsQuality;
   state.textScale = settings.textScale;
+  state.hapticsEnabled = settings.hapticsEnabled;
   state.reducedMotion = settings.reducedMotion;
   state.highContrast = settings.highContrast;
   state.controlsScale = settings.controlsScale;
@@ -72,6 +74,7 @@ function mapGameplayKey(rawKey: string, settings: GameSettings): string | null {
 }
 
 function App() {
+  const [assetsReady, setAssetsReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const initialSettings = loadSettings();
@@ -87,8 +90,6 @@ function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
-  const [showSettings, setShowSettings] = useState(false);
-  const showSettingsRef = useRef(showSettings);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
@@ -108,14 +109,22 @@ function App() {
 
   useEffect(() => {
     setupAdsStatusListener(setAdsDisabled);
-  }, []);
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = '/assets/controls.png';
-    img.onload = () => {
-      import('./game/touchControls').then(tc => tc.setControlsIconSheet(img));
-    };
+    
+    // Load all game assets
+    assetLoader.loadAssets({
+      boss1: '/bosses/boss1.png',
+      boss2: '/bosses/boss2.png',
+      controls: '/assets/controls.png'
+    }).then(() => {
+      setAssetsReady(true);
+      // Set the controls icon sheet after it's loaded
+      import('./game/touchControls').then(tc => {
+        tc.setControlsIconSheet(assetLoader.getAsset('controls'));
+      });
+    }).catch(err => {
+      console.error('Failed to load assets:', err);
+      setFatalError('Failed to load game assets. Please refresh.');
+    });
   }, []);
 
   const assignState = (next: GameState) => {
@@ -194,10 +203,6 @@ function App() {
       window.visualViewport?.removeEventListener('resize', computeScale);
     };
   }, []);
-
-  useEffect(() => {
-    showSettingsRef.current = showSettings;
-  }, [showSettings]);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -343,7 +348,9 @@ function App() {
         
         // Settings Icon
         if (tx > CANVAS_W - 60 && ty < 80) {
-           setShowSettings(true);
+           s.screen = 'settings';
+           s.shopSelectionIndex = 0; // Use for settings navigation
+           Audio.playMenuSelect();
            return;
         }
         return;
@@ -380,6 +387,41 @@ function App() {
         
         // Back button
         if (ty > CANVAS_H - 100) {
+          s.screen = 'menu';
+          Audio.playMenuSelect();
+        }
+        return;
+      }
+
+      if (s.screen === 'settings') {
+        const tx_val = tx ?? s.mousePos.x;
+        const ty_val = ty ?? s.mousePos.y;
+
+        // Settings list hit test
+        for (let i = 0; i < 5; i++) {
+          const sy = 160 + i * 70;
+          if (tx_val >= CANVAS_W / 2 - 250 && tx_val <= CANVAS_W / 2 + 250 && ty_val >= sy - 30 && ty_val <= sy + 30) {
+            // Toggle setting
+            if (i === 0) {
+              const quality: GraphicsQuality[] = ['low', 'medium', 'high'];
+              const idx = (quality.indexOf(settingsRef.current.graphicsQuality) + 1) % quality.length;
+              patchSettings({ graphicsQuality: quality[idx] });
+            } else if (i === 1) {
+              patchSettings({ hapticsEnabled: !settingsRef.current.hapticsEnabled });
+            } else if (i === 2) {
+              patchSettings({ reducedMotion: !settingsRef.current.reducedMotion });
+            } else if (i === 3) {
+              patchSettings({ highContrast: !settingsRef.current.highContrast });
+            } else if (i === 4) {
+              patchSettings({ aimToShoot: !settingsRef.current.aimToShoot });
+            }
+            Audio.playMenuSelect();
+            return;
+          }
+        }
+
+        // Back button
+        if (ty_val > CANVAS_H - 100) {
           s.screen = 'menu';
           Audio.playMenuSelect();
         }
@@ -562,13 +604,12 @@ function App() {
 
       if (s.screen === 'relicSelection') {
         if (tx === undefined || ty === undefined) return;
-        const cardW = 320; const cardH = 380; const gap = 30;
-        const totalW = (cardW * s.relicChoices.length) + (gap * (s.relicChoices.length - 1));
-        const startX = CANVAS_W / 2 - totalW / 2;
+        const cardW = 220; const cardH = 320; const gap = 20;
+        const startX = CANVAS_W / 2 - 350;
         const startY = 180;
 
         for (let i = 0; i < s.relicChoices.length; i++) {
-          const rx = startX + i * (cardW + gap);
+          const rx = startX + i * 240;
           if (tx >= rx && tx <= rx + cardW && ty >= startY && ty <= startY + cardH) {
             assignState(selectRelic({ ...s }, i));
             Audio.playMenuSelect();
@@ -589,16 +630,9 @@ function App() {
       const keyLower = key.toLowerCase();
       const mappedKey = mapGameplayKey(keyLower, settingsRef.current);
 
-      if (showSettingsRef.current) {
-        if (key === 'Escape') {
-          setShowSettings(false);
-          e.preventDefault();
-        }
-        return;
-      }
-
       if (keyLower === 'o') {
-        setShowSettings((prev) => !prev);
+        s.screen = s.screen === 'settings' ? 'menu' : 'settings';
+        s.shopSelectionIndex = 0;
         e.preventDefault();
         return;
       }
@@ -636,7 +670,9 @@ function App() {
             Audio.playMenuSelect();
             Audio.stopMusic();
           } else if (s.pauseSelection === 3) {
-            setShowSettings(true);
+            s.screen = 'settings';
+            s.shopSelectionIndex = 0;
+            Audio.playMenuSelect();
           }
           e.preventDefault();
         }
@@ -805,12 +841,35 @@ function App() {
       const s = stateRef.current;
       s.mousePos = mapped;
 
-      if (s.screen === 'shop') {
-        const spacing = 72; const startY = 180;
+      if (s.screen === 'settings') {
         const ty = s.mousePos.y;
+        for (let i = 0; i < 5; i++) {
+          const sy = 160 + i * 70;
+          if (ty >= sy - 30 && ty <= sy + 30) {
+            s.shopSelectionIndex = i;
+            return;
+          }
+        }
+      }
+
+      if (s.screen === 'shop' && s.shopTab === 'upgrades') {
+        const isMobileLayout = CANVAS_W < 600;
+        const cardW = isMobileLayout ? CANVAS_W - 40 : 340;
+        const cardH = isMobileLayout ? 75 : 140;
+        const gap = isMobileLayout ? 10 : 20;
+        const cols = isMobileLayout ? 1 : 2;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+        const startY = isMobileLayout ? 175 : 200;
+
+        const tx = s.mousePos.x;
+        const ty = s.mousePos.y;
+
         for (let i = 0; i < 6; i++) {
-          const rowY = startY + i * spacing;
-          if (ty >= rowY - 28 && ty <= rowY + 32) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = startX + col * (cardW + gap);
+          const y = startY + row * (cardH + gap);
+          if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
             s.shopSelectionIndex = i;
             return;
           }
@@ -872,7 +931,9 @@ function App() {
               Audio.playMenuSelect();
               Audio.stopMusic();
             } else if (i === 3) {
-              setShowSettings(true);
+              s.screen = 'settings';
+              s.shopSelectionIndex = 0;
+              Audio.playMenuSelect();
             }
             return;
           }
@@ -971,7 +1032,8 @@ function App() {
               Audio.stopMusic();
             } else if (i === 3) {
               // Open Settings
-              setShowSettings(true);
+              s.screen = 'settings';
+              s.shopSelectionIndex = 0;
             }
             return;
           }
@@ -1110,6 +1172,38 @@ function App() {
     );
   }
 
+  if (!assetsReady) {
+    return (
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: '#071226',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#90d3ff',
+        fontFamily: '"Rajdhani", sans-serif'
+      }}>
+        <div style={{
+          width: 40,
+          height: 40,
+          border: '3px solid rgba(144, 211, 255, 0.2)',
+          borderTop: '3px solid #90d3ff',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: 20
+        }} />
+        <style>{`
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        `}</style>
+        <div style={{ fontSize: 18, letterSpacing: '0.1em', fontWeight: 700 }}>
+          LOADING ASSETS...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -1135,8 +1229,12 @@ function App() {
         <button
           type="button"
           aria-haspopup="dialog"
-          aria-expanded={showSettings}
-          onClick={() => setShowSettings(true)}
+          onClick={() => {
+            const s = stateRef.current;
+            s.screen = 'settings';
+            s.shopSelectionIndex = 0;
+            Audio.playMenuSelect();
+          }}
           style={{
             position: 'absolute',
             top: 16,
@@ -1179,297 +1277,6 @@ function App() {
           imageRendering: 'auto',
         }}
       />
-      {showSettings && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t(settings.locale, 'settings_title')}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(3, 7, 16, 0.86)',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: 'min(760px, 96vw)',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-              borderRadius: 12,
-              border: settings.highContrast ? '2px solid #ffffff' : '1px solid #6ca6ff',
-              background: settings.highContrast ? '#000000' : '#071120',
-              color: '#e9f3ff',
-              padding: 18,
-              fontFamily: '"Rajdhani", "Trebuchet MS", sans-serif',
-              fontSize: `${Math.round(13 * settings.textScale)}px`,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ margin: 0, fontSize: `${Math.round(20 * settings.textScale)}px` }}>{t(settings.locale, 'settings_title')}</h2>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                style={{
-                  border: '1px solid #96c4ff',
-                  background: '#102440',
-                  color: '#f0f7ff',
-                  borderRadius: 8,
-                  padding: '6px 10px',
-                  cursor: 'pointer',
-                }}
-              >
-                {t(settings.locale, 'settings_close')}
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gap: 14 }}>
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_language')}</div>
-                <select
-                  value={settings.locale}
-                  onChange={(e) => patchSettings({ locale: e.target.value as GameSettings['locale'] })}
-                  style={{ width: '100%', padding: 8, borderRadius: 6 }}
-                >
-                  <option value="en">{t(settings.locale, 'settings_language_en')}</option>
-                  <option value="hi">{t(settings.locale, 'settings_language_hi')}</option>
-                </select>
-              </section>
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_audio')}</div>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t(settings.locale, 'settings_mute_all')}
-                  <input
-                    type="checkbox"
-                    checked={settings.muteAll}
-                    onChange={(e) => patchSettings({ muteAll: e.target.checked })}
-                    style={{ marginLeft: 8 }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t(settings.locale, 'settings_master_volume')} ({Math.round(settings.masterVolume * 100)}%)
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={settings.masterVolume}
-                    onChange={(e) => patchSettings({ masterVolume: Number(e.target.value) })}
-                    style={{ width: '100%' }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t(settings.locale, 'settings_music_volume')} ({Math.round(settings.musicVolume * 100)}%)
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={settings.musicVolume}
-                    onChange={(e) => patchSettings({ musicVolume: Number(e.target.value) })}
-                    style={{ width: '100%' }}
-                  />
-                </label>
-                <label style={{ display: 'block' }}>
-                  {t(settings.locale, 'settings_sfx_volume')} ({Math.round(settings.sfxVolume * 100)}%)
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={settings.sfxVolume}
-                    onChange={(e) => patchSettings({ sfxVolume: Number(e.target.value) })}
-                    style={{ width: '100%' }}
-                  />
-                </label>
-              </section>
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_controls')}</div>
-                <label style={{ display: 'block' }}>
-                  {t(settings.locale, 'settings_keyboard_layout')}
-                  <select
-                    value={settings.keyboardLayout}
-                    onChange={(e) => patchSettings({ keyboardLayout: e.target.value as GameSettings['keyboardLayout'] })}
-                    style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6 }}
-                  >
-                    <option value="wasd">{t(settings.locale, 'settings_keyboard_wasd')}</option>
-                    <option value="arrows">{t(settings.locale, 'settings_keyboard_arrows')}</option>
-                    <option value="both">{t(settings.locale, 'settings_keyboard_both')}</option>
-                  </select>
-                </label>
-                <label style={{ display: 'block', marginTop: 8 }}>
-                  {t(settings.locale, 'settings_auto_pause')}
-                  <input
-                    type="checkbox"
-                    checked={settings.autoPauseOnBlur}
-                    onChange={(e) => patchSettings({ autoPauseOnBlur: e.target.checked })}
-                    style={{ marginLeft: 8 }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginTop: 10 }}>
-                  {t(settings.locale, 'settings_controls_scale')} ({Math.round(settings.controlsScale * 100)}%)
-                  <input
-                    type="range"
-                    min={0.5}
-                    max={2.0}
-                    step={0.1}
-                    value={settings.controlsScale}
-                    onChange={(e) => patchSettings({ controlsScale: Number(e.target.value) })}
-                    style={{ width: '100%', marginTop: 4 }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginTop: 12 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.aimToShoot}
-                    onChange={(e) => patchSettings({ aimToShoot: e.target.checked })}
-                    style={{ marginRight: 8 }}
-                  />
-                  {t(settings.locale, 'settings_aim_to_shoot')}
-                  <div style={{ fontSize: '11px', opacity: 0.6, marginLeft: 24 }}>
-                    {t(settings.locale, 'settings_aim_to_shoot_desc')}
-                  </div>
-                </label>
-              </section>
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_tutorial')}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettings(false);
-                    const saved = loadSave();
-                    assignState(buildTutorialState(saved.highScore, stateRef.current.difficulty));
-                    Audio.initAudio();
-                    Audio.playMenuSelect();
-                    Audio.startMusic(0);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '6px',
-                    background: '#1d4ed8',
-                    color: '#fff',
-                    border: '1px solid #3b82f6',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    marginTop: '4px'
-                  }}
-                >
-                  ▶ Play Tutorial
-                </button>
-              </section>
-
-              {typeof window !== 'undefined' && window.AndroidBridge && (
-                <section>
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Monetization</div>
-                  {adsDisabled ? (
-                    <div style={{ color: '#9ab7d8' }}>Ads have been disabled for this device.</div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => requestRemoveAdsPurchase()}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '6px',
-                        background: '#0f766e',
-                        color: '#fff',
-                        border: '1px solid #14b8a6',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        marginTop: '4px',
-                      }}
-                    >
-                      Remove Ads (Google Play)
-                    </button>
-                  )}
-                </section>
-              )}
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_graphics')}</div>
-                <label style={{ display: 'block' }}>
-                  {t(settings.locale, 'settings_graphics_quality')}
-                  <select
-                    value={settings.graphicsQuality}
-                    onChange={(e) => patchSettings({ graphicsQuality: e.target.value as GameSettings['graphicsQuality'] })}
-                    style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6 }}
-                  >
-                    <option value="low">{t(settings.locale, 'settings_quality_low')}</option>
-                    <option value="medium">{t(settings.locale, 'settings_quality_medium')}</option>
-                    <option value="high">{t(settings.locale, 'settings_quality_high')}</option>
-                  </select>
-                </label>
-              </section>
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>{t(settings.locale, 'settings_accessibility')}</div>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t(settings.locale, 'settings_text_scale')} ({Math.round(settings.textScale * 100)}%)
-                  <input
-                    type="range"
-                    min={0.85}
-                    max={1.5}
-                    step={0.05}
-                    value={settings.textScale}
-                    onChange={(e) => patchSettings({ textScale: Number(e.target.value) })}
-                    style={{ width: '100%' }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t(settings.locale, 'settings_reduced_motion')}
-                  <input
-                    type="checkbox"
-                    checked={settings.reducedMotion}
-                    onChange={(e) => patchSettings({ reducedMotion: e.target.checked })}
-                    style={{ marginLeft: 8 }}
-                  />
-                </label>
-                <label style={{ display: 'block' }}>
-                  {t(settings.locale, 'settings_high_contrast')}
-                  <input
-                    type="checkbox"
-                    checked={settings.highContrast}
-                    onChange={(e) => patchSettings({ highContrast: e.target.checked })}
-                    style={{ marginLeft: 8 }}
-                  />
-                </label>
-              </section>
-
-              <section>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>Data & Privacy</div>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  Send anonymous gameplay analytics
-                  <input
-                    type="checkbox"
-                    checked={!telemetryOptOut}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      const optOut = !enabled;
-                      setTelemetryOptOut(optOut);
-                      setTelemetryOptOutState(optOut);
-                    }}
-                    style={{ marginLeft: 8 }}
-                  />
-                </label>
-                <div style={{ fontSize: Math.round(11 * settings.textScale), color: '#9ab7d8' }}>
-                  See our Privacy Policy on the store listing to learn how we use analytics and ads.
-                </div>
-              </section>
-
-              <div style={{ color: '#9ab7d8' }}>{t(settings.locale, 'settings_hint_close')}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

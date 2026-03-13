@@ -18,6 +18,8 @@ const DEFAULT_SAVE: SaveData = {
   gemsCurrency: 0,
   upgrades: { healthLevel: 0, manaLevel: 0, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 },
   bestTimes: {},
+  hapticsEnabled: true,
+  graphicsQuality: 'high',
 };
 
 function coerceNonNegativeInt(value: unknown, fallback: number): number {
@@ -139,6 +141,8 @@ function normalizeSaveData(raw: unknown): SaveData {
       dashDistanceLevel: Math.min(5, coerceNonNegativeInt(upgrades.dashDistanceLevel, DEFAULT_SAVE.upgrades.dashDistanceLevel)),
     },
     bestTimes: sanitizeBestTimes(data.bestTimes),
+    hapticsEnabled: typeof data.hapticsEnabled === 'boolean' ? data.hapticsEnabled : true,
+    graphicsQuality: (data.graphicsQuality === 'low' || data.graphicsQuality === 'medium' || data.graphicsQuality === 'high') ? data.graphicsQuality : 'high',
   };
 
   normalized = clampImpossibleEconomy(normalized);
@@ -182,6 +186,8 @@ export function saveProgress(state: GameState): void {
       gemsCurrency: state.gemsCurrency,
       upgrades: state.upgrades,
       bestTimes: state.bestTimes,
+      hapticsEnabled: state.hapticsEnabled,
+      graphicsQuality: state.graphicsQuality,
     };
     const data: SaveData = {
       ...clampImpossibleEconomy({ ...withoutIntegrity, integrity: '' }),

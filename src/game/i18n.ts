@@ -35,6 +35,7 @@ const TRANSLATIONS = {
     settings_quality_medium: 'Medium',
     settings_quality_high: 'High',
     settings_text_scale: 'UI Text Scale',
+    settings_haptic_feedback: 'Haptic Feedback',
     settings_reduced_motion: 'Reduced Motion',
     settings_high_contrast: 'High Contrast Mode',
     settings_hint_close: 'Press Esc to close settings',
@@ -120,6 +121,7 @@ const TRANSLATIONS = {
     shop_double_jump: 'Double Jump (+1)',
     shop_dash_distance: 'Dash Distance (+15%)',
     shop_maxed: 'MAXED',
+    shop_purchase_success: 'Upgrade Purchased!',
     shop_tap_buy: 'Tap directly on an upgrade to buy it!',
     shop_back: 'BACK',
     shop_press_buy: 'Press 1-6 to buy upgrades.',
@@ -207,6 +209,7 @@ const TRANSLATIONS = {
     settings_quality_medium: 'Medium',
     settings_quality_high: 'High',
     settings_text_scale: 'UI Text Scale',
+    settings_haptic_feedback: 'Haptic Feedback (हैप्टिक फीडबैक)',
     settings_reduced_motion: 'Reduced Motion',
     settings_high_contrast: 'High Contrast Mode',
     settings_hint_close: 'Esc dabakar settings band karein',
@@ -292,6 +295,7 @@ const TRANSLATIONS = {
     shop_double_jump: 'Double Jump (+1)',
     shop_dash_distance: 'Dash Distance (+15%)',
     shop_maxed: 'MAXED',
+    shop_purchase_success: 'Upgrade kharida gaya!',
     shop_tap_buy: 'Upgrade kharidne ke liye row par tap karein',
     shop_back: 'BACK',
     shop_press_buy: 'Upgrades kharidne ke liye 1-6 dabayein.',
@@ -356,7 +360,7 @@ export function t(locale: Locale, key: UiTextKey, vars?: Vars): string {
   const template = dictionary[key] ?? TRANSLATIONS.en[key];
   if (!vars) return template;
 
-  return template.replace(/\{(\w+)\}/g, (_match, varName: string) => {
+  return template.replace(/\{(\w+)\}/g, (_match: string, varName: string) => {
     const value = vars[varName];
     return value === undefined ? '' : String(value);
   });

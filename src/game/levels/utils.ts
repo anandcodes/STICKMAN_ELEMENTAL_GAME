@@ -23,7 +23,7 @@ export function makeEnemy(
     facing: 1, weakness, resistance,
     state: 'patrol', hurtTimer: 0,
     patrolRange, originX: x, animTimer: 0,
-    damage, speed,
+    damage, speed, onGround: false,
   };
 }
 

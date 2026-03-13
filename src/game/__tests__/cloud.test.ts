@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect, vi } from 'vitest';
 
 import type { SaveData } from '../types';
 import {
@@ -23,6 +22,8 @@ function makeSave(overrides: Partial<SaveData> = {}): SaveData {
     difficulty: 'normal',
     upgrades: { healthLevel: 1, manaLevel: 1, regenLevel: 0, damageLevel: 0, doubleJumpLevel: 0, dashDistanceLevel: 0 },
     bestTimes: { 0: 120, 1: 140 },
+    hapticsEnabled: true,
+    graphicsQuality: 'high',
     ...overrides,
   };
 }
@@ -32,10 +33,8 @@ test('cloud sync queues failed posts and retries on next sync', async () => {
   __clearCloudStateForTests();
   __setCloudConfigForTests({ enabled: true, endpoint: 'https://api.example/cloud-save' });
 
-  const originalFetch = globalThis.fetch;
   let postCalls = 0;
-
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (method === 'POST') {
       postCalls++;
@@ -45,16 +44,16 @@ test('cloud sync queues failed posts and retries on next sync', async () => {
       return { ok: true } as Response;
     }
     return { ok: false, json: async () => ({}) } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   await syncCloudSave(makeSave({ highScore: 150 }));
-  assert.equal(getCloudSyncStatus().pending, 1);
+  expect(getCloudSyncStatus().pending).toBe(1);
 
   await syncCloudSave(makeSave({ highScore: 190 }));
-  assert.equal(getCloudSyncStatus().pending, 0);
-  assert.ok(postCalls >= 2);
+  expect(getCloudSyncStatus().pending).toBe(0);
+  expect(postCalls).toBeGreaterThanOrEqual(2);
 
-  globalThis.fetch = originalFetch;
   __setCloudConfigForTests(null);
 });
 
@@ -63,7 +62,6 @@ test('hydrateCloudSave merges local and remote progress', async () => {
   __clearCloudStateForTests();
   __setCloudConfigForTests({ enabled: true, endpoint: 'https://api.example/cloud-save' });
 
-  const originalFetch = globalThis.fetch;
   let postCalls = 0;
   const remote = makeSave({
     highScore: 300,
@@ -75,7 +73,7 @@ test('hydrateCloudSave merges local and remote progress', async () => {
     bestTimes: { 0: 110, 2: 190 },
   });
 
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (method === 'GET') {
       return {
@@ -85,15 +83,15 @@ test('hydrateCloudSave merges local and remote progress', async () => {
     }
     postCalls++;
     return { ok: true } as Response;
-  }) as typeof fetch;
+  });
+  globalThis.fetch = mockFetch;
 
   const merged = await hydrateCloudSave(makeSave({ highScore: 500, furthestLevel: 4, totalGemsEver: 180 }));
-  assert.equal(merged.highScore, 500);
-  assert.equal(merged.furthestLevel, 6);
-  assert.equal(merged.totalEnemiesDefeated, 99);
-  assert.ok(Object.keys(merged.bestTimes).length >= 3);
-  assert.ok(postCalls >= 1);
+  expect(merged.highScore).toBe(500);
+  expect(merged.furthestLevel).toBe(6);
+  expect(merged.totalEnemiesDefeated).toBe(99);
+  expect(Object.keys(merged.bestTimes).length).toBeGreaterThanOrEqual(3);
+  expect(postCalls).toBeGreaterThanOrEqual(1);
 
-  globalThis.fetch = originalFetch;
   __setCloudConfigForTests(null);
 });

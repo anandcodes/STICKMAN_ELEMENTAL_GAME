@@ -2,6 +2,8 @@ import type { GameState, Projectile, EnvObject } from '../types';
 import { DIFFICULTY_SETTINGS } from '../engine';
 import { spawnParticles, spawnFloatingText, addScore, createSynergyZone, handleEnemyHit } from './utils';
 
+import { projectilePool } from '../services/poolManager';
+
 export function handleElementInteraction(state: GameState, proj: Projectile, obj: EnvObject) {
     const elem = proj.element;
 
@@ -158,6 +160,8 @@ export function updateProjectiles(state: GameState) {
                     // then remove lower. Both projectiles are consumed by the synergy.
                     state.projectiles.splice(Math.max(i, j), 1);
                     state.projectiles.splice(Math.min(i, j), 1);
+                    projectilePool.release(p);
+                    projectilePool.release(o);
                     // Adjust i so the outer loop doesn't revisit or over-skip
                     if (j < i) i--;
                     synergyHit = true; break;
@@ -202,8 +206,9 @@ export function updateProjectiles(state: GameState) {
                 }
             }
         }
-        if (hit || p.life <= 0 || p.y > state.worldHeight + 100) {
+        if (hit || p.life <= 0 || p.x < -500 || p.x > state.worldWidth + 500 || p.y < -500 || p.y > state.worldHeight + 500) {
             state.projectiles.splice(i, 1);
+            projectilePool.release(p);
         }
     }
 }
