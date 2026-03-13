@@ -47,6 +47,7 @@ function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.textScale = settings.textScale;
   state.reducedMotion = settings.reducedMotion;
   state.highContrast = settings.highContrast;
+  state.controlsScale = settings.controlsScale;
 }
 
 function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
@@ -117,7 +118,7 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    updateTouchControlsLayout(touchControlsRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
+    updateTouchControlsLayout(touchControlsRef.current, stateRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
   };
 
   /**
@@ -197,6 +198,7 @@ function App() {
     Audio.setMasterVolume(settings.muteAll ? 0 : settings.masterVolume);
     Audio.setMusicVolume(settings.musicVolume);
     Audio.setSfxVolume(settings.sfxVolume);
+    syncTouchLayout();
   }, [settings]);
 
   useEffect(() => {
@@ -1300,6 +1302,18 @@ function App() {
                     checked={settings.autoPauseOnBlur}
                     onChange={(e) => patchSettings({ autoPauseOnBlur: e.target.checked })}
                     style={{ marginLeft: 8 }}
+                  />
+                </label>
+                <label style={{ display: 'block', marginTop: 10 }}>
+                  {t(settings.locale, 'settings_controls_scale')} ({Math.round(settings.controlsScale * 100)}%)
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    value={settings.controlsScale}
+                    onChange={(e) => patchSettings({ controlsScale: Number(e.target.value) })}
+                    style={{ width: '100%', marginTop: 4 }}
                   />
                 </label>
               </section>

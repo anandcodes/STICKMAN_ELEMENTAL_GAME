@@ -1,5 +1,4 @@
 import type { GameState } from './types';
-import { tr } from './renderer';
 import * as Audio from './audio';
 import { DASH_BASE_COOLDOWN } from './engine';
 
@@ -62,23 +61,23 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
     elementButtons: [], // Deprecated in favor of cycleButton for better layout
     jumpButton: {
       id: 'jump', x: canvasW - 90, y: canvasH - 100,
-      radius: 40, label: 'JUMP', color: '#ffffff', active: false,
+      radius: 40, label: 'JUMP', icon: '⬆️', color: '#ffffff', active: false,
     },
     castButton: {
       id: 'cast', x: canvasW - 90, y: canvasH - 200,
-      radius: 46, label: 'CAST', color: '#ffcc00', active: false,
+      radius: 46, label: 'CAST', icon: '🎯', color: '#ffcc00', active: false,
     },
     dashButton: {
       id: 'dash', x: canvasW - 90, y: canvasH - 300,
-      radius: 30, label: 'DASH', color: '#44ffaa', active: false,
+      radius: 30, label: 'DASH', icon: '💨', color: '#44ffaa', active: false,
     },
     cycleButton: {
       id: 'cycle', x: canvasW - 200, y: canvasH - 200,
-      radius: 32, label: 'SWAP', color: '#55aaff', active: false,
+      radius: 32, label: 'SWAP', icon: '🔄', color: '#55aaff', active: false,
     },
     pauseButton: {
       id: 'pause', x: canvasW - 50, y: 50,
-      radius: 25, label: '||', color: '#ffffff', active: false,
+      radius: 25, label: '||', icon: '⏸️', color: '#ffffff', active: false,
     },
     dashActive: false,
     dashTouchId: null,
@@ -89,6 +88,7 @@ export function createTouchControlsState(canvasW: number, canvasH: number): Touc
 
 export function updateTouchControlsLayout(
   controls: TouchControlsState,
+  state: GameState,
   canvasW: number,
   canvasH: number,
   viewW: number,
@@ -101,9 +101,10 @@ export function updateTouchControlsLayout(
   // Base everything on logical canvas size so that controls
   // stay in consistent places regardless of device DPI.
   const base = Math.min(canvasW, canvasH);
+  const scale = state.controlsScale || 1;
   const margin = clamp(base * (portrait ? 0.035 : 0.025), 10, 40);
 
-  const dpadRadius = clamp(base * (portrait ? 0.11 : 0.09), 40, portrait ? 130 : 110);
+  const dpadRadius = clamp(base * (portrait ? 0.11 : 0.09) * scale, 30, portrait ? 150 : 130);
   controls.dpadRadius = dpadRadius;
 
   if (controls.dpadTouchId === null) {
@@ -114,7 +115,7 @@ export function updateTouchControlsLayout(
   }
 
   // Right Side Action Cluster – relative to canvas, not viewport pixels.
-  const actionRadius = clamp(base * (portrait ? 0.085 : 0.075), 34, portrait ? 125 : 105);
+  const actionRadius = clamp(base * (portrait ? 0.085 : 0.075) * scale, 25, portrait ? 140 : 120);
   const clusterX = canvasW - margin - actionRadius * 2.1;
   const clusterY = canvasH - margin - actionRadius * (portrait ? 2.1 : 1.9);
 
@@ -149,7 +150,7 @@ export function updateTouchControlsLayout(
   }
 
   // Pause Button (Top Right corner)
-  controls.pauseButton.radius = clamp(base * 0.03, 20, 44);
+  controls.pauseButton.radius = clamp(base * 0.03 * scale, 15, 60);
   controls.pauseButton.x = canvasW - margin - controls.pauseButton.radius;
   controls.pauseButton.y = margin + controls.pauseButton.radius;
 }
@@ -501,9 +502,9 @@ export function renderTouchControls(
     cb.y,
     cb.radius,
     elemColor,
-    (tr(state, 'cast_label' as any) || 'CAST').toUpperCase(),
+    cb.label.toUpperCase(),
     cb.active || controls.castDragActive,
-    undefined,
+    cb.icon,
     castBaseAlpha,
   );
 
@@ -521,11 +522,11 @@ export function renderTouchControls(
   }
 
   const jb = controls.jumpButton;
-  drawPremiumButton(jb.x, jb.y, jb.radius, '#ffffff', (tr(state, 'jump_label' as any) || 'JUMP').toUpperCase(), jb.active);
+  drawPremiumButton(jb.x, jb.y, jb.radius, '#ffffff', jb.label.toUpperCase(), jb.active, jb.icon);
 
   const db = controls.dashButton;
   const dashReady = state.stickman.dashCooldown <= 0;
-  drawPremiumButton(db.x, db.y, db.radius, dashReady ? '#44ffaa' : '#555555', (tr(state, 'dash_label' as any) || 'DASH').toUpperCase(), db.active, undefined, dashReady ? 0.3 : 0.1);
+  drawPremiumButton(db.x, db.y, db.radius, dashReady ? '#44ffaa' : '#555555', db.label.toUpperCase(), db.active, db.icon, dashReady ? 0.3 : 0.1);
   
   if (!dashReady) {
     const pct = 1 - (state.stickman.dashCooldown / DASH_BASE_COOLDOWN);
@@ -545,7 +546,7 @@ export function renderTouchControls(
 
   // 3. Pause Button
   const pb = controls.pauseButton;
-  drawPremiumButton(pb.x, pb.y, pb.radius, '#ffffff', '||', pb.active);
+  drawPremiumButton(pb.x, pb.y, pb.radius, '#ffffff', pb.label, pb.active, pb.icon);
 
   ctx.restore();
 }
