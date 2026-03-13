@@ -71,6 +71,28 @@ function formatFramesAsTime(frames: number): string {
 
 
 
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+
 function drawBackdrop(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -168,7 +190,6 @@ function drawPanel(
   ctx.restore();
 }
 
-/** Draws a premium-looking multi-faceted diamond gem icon */
 function drawGemIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, nowMs: number) {
   const pulse = Math.sin(nowMs * 0.005) * 0.15 + 1;
   const s = size * pulse;
@@ -1037,6 +1058,7 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: GameState['envObjects
       ctx.save();
       const cx = obj.x + obj.width / 2;
       const cy = obj.y + obj.height / 2;
+
       if (obj.state === 'burning') { // Firestorm
         ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 30;
         ctx.strokeStyle = 'rgba(255,100,0,0.4)'; ctx.lineWidth = 3;
@@ -2210,7 +2232,6 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   if (!state.reducedMotion) {
     ctx.save();
     for (let i = 0; i < 20; i++) {
-      // const speed = 0.5 + (i % 5) * 0.2; // Removed unused variable 'speed'
       const x = (W * 1.5 + (Math.sin(tSec * 0.1 + i) * 500)) % (W + 200) - 100;
       const y = (H * 1.5 + (Math.cos(tSec * 0.15 + i * 2) * 500)) % (H + 200) - 100;
       const size = 2 + (i % 4) * 2;
@@ -2225,25 +2246,27 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     ctx.restore();
   }
   
-  // Title Section
+  // Responsive Grid for Primary Actions
+  const isMobileLayout = W < 600;
+  const cardW = isMobileLayout ? W - 60 : 280;
+  const cardH = isMobileLayout ? 85 : 120;
+  const gap = isMobileLayout ? 12 : 30;
+  const cols = isMobileLayout ? 1 : 2;
+  const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+  const startY = isMobileLayout ? 210 : 320;
+
+  // Reduced title size for mobile to save vertical space
   ctx.save();
   ctx.shadowColor = '#49c8ff';
   ctx.shadowBlur = Math.sin(tSec * 2) * 5 + 15;
   ctx.fillStyle = '#e8f3ff';
-  setDisplayFont(ctx, state, 72, '800');
+  setDisplayFont(ctx, state, isMobileLayout ? 48 : 72, '800');
   ctx.textAlign = 'center';
-  ctx.fillText("ELEMENTAL", W / 2, 160 + Math.sin(tSec) * 5);
-  setDisplayFont(ctx, state, 64, '800');
+  ctx.fillText("ELEMENTAL", W / 2, (isMobileLayout ? 110 : 160) + Math.sin(tSec) * 5);
+  setDisplayFont(ctx, state, isMobileLayout ? 42 : 64, '800');
   ctx.fillStyle = '#95e9ff';
-  ctx.fillText("STICKMAN", W / 2, 230 + Math.sin(tSec + 0.5) * 5);
+  ctx.fillText("STICKMAN", W / 2, (isMobileLayout ? 170 : 230) + Math.sin(tSec + 0.5) * 5);
   ctx.restore();
-
-  // Grid for Primary Actions
-  const cardW = 280;
-  const cardH = 120;
-  const gap = 30;
-  const startX = W / 2 - cardW - gap / 2;
-  const startY = 320;
 
   const actions = [
     { title: "CAMPAIGN", subtitle: "Story Mode", color: '#62eeb8', icon: '🔥', screen: 'levelSelect' },
@@ -2253,8 +2276,8 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
   ];
 
   actions.forEach((a, i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     const x = startX + col * (cardW + gap);
     const y = startY + row * (cardH + gap);
     const isHovered = state.selectedMenuButton === i;
@@ -2263,31 +2286,31 @@ function drawMenuScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     if (isHovered) {
       ctx.shadowColor = a.color;
       ctx.shadowBlur = 20;
-      ctx.translate(0, -5);
+      ctx.translate(0, -3);
     }
     drawPanel(ctx, x, y, cardW, cardH, 16, a.color);
     ctx.restore();
 
     ctx.fillStyle = '#ffffff';
-    setDisplayFont(ctx, state, 20, '800');
+    setDisplayFont(ctx, state, isMobileLayout ? 18 : 20, '800');
     ctx.textAlign = 'left';
-    ctx.fillText(a.title, x + 25, y + 45);
+    ctx.fillText(a.title, x + 25, y + (isMobileLayout ? 36 : 45));
     
     setUiFont(ctx, state, 13, '600');
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillText(a.subtitle, x + 25, y + 70);
+    ctx.fillText(a.subtitle, x + 25, y + (isMobileLayout ? 58 : 70));
 
     ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 24, '400');
-    ctx.fillText(a.icon, x + cardW - 60, y + 55);
+    setUiFont(ctx, state, isMobileLayout ? 28 : 24, '400'); // emoji size
+    ctx.fillText(a.icon, x + cardW - (isMobileLayout ? 50 : 60), y + (isMobileLayout ? 52 : 55));
     
     if (isHovered) {
       ctx.fillStyle = 'rgba(255,255,255,0.2)';
-      roundRect(ctx, x + 25, y + 82, 100, 24, 6);
+      roundRect(ctx, x + 25, y + (isMobileLayout ? 65 : 82), 100, 24, 6);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
       setUiFont(ctx, state, 10, '800');
-      ctx.fillText("TAP TO PLAY", x + 35, y + 98);
+      ctx.fillText("TAP TO PLAY", x + 35, y + (isMobileLayout ? 81 : 98));
     }
 
     const snap = getProgressionSnapshot(state);
@@ -2637,19 +2660,6 @@ function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: n
   ctx.fillText(isMobile ? tr(state, 'victory_tap_again') : tr(state, 'victory_click_again'), W / 2, H / 2 + 145);
   ctx.globalAlpha = 1;
 }
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
   const nowMs = performance.now();
@@ -2716,15 +2726,17 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
     const names = ["Max Health", "Max Mana", "Mana Regen", "Spell Damage", "Double Jump", "Dash Range"];
     const levels = [upg.healthLevel, upg.manaLevel, upg.regenLevel, upg.damageLevel, upg.doubleJumpLevel, upg.dashDistanceLevel];
 
-    const cardW = 340;
-    const cardH = 140;
-    const gap = 20;
-    const startX = W / 2 - cardW - gap / 2;
-    const startY = 200;
+    const isMobileLayout = W < 600;
+    const cardW = isMobileLayout ? W - 40 : 340;
+    const cardH = isMobileLayout ? 75 : 140;
+    const gap = isMobileLayout ? 10 : 20;
+    const cols = isMobileLayout ? 1 : 2;
+    const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+    const startY = isMobileLayout ? 175 : 200;
 
     for (let i = 0; i < 6; i++) {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
+        const col = i % cols;
+        const row = Math.floor(i / cols);
         const x = startX + col * (cardW + gap);
         const y = startY + row * (cardH + gap);
         const isSelected = state.shopSelectionIndex === i;
@@ -2741,35 +2753,35 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 
         ctx.textAlign = 'left';
         ctx.fillStyle = '#ffffff';
-        setUiFont(ctx, state, 18, '800');
-        ctx.fillText(names[i].toUpperCase(), x + 20, y + 40);
+        setUiFont(ctx, state, isMobileLayout ? 15 : 18, '800');
+        ctx.fillText(names[i].toUpperCase(), x + 20, y + (isMobileLayout ? 30 : 40));
 
         // Progress Pips
         for (let p = 0; p < 5; p++) {
             ctx.fillStyle = p < levels[i] ? '#ffffff' : 'rgba(255,255,255,0.2)';
-            roundRect(ctx, x + 20 + p * 28, y + 60, 22, 10, 4);
+            roundRect(ctx, x + 20 + p * 28, y + (isMobileLayout ? 50 : 60), 22, 10, 4);
             ctx.fill();
         }
 
         if (maxed) {
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
             setUiFont(ctx, state, 14, '800');
-            ctx.fillText("MAXED", x + 20, y + 100);
+            ctx.fillText("MAXED", x + 20, y + (isMobileLayout ? 90 : 100));
         } else {
             ctx.fillStyle = canAfford ? '#ffd36a' : '#ff7688';
             setUiFont(ctx, state, 20, '900');
-            ctx.fillText(`${costs[i]}`, x + 20, y + 100);
-            drawGemIcon(ctx, x + 20 + ctx.measureText(String(costs[i])).width + 15, y + 92, 10, nowMs);
+            ctx.fillText(`${costs[i]}`, x + 20, y + (isMobileLayout ? 90 : 100));
+            drawGemIcon(ctx, x + 20 + ctx.measureText(String(costs[i])).width + 15, y + (isMobileLayout ? 82 : 92), 10, nowMs);
         }
         
         if (isSelected && !maxed) {
             ctx.fillStyle = 'rgba(255,255,255,0.2)';
-            roundRect(ctx, x + cardW - 100, y + 80, 80, 36, 10);
+            roundRect(ctx, x + cardW - (isMobileLayout ? 90 : 100), y + (isMobileLayout ? 18 : 80), 80, 36, 10);
             ctx.fill();
             ctx.fillStyle = '#ffffff';
             setUiFont(ctx, state, 12, '800');
             ctx.textAlign = 'center';
-            ctx.fillText("BUY", x + cardW - 60, y + 104);
+            ctx.fillText("BUY", x + cardW - (isMobileLayout ? 50 : 60), y + (isMobileLayout ? 42 : 104));
         }
     }
   } else if (state.shopTab === 'currency') {
@@ -3363,7 +3375,8 @@ function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W
   ctx.fillText(`Milestone: ${progression.milestoneProgress}/${progression.milestoneTarget} Challenges`, W / 2, mY + 32);
 
   const startY = 180;
-  const cardW = 600;
+  const isMobileLayout = W < 600;
+  const cardW = isMobileLayout ? W - 40 : 600;
   const cardH = 100;
   const gap = 20;
 
@@ -3374,13 +3387,13 @@ function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W
     
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 20, '700');
-    ctx.fillText(d.title.toUpperCase(), W / 2 - cardW / 2 + 20, y + 40);
+    setUiFont(ctx, state, isMobileLayout ? 16 : 20, '700');
+    ctx.fillText(d.title.toUpperCase(), W / 2 - cardW / 2 + 20, y + (isMobileLayout ? 35 : 40));
     
     // Progress Bar in card
     const pbX = W / 2 - cardW / 2 + 20;
-    const pbY = y + 55;
-    const pbW = 400;
+    const pbY = y + (isMobileLayout ? 50 : 55);
+    const pbW = isMobileLayout ? cardW - 140 : 400;
     const pbH = 8;
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     roundRect(ctx, pbX, pbY, pbW, pbH, 4);
@@ -3397,7 +3410,7 @@ function drawChallengesScreen(ctx: CanvasRenderingContext2D, state: GameState, W
     ctx.textAlign = 'right';
     ctx.fillStyle = '#ffd36a';
     setUiFont(ctx, state, 16, '800');
-    ctx.fillText(`+${d.rewardAmount} 💎`, W / 2 + cardW / 2 - 120, y + 55);
+    ctx.fillText(`+${d.rewardAmount} 💎`, W / 2 + cardW / 2 - (isMobileLayout ? 110 : 120), y + (isMobileLayout ? 50 : 55));
     
     // Claim Button
     if (d.completed && !d.claimed) {
@@ -3449,14 +3462,19 @@ function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: Game
     "Pure chaos. 5x Multiplier."
   ];
 
-  const cardW = 220;
-  const cardH = 300;
-  const gap = 20;
-  const startX = W / 2 - (cardW * 4 + gap * 3) / 2;
-  const startY = 200;
+  const isMobileLayout = W < 600;
+  const cardW = isMobileLayout ? W / 2 - 30 : 220;
+  const cardH = isMobileLayout ? 260 : 300;
+  const gap = isMobileLayout ? 20 : 20;
+  const cols = isMobileLayout ? 2 : 4;
+  const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+  const startY = isMobileLayout ? 160 : 200;
 
   diffs.forEach((d, i) => {
-    const x = startX + i * (cardW + gap);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = startX + col * (cardW + gap);
+    const y = startY + row * (cardH + gap);
     const isHovered = state.difficulty === d;
     
     ctx.save();
@@ -3464,21 +3482,22 @@ function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: Game
       ctx.shadowColor = colors[i];
       ctx.shadowBlur = 20;
     }
-    drawPanel(ctx, x, startY, cardW, cardH, 16, colors[i]);
+    drawPanel(ctx, x, y, cardW, cardH, 16, colors[i]);
     ctx.restore();
 
     ctx.fillStyle = '#ffffff';
-    setDisplayFont(ctx, state, 24, '800');
+    setDisplayFont(ctx, state, isMobileLayout ? 20 : 24, '800');
     ctx.textAlign = 'center';
-    ctx.fillText(labels[i], x + cardW / 2, startY + 50);
+    ctx.fillText(labels[i], x + cardW / 2, y + (isMobileLayout ? 40 : 50));
 
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    setUiFont(ctx, state, 13, '600');
+    setUiFont(ctx, state, isMobileLayout ? 11 : 13, '600');
     const words = descs[i].split(' ');
     let line = '';
-    let yy = startY + 100;
+    let yy = y + (isMobileLayout ? 80 : 100);
+    const maxLineLen = isMobileLayout ? 15 : 20;
     words.forEach(word => {
-        if ((line + word).length > 20) {
+        if ((line + word).length > maxLineLen) {
             ctx.fillText(line, x + cardW / 2, yy);
             line = word + ' ';
             yy += 18;
@@ -3489,13 +3508,13 @@ function drawSurvivalDifficultyScreen(ctx: CanvasRenderingContext2D, state: Game
     ctx.fillText(line, x + cardW / 2, yy);
 
     // Select button hint
-    const btnY = startY + cardH - 50;
+    const btnY = y + cardH - (isMobileLayout ? 45 : 50);
     ctx.fillStyle = isHovered ? '#ffffff' : 'rgba(255,255,255,0.2)';
-    roundRect(ctx, x + 20, btnY, cardW - 40, 36, 8);
+    roundRect(ctx, x + 15, btnY, cardW - 30, 32, 8);
     ctx.fill();
     ctx.fillStyle = isHovered ? '#000000' : 'rgba(255,255,255,0.4)';
-    setUiFont(ctx, state, 12, '800');
-    ctx.fillText("SELECT", x + cardW / 2, btnY + 22);
+    setUiFont(ctx, state, 10, '800');
+    ctx.fillText("SELECT", x + cardW / 2, btnY + 20);
   });
 
   // Back Button

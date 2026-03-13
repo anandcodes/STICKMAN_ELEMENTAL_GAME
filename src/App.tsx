@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { update, DIFFICULTY_SETTINGS, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
+import { update, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
 import type { Difficulty, Element, GameSettings, GameState, ShopTab } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
@@ -304,14 +304,19 @@ function App() {
       if (s.screen === 'menu') {
         if (tx === undefined || ty === undefined) return;
 
-        // Grid buttons
-        const cardW = 280; const cardH = 120; const gap = 30;
-        const startX = CANVAS_W / 2 - cardW - gap / 2;
-        const startY = 320;
+
+        // Responsive Grid buttons
+        const isMobileLayout = CANVAS_W < 600;
+        const cardW = isMobileLayout ? CANVAS_W - 60 : 280;
+        const cardH = isMobileLayout ? 85 : 120;
+        const gap = isMobileLayout ? 12 : 30;
+        const cols = isMobileLayout ? 1 : 2;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+        const startY = isMobileLayout ? 210 : 320;
 
         for (let i = 0; i < 4; i++) {
-          const col = i % 2;
-          const row = Math.floor(i / 2);
+          const col = i % cols;
+          const row = Math.floor(i / cols);
           const x = startX + col * (cardW + gap);
           const y = startY + row * (cardH + gap);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
@@ -337,13 +342,20 @@ function App() {
         if (tx === undefined || ty === undefined) return;
         
         const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
-        const cardW = 220; const cardH = 300; const gap = 20;
-        const startX = CANVAS_W / 2 - (cardW * 4 + gap * 3) / 2;
-        const startY = 200;
+        const isMobileLayout = CANVAS_W < 600;
+        const cardW = isMobileLayout ? CANVAS_W / 2 - 30 : 220;
+        const cardH = isMobileLayout ? 260 : 300;
+        const gap = 20;
+        const cols = isMobileLayout ? 2 : 4;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+        const startY = isMobileLayout ? 160 : 200;
 
         for (let i = 0; i < 4; i++) {
-          const x = startX + i * (cardW + gap);
-          if (tx >= x && tx <= x + cardW && ty >= startY && ty <= startY + cardH) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = startX + col * (cardW + gap);
+          const y = startY + row * (cardH + gap);
+          if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
              s.difficulty = diffs[i];
              const saved = loadSave();
              assignState(buildEndlessState(saved.highScore, s.difficulty));
@@ -368,14 +380,21 @@ function App() {
         
         // Claim buttons logic
         const snap = getProgressionSnapshot(s);
-        const startY = 180; const cardW = 600; const cardH = 100; const gap = 20;
+        const isMobileLayout = CANVAS_W < 600;
+        const startY = 180; 
+        const cardW = isMobileLayout ? CANVAS_W - 40 : 600; 
+        const cardH = 100; 
+        const gap = 20;
+
         let claimed = false;
         snap.dailies.forEach((d, i) => {
           const y = startY + i * (cardH + gap);
-          const cbX = CANVAS_W / 2 + cardW / 2 - 100;
+          const cbW = 100;
+          const cbH = 40;
+          const cbX = CANVAS_W / 2 + cardW / 2 - cbW - 20;
           const cbY = y + 30;
           if (d.completed && !d.claimed) {
-            if (tx >= cbX && tx <= cbX + 80 && ty >= cbY && ty <= cbY + 40) {
+            if (tx >= cbX && tx <= cbX + cbW && ty >= cbY && ty <= cbY + cbH) {
               claimDailyReward(d.id, s);
               Audio.playGemCollect();
               claimed = true;
@@ -411,12 +430,17 @@ function App() {
         }
 
         if (s.shopTab === 'upgrades') {
-          const cardW = 340; const cardH = 140; const gap = 20;
-          const startX = CANVAS_W / 2 - cardW - gap / 2;
-          const startY = 200;
+          const isMobileLayout = CANVAS_W < 600;
+          const cardW = isMobileLayout ? CANVAS_W - 40 : 340;
+          const cardH = isMobileLayout ? 75 : 140;
+          const gap = isMobileLayout ? 10 : 20;
+          const cols = isMobileLayout ? 1 : 2;
+          const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+          const startY = isMobileLayout ? 175 : 200;
+
           for (let i = 0; i < 6; i++) {
-            const col = i % 2;
-            const row = Math.floor(i / 2);
+            const col = i % cols;
+            const row = Math.floor(i / cols);
             const x = startX + col * (cardW + gap);
             const y = startY + row * (cardH + gap);
             if (tx_val >= x && tx_val <= x + cardW && ty_val >= y && ty_val <= y + cardH) {
