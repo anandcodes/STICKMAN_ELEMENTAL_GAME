@@ -252,6 +252,8 @@ function App() {
 
 
   useEffect(() => {
+    if (!assetsReady) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -1120,7 +1122,7 @@ function App() {
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
-  }, []);
+  }, [assetsReady]);
 
   if (fatalError) {
     return (
