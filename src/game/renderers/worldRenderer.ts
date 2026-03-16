@@ -56,6 +56,7 @@ export function drawWorld(
 
   drawPlatforms(ctx, state, cam.x, W);
   drawEnvObjects(ctx, state, cam.x, W, nowMs);
+  drawBalanceGuides(ctx, state, cam.x, W);
   drawEnemies(ctx, state, cam.x, W, nowMs);
   drawProjectiles(ctx, state, nowMs);
   drawParticles(ctx, state);
@@ -646,5 +647,61 @@ function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, 
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+function drawBalanceGuides(ctx: CanvasRenderingContext2D, state: GameState, camX: number, W: number) {
+  if (!state.balanceCurve.showGuides || state.screen !== 'playing') return;
+
+  ctx.save();
+  for (const obj of state.envObjects) {
+    if (obj.x + obj.width < camX - 60 || obj.x > camX + W + 60) continue;
+
+    if (obj.type === 'spike' || obj.type === 'fire_pit') {
+      ctx.fillStyle = 'rgba(255, 84, 84, 0.16)';
+      ctx.strokeStyle = 'rgba(255, 128, 128, 0.45)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, obj.x - 6, obj.y - 12, obj.width + 12, obj.height + 18, 8);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    if (obj.type === 'wind_zone' || obj.type === 'water_current') {
+      ctx.strokeStyle = obj.type === 'wind_zone' ? 'rgba(127, 232, 255, 0.42)' : 'rgba(88, 150, 255, 0.42)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 10);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (obj.type === 'plant' || obj.type === 'crate' || obj.type === 'rock') {
+      ctx.strokeStyle = 'rgba(255, 220, 120, 0.4)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, obj.x - 4, obj.y - 4, obj.width + 8, obj.height + 8, 8);
+      ctx.stroke();
+    }
+  }
+
+  const s = state.stickman;
+  if (s.onGround && !s.walking) {
+    const originX = s.x + s.width / 2;
+    const originY = s.y + s.height / 2;
+    const direction = s.facing;
+
+    ctx.strokeStyle = 'rgba(173, 234, 255, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 6]);
+    ctx.beginPath();
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14;
+      const px = originX + direction * t * 180;
+      const py = originY - Math.sin(t * Math.PI) * 90 + t * 12;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.restore();
 }

@@ -151,6 +151,28 @@ export interface DifficultySettings {
   color: string;
 }
 
+export interface Checkpoint {
+  x: number;
+  y: number;
+}
+
+export interface LevelBalanceCurve {
+  phase: 'teach' | 'test' | 'twist' | 'master';
+  platformWidthMultiplier: number;
+  gapDistanceMultiplier: number;
+  hazardSpeedMultiplier: number;
+  enemyDensityMultiplier: number;
+  verticalityFactor: number;
+  checkpointInterval: number;
+  movingPlatformFrequency: number;
+  coyoteFrames: number;
+  jumpBufferFrames: number;
+  dashBufferFrames: number;
+  landingAssist: number;
+  safeLandingWidth: number;
+  showGuides: boolean;
+}
+
 export interface TutorialHint {
   x: number; y: number; // world position
   text: string;
@@ -275,6 +297,12 @@ export interface GameState {
   screenShake: number; // frames remaining
   floatingTexts: FloatingText[];
   difficulty: Difficulty;
+  balanceCurve: LevelBalanceCurve;
+  deathStreak: number;
+  assistTier: number;
+  checkpoints: Checkpoint[];
+  checkpointIndex: number;
+  respawnPoint: Vec2;
   upgrades: Upgrades;
   onIce: boolean; // IMP-10: currently standing on ice
   tutorialHints: TutorialHint[];

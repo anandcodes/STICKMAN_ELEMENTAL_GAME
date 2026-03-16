@@ -1,4 +1,4 @@
-import type { GameState, Element, Difficulty, TutorialHint } from './types';
+import type { GameState, Element, Difficulty, TutorialHint, Vec2 } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, vibrate } from './systems/utils';
@@ -17,6 +17,7 @@ import { getRandomRelics, applyRelicEffects } from './relics';
 import { startTrial, endTrial } from './systems/trials';
 import { particlePool, projectilePool } from './services/poolManager';
 import { BASE_CANVAS_W, BASE_CANVAS_H, DIFFICULTY_SETTINGS, getDifficultyForLevel } from './constants';
+import { getRespawnPoint, scaleLevelForProgression } from './difficultyCurve';
 
 let CANVAS_W = BASE_CANVAS_W;
 let CANVAS_H = BASE_CANVAS_H;
@@ -36,8 +37,23 @@ function createTutorialHints(level: number): TutorialHint[] {
   ];
 }
 
-export function createInitialState(level = 0, score = 0, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
-  const def = getLevel(level);
+export function createInitialState(
+  level = 0,
+  score = 0,
+  highScore = 0,
+  difficulty: Difficulty = 'normal',
+  deathStreak = 0,
+  checkpointIndex = 0,
+  requestedRespawnPoint?: Vec2,
+): GameState {
+  const { levelDef: def, balanceCurve, checkpoints, assistTier } = scaleLevelForProgression(
+    getLevel(level),
+    level,
+    deathStreak,
+  );
+  const respawnPoint = requestedRespawnPoint
+    ? { ...requestedRespawnPoint }
+    : getRespawnPoint(checkpoints, checkpointIndex, def.playerStart);
 
   // Level-based difficulty scaling for campaign (except menu/survival)
   const isCampaign = level > 0 && level < 15;
@@ -50,7 +66,7 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
   const upg = savedData.upgrades;
 
   const stickman = {
-    x: def.playerStart.x, y: def.playerStart.y,
+    x: respawnPoint.x, y: respawnPoint.y,
     vx: 0, vy: 0, width: 24, height: 50,
     onGround: false, facing: 1 as const,
     jumpsUsed: 0,
@@ -136,6 +152,12 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     screenShake: 0,
     floatingTexts: [],
     difficulty: actualDifficulty,
+    balanceCurve,
+    deathStreak,
+    assistTier,
+    checkpoints,
+    checkpointIndex: clampCheckpointIndex(checkpointIndex, checkpoints.length),
+    respawnPoint,
     upgrades: upg,
     onIce: false,
     shopTab: 'upgrades',
@@ -166,6 +188,10 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     trialActive: false,
     shockwaves: [],
   };
+}
+
+function clampCheckpointIndex(index: number, length: number): number {
+  return Math.max(0, Math.min(index, Math.max(0, length - 1)));
 }
 
 function getUnlockedElements(level: number): Element[] {
@@ -356,6 +382,7 @@ export function update(state: GameState): void {
   updateProjectiles(state);
   updateCollectibles(state);
   updateEnvironment(state);
+  updateCheckpointProgress(state);
 
   // Update melting/earth platforms
   for (let i = state.platforms.length - 1; i >= 0; i--) {
@@ -461,6 +488,7 @@ function updateParticles(state: GameState) {
 function updateDeathAnimation(state: GameState) {
   const s = state.stickman;
   if (state.deathAnimTimer === 0) {
+    state.deathStreak++;
     state.screenShake = 20;
     trackEvent('player_death', {
       mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
@@ -506,6 +534,16 @@ function updateDeathAnimation(state: GameState) {
   }
 }
 
+function updateCheckpointProgress(state: GameState) {
+  const nextCheckpoint = state.checkpoints[state.checkpointIndex + 1];
+  if (!nextCheckpoint) return;
+  if (state.stickman.x + state.stickman.width / 2 < nextCheckpoint.x) return;
+
+  state.checkpointIndex++;
+  state.respawnPoint = { ...nextCheckpoint };
+  spawnFloatingText(state, nextCheckpoint.x, nextCheckpoint.y - 16, 'CHECKPOINT', '#7fe8ff', 14);
+}
+
 function updateWaveDirector(state: GameState) {
   const s = state.stickman;
   state.endlessTimer!++;
@@ -531,7 +569,7 @@ function updateWaveDirector(state: GameState) {
     const isTitanWave = state.endlessWave! % 15 === 0;
     const numEnemies = isBossWave
       ? (isTitanWave ? 1 : 1 + Math.floor(state.endlessWave! / 10))
-      : Math.min(20, 3 + Math.floor(state.endlessWave! * 1.2));
+      : Math.min(20, Math.max(2, Math.round((3 + Math.floor(state.endlessWave! * 1.2)) * state.balanceCurve.enemyDensityMultiplier)));
 
     for (let i = 0; i < numEnemies; i++) {
       const spawnX = 100 + Math.random() * (state.worldWidth - 200);

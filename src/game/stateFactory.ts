@@ -44,5 +44,12 @@ export function buildNextLevelState(current: GameState, highScore: number): Game
 }
 
 export function buildRestartLevelState(current: GameState, highScore: number): GameState {
-  return buildPlayingState(current.currentLevel, highScore, current.difficulty, 0);
+  return withPlayingIntro(createInitialState(
+    current.currentLevel,
+    0,
+    highScore,
+    current.difficulty,
+    current.deathStreak,
+    current.checkpointIndex,
+  ));
 }

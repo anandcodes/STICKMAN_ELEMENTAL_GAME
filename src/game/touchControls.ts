@@ -225,7 +225,7 @@ export function handleTouchStart(
       controls.dashTouchId = touch.identifier;
       controls.dashButton.active = true;
       controls.dashActive = true;
-      state.dashBufferFrames = Math.max(state.dashBufferFrames, 10);
+      state.dashBufferFrames = Math.max(state.dashBufferFrames, state.balanceCurve.dashBufferFrames);
       continue;
     }
 

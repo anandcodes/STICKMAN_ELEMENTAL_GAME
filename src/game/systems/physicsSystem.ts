@@ -3,6 +3,7 @@ import { GRAVITY, FRICTION } from '../constants';
 
 export function applyPhysics(state: GameState) {
   const s = state.stickman;
+  const landingAssist = state.balanceCurve.landingAssist;
 
   // Apply gravity
   if (!s.onGround && !s.isDashing) {
@@ -31,6 +32,9 @@ export function applyPhysics(state: GameState) {
 
   // Platform collisions
   for (const plat of state.platforms) {
+    const playerCenterX = s.x + s.width / 2;
+    const withinAssistWindow = playerCenterX > plat.x - landingAssist && playerCenterX < plat.x + plat.width + landingAssist;
+
     if (s.vx > 0) {
       if (s.x + s.width > plat.x && s.x < plat.x + plat.width && s.y + s.height > plat.y + 5 && s.y < plat.y + plat.height - 5) {
         s.x = plat.x - s.width; s.vx = 0;
@@ -42,11 +46,21 @@ export function applyPhysics(state: GameState) {
     }
 
     if (s.vy > 0) {
+      if (withinAssistWindow && s.y + s.height > plat.y && s.y < plat.y + plat.height) {
+        const targetX = plat.x + (plat.width - s.width) / 2;
+        const correction = Math.max(-landingAssist * 0.45, Math.min(landingAssist * 0.45, targetX - s.x));
+        s.x += correction;
+      }
+
       if (s.y + s.height > plat.y && s.y < plat.y + plat.height && s.x + s.width > plat.x + 5 && s.x < plat.x + plat.width - 5) {
         s.y = plat.y - s.height;
         s.vy = 0;
         s.onGround = true;
         s.jumping = false;
+        if (landingAssist > 0) {
+          const centeredX = plat.x + (plat.width - s.width) / 2;
+          s.x += Math.max(-landingAssist * 0.3, Math.min(landingAssist * 0.3, centeredX - s.x));
+        }
         if (plat.type === 'ice') state.onIce = true;
       }
     } else if (s.vy < 0) {

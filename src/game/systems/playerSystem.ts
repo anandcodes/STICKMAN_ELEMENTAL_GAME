@@ -37,7 +37,7 @@ export function handlePlayerInput(state: GameState) {
 
   // Jump buffering
   if (state.keys.has('w') || state.keys.has('arrowup') || state.keys.has(' ')) {
-    s.jumpBufferTimer = 6;
+    s.jumpBufferTimer = state.balanceCurve.jumpBufferFrames;
     state.keys.delete('w'); state.keys.delete('arrowup'); state.keys.delete(' ');
   } else if (s.jumpBufferTimer > 0) {
     s.jumpBufferTimer--;
@@ -48,7 +48,7 @@ export function handlePlayerInput(state: GameState) {
   }
 
   if (state.keys.has('shift') || state.keys.has('q')) {
-    state.dashBufferFrames = Math.max(state.dashBufferFrames, 10);
+    state.dashBufferFrames = Math.max(state.dashBufferFrames, state.balanceCurve.dashBufferFrames);
   }
 
   // Dash input
@@ -74,7 +74,7 @@ export function updatePlayer(state: GameState) {
 
   // Coyote timer
   if (s.onGround) {
-    s.coyoteTimer = 6;
+    s.coyoteTimer = state.balanceCurve.coyoteFrames;
     s.jumpsUsed = 0;
   } else {
     if (s.coyoteTimer > 0) s.coyoteTimer--;
