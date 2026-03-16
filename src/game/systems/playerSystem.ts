@@ -13,14 +13,16 @@ export function handlePlayerInput(state: GameState) {
 
   // Input handling
   s.walking = false;
-  let targetVx = 0;
-  if (state.keys.has('a') || state.keys.has('arrowleft')) {
-    targetVx -= MOVE_SPEED;
+  const keyboardAxis = (state.keys.has('d') || state.keys.has('arrowright') ? 1 : 0)
+    - (state.keys.has('a') || state.keys.has('arrowleft') ? 1 : 0);
+  const moveAxis = keyboardAxis !== 0 ? keyboardAxis : state.moveInputX;
+  const targetVx = moveAxis * MOVE_SPEED * (0.7 + Math.abs(moveAxis) * 0.3);
+
+  if (moveAxis < -0.08) {
     s.facing = -1;
     s.walking = true;
   }
-  if (state.keys.has('d') || state.keys.has('arrowright')) {
-    targetVx += MOVE_SPEED;
+  if (moveAxis > 0.08) {
     s.facing = 1;
     s.walking = true;
   }
@@ -41,8 +43,16 @@ export function handlePlayerInput(state: GameState) {
     s.jumpBufferTimer--;
   }
 
+  if (state.dashBufferFrames > 0) {
+    state.dashBufferFrames--;
+  }
+
+  if (state.keys.has('shift') || state.keys.has('q')) {
+    state.dashBufferFrames = Math.max(state.dashBufferFrames, 10);
+  }
+
   // Dash input
-  if ((state.keys.has('shift') || state.keys.has('q')) && s.dashCooldown <= 0 && s.mana >= DASH_MANA_COST) {
+  if (state.dashBufferFrames > 0 && s.dashCooldown <= 0 && s.mana >= DASH_MANA_COST) {
     s.isDashing = true;
     s.dashTimer = DASH_BASE_DURATION + (state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE);
     s.dashCooldown = DASH_BASE_COOLDOWN;
@@ -54,6 +64,7 @@ export function handlePlayerInput(state: GameState) {
     Audio.playDash();
     vibrate(state, 40);
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, 'wind', 15);
+    state.dashBufferFrames = 0;
     state.keys.delete('shift'); state.keys.delete('q');
   }
 }

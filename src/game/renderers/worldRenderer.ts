@@ -74,24 +74,43 @@ export function drawWorld(
   if (state.isAiming && state.aimAngle !== undefined) {
     const ax = s.x + s.width / 2;
     const ay = s.y + s.height / 4;
-    const length = 100;
+    const length = 112 + state.aimAssistWeight * 28;
     const ex = ax + Math.cos(state.aimAngle) * length;
     const ey = ay + Math.sin(state.aimAngle) * length;
+    const crosshair = assetLoader.getAsset('crosshair');
 
     ctx.save();
-    ctx.strokeStyle = ELEMENT_COLORS[state.selectedElement];
-    ctx.setLineDash([5, 5]);
-    ctx.lineWidth = 2;
+    const guide = ctx.createLinearGradient(ax, ay, ex, ey);
+    guide.addColorStop(0, 'rgba(255,255,255,0.25)');
+    guide.addColorStop(1, state.aimAssistWeight > 0 ? '#92ffe0' : ELEMENT_COLORS[state.selectedElement]);
+    ctx.strokeStyle = guide;
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(ax, ay);
     ctx.lineTo(ex, ey);
     ctx.stroke();
 
-    // Crosshair at the end
     ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.arc(ex, ey, 5, 0, Math.PI * 2);
-    ctx.stroke();
+    if (crosshair.complete && crosshair.naturalWidth > 0) {
+      const size = 20 + state.aimAssistWeight * 8;
+      ctx.drawImage(crosshair, ex - size / 2, ey - size / 2, size, size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(ex, ey, 7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    const lockedEnemy = state.enemies.find((enemy) => enemy.id === state.aimAssistTargetId && enemy.state !== 'dead');
+    if (lockedEnemy) {
+      const tx = lockedEnemy.x + lockedEnemy.width / 2;
+      const ty = lockedEnemy.y + lockedEnemy.height / 2;
+      ctx.strokeStyle = '#92ffe0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tx, ty, Math.max(18, lockedEnemy.width * 0.7), 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

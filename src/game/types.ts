@@ -239,10 +239,18 @@ export interface GameState {
   gemsRequired: number;
   totalGems: number;
   keys: Set<string>;
+  moveInputX: number;
+  moveInputY: number;
   mousePos: Vec2;
   mouseDown: boolean;
   isAiming?: boolean;   // Current aiming state
   aimAngle?: number;    // Current aim direction
+  aimAssistTargetId?: number;
+  aimAssistWeight: number;
+  touchAimActive: boolean;
+  shootQueued: boolean;
+  buttonFireActive: boolean;
+  dashBufferFrames: number;
   castCooldown: number;
   wind: { active: boolean; direction: number; timer: number };
   backgroundStars: { x: number; y: number; size: number; twinkle: number; speed?: number }[];

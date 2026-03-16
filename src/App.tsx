@@ -23,12 +23,15 @@ import {
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  updateTouchControlsInput,
   updateTouchControlsLayout,
   renderTouchControls,
   isMobileDevice,
+  setControlsAssets,
   type TouchControlsState,
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
+import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -103,13 +106,12 @@ function App() {
     assetLoader.loadAssets({
       boss1: '/bosses/boss1.png',
       boss2: '/bosses/boss2.png',
-      controls: '/assets/controls.png'
+      ...MOBILE_CONTROL_ASSET_PATHS,
     }).then(() => {
       setAssetsReady(true);
-      // Set the controls icon sheet after it's loaded
-      import('./game/touchControls').then(tc => {
-        tc.setControlsIconSheet(assetLoader.getAsset('controls'));
-      });
+      setControlsAssets(Object.fromEntries(
+        Object.keys(MOBILE_CONTROL_ASSET_PATHS).map((key) => [key, assetLoader.getAsset(key)]),
+      ));
     }).catch(err => {
       console.error('Failed to load assets:', err);
       setFatalError('Failed to load game assets. Please refresh.');
@@ -1098,6 +1100,7 @@ function App() {
           void refreshRemoteLeaderboard(20);
         }
 
+        updateTouchControlsInput(touchControlsRef.current, currentState);
         const steps = advanceLoopClock(loopClockRef.current, nowMs);
         for (let i = 0; i < steps; i++) {
           update(currentState);

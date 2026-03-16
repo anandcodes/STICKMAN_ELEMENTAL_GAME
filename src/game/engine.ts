@@ -100,10 +100,18 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     gemsRequired: def.gemsRequired,
     totalGems: def.totalGems,
     keys: new Set(),
+    moveInputX: 0,
+    moveInputY: 0,
     mousePos: { x: 0, y: 0 },
     mouseDown: false,
     isAiming: false,
     aimAngle: 0,
+    aimAssistTargetId: undefined,
+    aimAssistWeight: 0,
+    touchAimActive: false,
+    shootQueued: false,
+    buttonFireActive: false,
+    dashBufferFrames: 0,
     castCooldown: 0,
     wind: { active: false, direction: 0, timer: 0 },
     backgroundStars: bgStars,
@@ -288,7 +296,13 @@ export function update(state: GameState): void {
   // Shooting Logic
   if (state.castCooldown > 0) state.castCooldown--;
 
-  if (state.aimToShoot) {
+  const usingButtonFire = state.buttonFireActive || state.shootQueued;
+
+  if (usingButtonFire && state.castCooldown <= 0) {
+    state.isAiming = true;
+    spawnProjectile(state);
+    state.shootQueued = false;
+  } else if (state.aimToShoot && !state.touchAimActive) {
     if (state.mouseDown && state.castCooldown <= 0) {
       state.isAiming = true;
       const s = state.stickman;
@@ -300,7 +314,13 @@ export function update(state: GameState): void {
       spawnProjectile(state);
     }
   } else {
-    if (state.mouseDown && state.castCooldown <= 0) {
+    if (state.touchAimActive) {
+      state.isAiming = true;
+    } else if (!usingButtonFire) {
+      state.isAiming = false;
+    }
+
+    if (state.mouseDown && state.castCooldown <= 0 && !usingButtonFire) {
       spawnProjectile(state);
     }
   }
