@@ -1,22 +1,11 @@
 import type { Checkpoint, Enemy, EnvObject, LevelBalanceCurve, LevelDef, Platform, Vec2 } from './types';
 
-const SAFE_GROUND_Y = 580;
-
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
 function round(value: number): number {
   return Math.round(value);
-}
-
-function scaleY(y: number, curve: LevelBalanceCurve): number {
-  if (y >= SAFE_GROUND_Y - 20) return y;
-  return round(SAFE_GROUND_Y - (SAFE_GROUND_Y - y) * curve.verticalityFactor);
-}
-
-function scaleX(x: number, curve: LevelBalanceCurve): number {
-  return round(x * curve.gapDistanceMultiplier);
 }
 
 function getBaseCurve(level: number): LevelBalanceCurve {
@@ -146,12 +135,14 @@ function scalePlatform(platform: Platform, curve: LevelBalanceCurve): Platform {
   const widthScale = platform.type === 'ground'
     ? 1 + (curve.platformWidthMultiplier - 1) * 0.35
     : curve.platformWidthMultiplier;
+  const widenedWidth = round(platform.width * widthScale);
+  const widthDelta = widenedWidth - platform.width;
 
   return {
     ...platform,
-    x: scaleX(platform.x, curve),
-    y: platform.type === 'ground' ? platform.y : scaleY(platform.y, curve),
-    width: round(platform.width * widthScale),
+    x: Math.max(0, round(platform.x - widthDelta / 2)),
+    y: platform.y,
+    width: widenedWidth,
   };
 }
 
@@ -173,8 +164,8 @@ function scaleEnvObject(obj: EnvObject, curve: LevelBalanceCurve): EnvObject | n
 
   const next: EnvObject = {
     ...obj,
-    x: scaleX(obj.x, curve),
-    y: obj.type === 'spike' || obj.type === 'fire_pit' ? obj.y : scaleY(obj.y, curve),
+    x: obj.type === 'spike' ? round(obj.x + (obj.width - scaledWidth) / 2) : obj.x,
+    y: obj.y,
     width: scaledWidth,
   };
 
@@ -190,7 +181,7 @@ function scaleEnvObject(obj: EnvObject, curve: LevelBalanceCurve): EnvObject | n
     next.vy = (obj.vy || 0) * curve.hazardSpeedMultiplier;
     next.moveOriginX = next.x;
     next.moveOriginY = next.y;
-    next.moveRange = round((obj.moveRange || 0) * curve.gapDistanceMultiplier);
+    next.moveRange = obj.moveRange;
   }
 
   return next;
@@ -200,10 +191,10 @@ function scaleEnemy(enemy: Enemy, curve: LevelBalanceCurve): Enemy {
   const healthScale = clamp(0.8 + curve.enemyDensityMultiplier * 0.25, 0.75, 1.05);
   return {
     ...enemy,
-    x: scaleX(enemy.x, curve),
-    y: scaleY(enemy.y, curve),
-    originX: scaleX(enemy.originX, curve),
-    patrolRange: round(enemy.patrolRange * curve.gapDistanceMultiplier),
+    x: enemy.x,
+    y: enemy.y,
+    originX: enemy.originX,
+    patrolRange: enemy.patrolRange,
     speed: Number((enemy.speed * curve.hazardSpeedMultiplier).toFixed(2)),
     damage: round(enemy.damage * (0.8 + curve.hazardSpeedMultiplier * 0.2)),
     health: round(enemy.health * healthScale),
@@ -229,7 +220,7 @@ function findCheckpointPlatform(platforms: Platform[], targetX: number): Platfor
   for (const platform of platforms) {
     const centerX = platform.x + platform.width / 2;
     const distance = Math.abs(centerX - targetX);
-    const heightBias = Math.abs(platform.y - SAFE_GROUND_Y) * 0.25;
+    const heightBias = Math.abs(platform.y - 580) * 0.25;
     const score = distance + heightBias;
     if (score < bestScore) {
       best = platform;
@@ -286,13 +277,13 @@ export function scaleLevelForProgression(base: LevelDef, level: number, deathStr
 
   const levelDef: LevelDef = {
     ...base,
-    worldWidth,
+    worldWidth: Math.max(base.worldWidth, worldWidth),
     platforms,
     envObjects,
     enemies,
     playerStart: {
-      x: scaleX(base.playerStart.x, balanceCurve),
-      y: scaleY(base.playerStart.y, balanceCurve),
+      x: base.playerStart.x,
+      y: base.playerStart.y,
     },
   };
 
