@@ -1,10 +1,10 @@
-import type { GameState, Element } from '../types';
+import type { GameState } from '../types';
 import * as Audio from '../audio';
-import { 
-  MOVE_SPEED, MAX_SPEED, JUMP_FORCE, 
-  DASH_BASE_SPEED, DASH_SPEED_PER_UPGRADE, 
-  DASH_BASE_DURATION, DASH_DURATION_PER_UPGRADE, 
-  DASH_BASE_COOLDOWN, DASH_MANA_COST 
+import {
+  MOVE_SPEED, MAX_SPEED, JUMP_FORCE,
+  DASH_BASE_SPEED, DASH_SPEED_PER_UPGRADE,
+  DASH_BASE_DURATION, DASH_DURATION_PER_UPGRADE,
+  DASH_BASE_COOLDOWN, DASH_MANA_COST
 } from '../constants';
 import { spawnParticles, vibrate } from './utils';
 
@@ -93,7 +93,7 @@ export function updatePlayer(state: GameState) {
     s.dashTimer--;
     s.vy = 0; // maintain height
     if (s.dashTimer <= 0) s.isDashing = false;
-    
+
     // Performance optimization: fewer particles during dash on low quality
     const particleInterval = state.graphicsQuality === 'low' ? 5 : 2;
     if (s.dashTimer % particleInterval === 0) {

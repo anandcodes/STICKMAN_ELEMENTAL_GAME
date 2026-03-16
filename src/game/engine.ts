@@ -1,7 +1,7 @@
-import type { GameState, Element, Difficulty, DifficultySettings, TutorialHint } from './types';
+import type { GameState, Element, Difficulty, TutorialHint } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
-import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, addScore, handleEnemyHit, vibrate } from './systems/utils';
+import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, vibrate } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
 import { handlePlayerInput, updatePlayer } from './systems/playerSystem';
 import { applyPhysics } from './systems/physicsSystem';
@@ -38,7 +38,7 @@ function createTutorialHints(level: number): TutorialHint[] {
 
 export function createInitialState(level = 0, score = 0, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
   const def = getLevel(level);
-  
+
   // Level-based difficulty scaling for campaign (except menu/survival)
   const isCampaign = level > 0 && level < 15;
   const actualDifficulty = isCampaign && score === 0 ? getDifficultyForLevel(level) : difficulty;
@@ -193,7 +193,7 @@ function spawnProjectile(state: GameState) {
   const manaCostRaw: Record<Element, number> = { fire: 8, water: 6, earth: 15, wind: 5 };
   let cost = manaCostRaw[state.selectedElement];
   if (state.activeRelics.some(r => r.type === 'mana_flux')) cost *= 0.7;
-  
+
   if (s.mana < cost) return;
   s.mana -= cost;
 
@@ -232,7 +232,7 @@ export function update(state: GameState): void {
     state.screenTimer++;
     updateFloatingTexts(state);
     if (state.screen === 'relicSelection') return;
-    
+
     if (state.screen === 'levelComplete' && state.screenTimer === 1) {
       state.furthestLevel = Math.max(state.furthestLevel, state.currentLevel + 1);
       saveProgress(state);
@@ -421,15 +421,15 @@ function updateParticles(state: GameState) {
   for (let i = state.particles.length - 1; i >= 0; i--) {
     const p = state.particles[i];
     p.x += p.vx; p.y += p.vy;
-    
+
     if (p.maxLife === 300) {
       p.vy = Math.min(p.vy + 0.01, 2);
-      p.vx = Math.sin(state.timeElapsed * 0.03 + p.y * 0.02) * 1.5 + 0.5; 
+      p.vx = Math.sin(state.timeElapsed * 0.03 + p.y * 0.02) * 1.5 + 0.5;
     } else {
       if (p.element === 'fire') p.vy -= 0.05; else p.vy += 0.02;
-      p.vx *= 0.98; 
+      p.vx *= 0.98;
     }
-    
+
     p.life--;
     if (p.life <= 0) {
       state.particles.splice(i, 1);
@@ -473,7 +473,7 @@ function updateDeathAnimation(state: GameState) {
     }, { force: true });
     saveProgress(state);
     Audio.playGameOver();
-    
+
     const progression = updateProgression(state);
     let offset = 85;
     for (const achievementId of progression.unlockedAchievements) {
@@ -481,7 +481,7 @@ function updateDeathAnimation(state: GameState) {
       offset += 20;
     }
     if (state.endlessWave !== undefined) {
-      void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => {});
+      void submitLeaderboardEntry(state.score, state.endlessWave, state.endlessKills ?? state.enemiesDefeated).catch(() => { });
     }
   }
 }
@@ -553,16 +553,16 @@ function updateWaveDirector(state: GameState) {
 
 export function selectRelic(state: GameState, index: number): GameState {
   if (state.screen !== 'relicSelection' || !state.relicChoices[index]) return state;
-  
+
   const relic = state.relicChoices[index];
   state.activeRelics.push(relic);
-  
+
   // Instant effects
   if (relic.type === 'vitality_core') {
     state.stickman.maxHealth += 50;
     state.stickman.health = state.stickman.maxHealth;
   }
-  
+
   state.screen = 'playing';
   state.relicChoices = [];
   spawnFloatingText(state, state.stickman.x + state.stickman.width / 2, state.stickman.y - 40, 'RELIC ACQUIRED: ' + relic.name, '#00ffcc', 20);

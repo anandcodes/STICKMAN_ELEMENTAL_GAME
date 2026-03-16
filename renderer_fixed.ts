@@ -13,7 +13,6 @@ export function render(
   H: number,
   isMobile: boolean = false,
   isPortraitMobile: boolean = false,
-  compactMobileLayout: boolean = false,
 ): void {
   const nowMs = performance.now();
   const shakeX = (Math.random() - 0.5) * state.screenShake * 2;
@@ -26,16 +25,14 @@ export function render(
 
   // 2. Draw UI (Screen Space)
   ctx.save();
-  if (state.screen === 'playing') {
-    // Slightly follow camera movement and hit shake for UI cohesion during gameplay only.
-    const cam = state.camera;
-    const hudFollowX = Math.max(-28, Math.min(28, -cam.x * 0.03));
-    const hudFollowY = Math.max(-16, Math.min(16, -cam.y * 0.03));
-    const uiShakeX = shakeX * 0.35;
-    const uiShakeY = shakeY * 0.35;
-    ctx.translate(hudFollowX + uiShakeX, hudFollowY + uiShakeY);
-  }
+  // Slightly follow camera movement and hit shake for UI cohesion
+  const cam = state.camera;
+  const hudFollowX = Math.max(-28, Math.min(28, -cam.x * 0.03));
+  const hudFollowY = Math.max(-16, Math.min(16, -cam.y * 0.03));
+  const uiShakeX = shakeX * 0.35;
+  const uiShakeY = shakeY * 0.35;
+  ctx.translate(hudFollowX + uiShakeX, hudFollowY + uiShakeY);
 
-  drawUIRenderer(ctx, state, W, H, nowMs, isMobile, isPortraitMobile, compactMobileLayout);
+  drawUIRenderer(ctx, state, W, H, nowMs, isMobile, isPortraitMobile);
   ctx.restore();
 }

@@ -1,6 +1,6 @@
-import type { GameState, Element, Projectile, Enemy, EnvObject } from '../types';
-import { ELEMENT_COLORS, ELEMENT_GLOW, FONT_UI } from './renderConstants';
-import { roundRect, setUiFont, setDisplayFont } from './renderUtils';
+import type { GameState, Enemy, EnvObject } from '../types';
+import { ELEMENT_COLORS, ELEMENT_GLOW } from './renderConstants';
+import { roundRect } from './renderUtils';
 import { assetLoader } from '../services/assetLoader';
 
 export function drawWorld(
@@ -11,7 +11,7 @@ export function drawWorld(
   nowMs: number,
   shakeX: number,
   shakeY: number,
-  isMobile: boolean = false
+  _isMobile: boolean = false
 ) {
   const cam = state.camera;
   const highContrast = state.highContrast;
@@ -474,9 +474,9 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: EnvObject, state: Gam
     }
     // Add other cases as needed or use a default
     default: {
-        ctx.fillStyle = '#777';
-        ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-        break;
+      ctx.fillStyle = '#777';
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      break;
     }
   }
 }
@@ -616,16 +616,16 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
 }
 
 function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const s = state.stickman;
-    const cx = s.x - state.camera.x + s.width / 2;
-    const cy = s.y - state.camera.y + s.height / 2;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const s = state.stickman;
+  const cx = s.x - state.camera.x + s.width / 2;
+  const cy = s.y - state.camera.y + s.height / 2;
 
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 150);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 150);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
 }

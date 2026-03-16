@@ -1,4 +1,4 @@
-import { test, expect, describe } from 'vitest';
+import { test, expect } from 'vitest';
 
 import { createInitialState } from '../engine';
 import { loadSave, saveProgress, SAVE_KEY, SAVE_SCHEMA_VERSION } from '../persistence';

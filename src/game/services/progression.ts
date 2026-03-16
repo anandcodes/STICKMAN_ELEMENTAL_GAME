@@ -92,7 +92,9 @@ function loadStore(): ProgressionStore {
 function saveStore(store: ProgressionStore): void {
   try {
     localStorage.setItem(PROGRESSION_KEY, JSON.stringify(store));
-  } catch {}
+  } catch {
+    // Ignore persistence failures in restricted/private browsing contexts.
+  }
 }
 
 function todayKey(): string {

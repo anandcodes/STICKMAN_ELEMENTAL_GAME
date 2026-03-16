@@ -5,7 +5,16 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'renderer_initial.ts',
+      'renderer_old.ts',
+      'uiRenderer_fixed.ts',
+      'uiRenderer_old.ts',
+      'uiRenderer_parent.ts',
+      'uiRenderer_recovered.ts',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -32,6 +41,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'no-undef': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 );
