@@ -1114,7 +1114,9 @@ function App() {
           void refreshRemoteLeaderboard(20);
         }
 
-        updateTouchControlsInput(touchControlsRef.current, currentState);
+        if (isMobileRef.current) {
+          updateTouchControlsInput(touchControlsRef.current, currentState);
+        }
         const steps = advanceLoopClock(loopClockRef.current, nowMs);
         for (let i = 0; i < steps; i++) {
           update(currentState);

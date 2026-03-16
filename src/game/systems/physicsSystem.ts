@@ -51,9 +51,11 @@ export function applyPhysics(state: GameState) {
       s.onGround = true;
       s.jumping = false;
 
-      if (landingAssist > 0 && Math.abs(s.vx) < 2.2) {
+      // Landing assist: snap slightly to platform center if it's a challenging (small) platform
+      // Prevents sliding on massive ground platforms while helping on tiny pillars
+      if (landingAssist > 0 && plat.width < 380 && Math.abs(s.vx) < 2.2) {
         const targetX = plat.x + (plat.width - s.width) / 2;
-        const correction = Math.max(-3, Math.min(3, (targetX - s.x) * 0.15));
+        const correction = Math.max(-2, Math.min(2, (targetX - s.x) * 0.12));
         s.x += correction;
       }
 
