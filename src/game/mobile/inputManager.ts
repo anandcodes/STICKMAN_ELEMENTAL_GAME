@@ -33,15 +33,26 @@ export function releaseFloatingJoystick(controls: FloatingJoystickController): v
 }
 
 export function stepMobileInput(controls: FloatingJoystickController, state: GameState): void {
+  const isMoving = controls.dpadTargetDirection.x !== 0 || controls.dpadTargetDirection.y !== 0;
+
   controls.dpadDirection = {
-    x: controls.dpadDirection.x + (controls.dpadTargetDirection.x - controls.dpadDirection.x) * (controls.dpadTargetDirection.x === 0 ? MOBILE_INPUT_CONFIG.joystickReleaseLerp : MOBILE_INPUT_CONFIG.joystickFollowLerp),
-    y: controls.dpadDirection.y + (controls.dpadTargetDirection.y - controls.dpadDirection.y) * (controls.dpadTargetDirection.y === 0 ? MOBILE_INPUT_CONFIG.joystickReleaseLerp : MOBILE_INPUT_CONFIG.joystickFollowLerp),
+    x: controls.dpadDirection.x + (controls.dpadTargetDirection.x - controls.dpadDirection.x) * (isMoving ? MOBILE_INPUT_CONFIG.joystickFollowLerp : MOBILE_INPUT_CONFIG.joystickReleaseLerp),
+    y: controls.dpadDirection.y + (controls.dpadTargetDirection.y - controls.dpadDirection.y) * (isMoving ? MOBILE_INPUT_CONFIG.joystickFollowLerp : MOBILE_INPUT_CONFIG.joystickReleaseLerp),
   };
 
-  const axisX = Math.abs(controls.dpadDirection.x) < MOBILE_INPUT_CONFIG.joystickDeadZone ? 0 : controls.dpadDirection.x;
-  const axisY = Math.abs(controls.dpadDirection.y) < MOBILE_INPUT_CONFIG.joystickDeadZone ? 0 : controls.dpadDirection.y;
-  state.moveInputX = axisX;
-  state.moveInputY = axisY;
+  const deadzone = MOBILE_INPUT_CONFIG.joystickDeadZone;
+  const axisX = Math.abs(controls.dpadDirection.x) < deadzone ? 0 : controls.dpadDirection.x;
+  const axisY = Math.abs(controls.dpadDirection.y) < deadzone ? 0 : controls.dpadDirection.y;
+
+  // Strict zeroing for non-mobile or inactive joystick to prevent drift
+  if (!isMoving && Math.abs(controls.dpadDirection.x) < 0.01) {
+    state.moveInputX = 0;
+    state.moveInputY = 0;
+    controls.dpadDirection = { x: 0, y: 0 };
+  } else {
+    state.moveInputX = axisX;
+    state.moveInputY = axisY;
+  }
 }
 
 export function beginShootInput(controls: FloatingJoystickController, state: GameState): void {

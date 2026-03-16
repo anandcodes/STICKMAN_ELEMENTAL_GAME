@@ -308,9 +308,9 @@ export function handleTouchEnd(
       state.touchAimActive = false;
       state.aimAssistTargetId = undefined;
       state.aimAssistWeight = 0;
-      if (!state.buttonFireActive) {
-        state.isAiming = false;
-      }
+      // Note: We don't set state.isAiming = false here.
+      // This allows the game loop to see state.isAiming === true AND state.touchAimActive === false
+      // on the next frame, which triggers the projectile spawn in the 'aimToShoot' logic.
     }
 
     if (touch.identifier === controls.shootTouchId) {
