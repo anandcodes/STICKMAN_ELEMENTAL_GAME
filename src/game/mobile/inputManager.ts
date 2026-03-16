@@ -9,18 +9,7 @@ export interface FloatingJoystickController {
   shootHeldFrames: number;
 }
 
-function syncMovementKeys(state: GameState, axisX: number): void {
-  state.keys.delete('a');
-  state.keys.delete('d');
-  state.keys.delete('arrowleft');
-  state.keys.delete('arrowright');
 
-  if (axisX < -MOBILE_INPUT_CONFIG.joystickDeadZone) {
-    state.keys.add('a');
-  } else if (axisX > MOBILE_INPUT_CONFIG.joystickDeadZone) {
-    state.keys.add('d');
-  }
-}
 
 export function beginFloatingJoystick(controls: FloatingJoystickController, x: number, y: number): void {
   controls.dpadCenter = { x, y };
@@ -53,7 +42,6 @@ export function stepMobileInput(controls: FloatingJoystickController, state: Gam
   const axisY = Math.abs(controls.dpadDirection.y) < MOBILE_INPUT_CONFIG.joystickDeadZone ? 0 : controls.dpadDirection.y;
   state.moveInputX = axisX;
   state.moveInputY = axisY;
-  syncMovementKeys(state, axisX);
 }
 
 export function beginShootInput(controls: FloatingJoystickController, state: GameState): void {

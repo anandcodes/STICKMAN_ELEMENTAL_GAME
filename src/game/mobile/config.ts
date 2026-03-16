@@ -1,8 +1,8 @@
 export const MOBILE_INPUT_CONFIG = {
   movementSideRatio: 0.48,
   joystickDeadZone: 0.14,
-  joystickReleaseLerp: 0.18,
-  joystickFollowLerp: 0.34,
+  joystickReleaseLerp: 1.0,
+  joystickFollowLerp: 0.8,
   joystickMaxTravelFactor: 0.12,
   joystickBaseRadiusFactor: 0.105,
   aimSensitivity: 1,

@@ -42,10 +42,10 @@ export function applyPhysics(state: GameState) {
     const prevRight = prevX + s.width;
     const prevTop = prevY;
     const prevBottom = prevY + s.height;
-    const overlapX = currentRight > plat.x + 5 && currentLeft < plat.x + plat.width - 5;
-    const overlapY = currentBottom > plat.y + 5 && currentTop < plat.y + plat.height - 5;
+    const overlapX = currentRight > plat.x + 2 && currentLeft < plat.x + plat.width - 2;
+    const overlapY = currentBottom > plat.y + 2 && currentTop < plat.y + plat.height - 2;
 
-    if (s.vy >= 0 && prevBottom <= plat.y + 6 && currentBottom >= plat.y && overlapX) {
+    if (s.vy >= 0 && prevBottom <= plat.y + 15 && currentBottom >= plat.y && overlapX) {
       s.y = plat.y - s.height;
       s.vy = 0;
       s.onGround = true;
@@ -61,19 +61,19 @@ export function applyPhysics(state: GameState) {
       continue;
     }
 
-    if (s.vy < 0 && prevTop >= plat.y + plat.height - 6 && currentTop <= plat.y + plat.height && overlapX) {
+    if (s.vy < 0 && prevTop >= plat.y + plat.height - 15 && currentTop <= plat.y + plat.height && overlapX) {
       s.y = plat.y + plat.height;
       s.vy = 0;
       continue;
     }
 
-    if (s.vx > 0 && prevRight <= plat.x + 6 && currentRight >= plat.x && overlapY) {
+    if (s.vx > 0 && prevRight <= plat.x + 15 && currentRight >= plat.x && overlapY) {
       s.x = plat.x - s.width;
       s.vx = 0;
       continue;
     }
 
-    if (s.vx < 0 && prevLeft >= plat.x + plat.width - 6 && currentLeft <= plat.x + plat.width && overlapY) {
+    if (s.vx < 0 && prevLeft >= plat.x + plat.width - 15 && currentLeft <= plat.x + plat.width && overlapY) {
       s.x = plat.x + plat.width;
       s.vx = 0;
     }
@@ -90,27 +90,27 @@ export function applyPhysics(state: GameState) {
     const prevRight = prevX + s.width;
     const prevTop = prevY;
     const prevBottom = prevY + s.height;
-    const overlapX = currentRight > obj.x + 5 && currentLeft < obj.x + obj.width - 5;
-    const overlapY = currentBottom > obj.y + 5 && currentTop < obj.y + obj.height - 5;
+    const overlapX = currentRight > obj.x + 2 && currentLeft < obj.x + obj.width - 2;
+    const overlapY = currentBottom > obj.y + 2 && currentTop < obj.y + obj.height - 2;
 
-    if (s.vy >= 0 && prevBottom <= obj.y + 6 && currentBottom >= obj.y && overlapX) {
+    if (s.vy >= 0 && prevBottom <= obj.y + 15 && currentBottom >= obj.y && overlapX) {
       s.y = obj.y - s.height;
       s.vy = 0;
       s.onGround = true;
       s.jumping = false;
       continue;
     }
-    if (s.vy < 0 && prevTop >= obj.y + obj.height - 6 && currentTop <= obj.y + obj.height && overlapX) {
+    if (s.vy < 0 && prevTop >= obj.y + obj.height - 15 && currentTop <= obj.y + obj.height && overlapX) {
       s.y = obj.y + obj.height;
       s.vy = 0;
       continue;
     }
-    if (s.vx > 0 && prevRight <= obj.x + 6 && currentRight >= obj.x && overlapY) {
+    if (s.vx > 0 && prevRight <= obj.x + 15 && currentRight >= obj.x && overlapY) {
       s.x = obj.x - s.width;
       s.vx = 0;
       continue;
     }
-    if (s.vx < 0 && prevLeft >= obj.x + obj.width - 6 && currentLeft <= obj.x + obj.width && overlapY) {
+    if (s.vx < 0 && prevLeft >= obj.x + obj.width - 15 && currentLeft <= obj.x + obj.width && overlapY) {
       s.x = obj.x + obj.width;
       s.vx = 0;
     }
