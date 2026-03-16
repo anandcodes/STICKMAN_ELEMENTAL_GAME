@@ -259,13 +259,27 @@ function App() {
 
 
   useEffect(() => {
+    if (!assetsReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const reportStartupFailure = (message: string) => {
+      queueMicrotask(() => setFatalError(message));
+    };
+    if (!ctx) {
+      reportStartupFailure('Canvas 2D context unavailable');
+      return;
+    }
 
-    initTelemetrySession();
-    containerRef.current?.focus();
+    try {
+      initTelemetrySession();
+      containerRef.current?.focus();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown startup error';
+      trackError(err, { source: 'app_setup' });
+      reportStartupFailure(`Startup failure: ${msg}`);
+      return;
+    }
 
     const handleDialogAdvance = (): boolean => {
       const s = stateRef.current;
@@ -1146,7 +1160,7 @@ function App() {
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
-  }, []);
+  }, [assetsReady]);
 
   if (fatalError) {
     return (
