@@ -323,7 +323,7 @@ function App() {
         const gap = isMobileLayout ? 12 : 30;
         const cols = isMobileLayout ? 1 : 2;
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = isMobileLayout ? 210 : 320;
+        const startY = isMobileLayout ? 282 : 320;
 
         for (let i = 0; i < 4; i++) {
           const col = i % cols;
@@ -1228,11 +1228,17 @@ function App() {
       style={{
         position: 'relative',
         width: '100%',
-        height: '100%',
+        height: '100dvh',
+        minHeight: '100vh',
         backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        boxSizing: 'border-box',
         userSelect: 'none',
         outline: 'none',
         overflow: 'hidden',
