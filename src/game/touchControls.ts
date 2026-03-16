@@ -1,6 +1,6 @@
 import type { GameState } from './types';
 import * as Audio from './audio';
-import { DASH_BASE_COOLDOWN } from './engine';
+import { DASH_BASE_COOLDOWN } from './constants';
 
 export interface TouchControl {
   id: string;
