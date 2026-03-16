@@ -313,6 +313,8 @@ export function update(state: GameState): void {
   if (state.deathAnimTimer > 0) {
     state.keys.clear();
     state.mouseDown = false;
+    state.moveInputX = 0;
+    state.moveInputY = 0;
   }
 
   // Input & Player update

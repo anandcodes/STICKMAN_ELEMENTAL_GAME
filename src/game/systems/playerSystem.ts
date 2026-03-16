@@ -16,23 +16,33 @@ export function handlePlayerInput(state: GameState) {
   const keyboardAxis = (state.keys.has('d') || state.keys.has('arrowright') ? 1 : 0)
     - (state.keys.has('a') || state.keys.has('arrowleft') ? 1 : 0);
   const moveAxis = keyboardAxis !== 0 ? keyboardAxis : state.moveInputX;
-  const targetVx = moveAxis * MOVE_SPEED * (0.7 + Math.abs(moveAxis) * 0.3);
 
-  if (moveAxis < -0.08) {
+  // Dead-zone: ignore tiny floating-point residue from joystick
+  const effectiveAxis = Math.abs(moveAxis) < 0.08 ? 0 : moveAxis;
+
+  if (effectiveAxis < 0) {
     s.facing = -1;
     s.walking = true;
   }
-  if (moveAxis > 0.08) {
+  if (effectiveAxis > 0) {
     s.facing = 1;
     s.walking = true;
   }
 
   if (s.walking) {
-    if (targetVx > 0 && s.vx < MAX_SPEED) {
-      s.vx = Math.min(MAX_SPEED, s.vx + targetVx);
-    } else if (targetVx < 0 && s.vx > -MAX_SPEED) {
-      s.vx = Math.max(-MAX_SPEED, s.vx + targetVx);
+    // Target-based velocity: smoothly accelerate toward desired speed
+    const targetVx = effectiveAxis * MAX_SPEED;
+    const accel = MOVE_SPEED * (0.7 + Math.abs(effectiveAxis) * 0.3);
+    if (targetVx > s.vx) {
+      s.vx = Math.min(targetVx, s.vx + accel);
+    } else if (targetVx < s.vx) {
+      s.vx = Math.max(targetVx, s.vx - accel);
     }
+  } else if (!s.isDashing) {
+    // No input: apply friction even in the air to prevent drift
+    const airFriction = s.onGround ? 0.82 : 0.95;
+    s.vx *= airFriction;
+    if (Math.abs(s.vx) < 0.15) s.vx = 0;
   }
 
   // Jump buffering

@@ -12,10 +12,10 @@ export function applyPhysics(state: GameState) {
     s.vy += GRAVITY;
   }
 
-  // Apply friction
-  if (!s.walking && s.onGround) {
+  // Apply ground friction as safety net (primary deceleration is in playerSystem)
+  if (!s.walking && s.onGround && !s.isDashing) {
     s.vx *= FRICTION;
-    if (Math.abs(s.vx) < 0.1) s.vx = 0;
+    if (Math.abs(s.vx) < 0.15) s.vx = 0;
   }
 
   // Update position
