@@ -280,12 +280,14 @@ function drawMenuCard(
   ctx.restore();
 
   ctx.textAlign = 'left';
+  const titleY = y + h / 2 - 6;
+  const subtitleY = y + h / 2 + 16;
   ctx.fillStyle = '#f3ead6';
   setUiFont(ctx, state, 18, '800');
-  ctx.fillText(title, x + 70, y + 38);
+  ctx.fillText(title, x + 70, titleY);
   ctx.fillStyle = '#d6c49e';
   setUiFont(ctx, state, 12, '600');
-  ctx.fillText(subtitle, x + 70, y + 62);
+  ctx.fillText(subtitle, x + 70, subtitleY);
   ctx.restore();
 }
 
@@ -590,44 +592,57 @@ function drawMenuScreen(
   }
   ctx.restore();
 
-  // Logo
+  const statsH = 56;
+  const statsY = 18;
+  const statsW = Math.min(W - 60, 720);
+  const statsX = W / 2 - statsW / 2;
+  drawStoneHudPanel(ctx, statsX, statsY, statsW, statsH, '#ffd06a');
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f3ead6';
+  setUiFont(ctx, state, 15, '800');
+  const statsCol = statsW / 3;
+  ctx.fillText(`BEST: ${state.highScore}`, statsX + statsCol * 0.5, statsY + 34);
+  ctx.fillText(`GEMS: ${state.gemsCurrency}`, statsX + statsCol * 1.5, statsY + 34);
+  ctx.fillText(`FURTHEST: ${Math.max(1, state.furthestLevel + 1)} / ${state.totalLevels}`, statsX + statsCol * 2.5, statsY + 34);
+
   const logo = assetLoader.getAsset('logo');
+  const logoMaxH = H * 0.25;
+  const logoMaxW = Math.min(W * 0.7, 720);
+  let logoH = Math.min(logoMaxH, 160);
+  const logoY = statsY + statsH + 18;
   if (logo?.complete && logo.naturalWidth > 0) {
-    const lw = Math.min(logo.naturalWidth, W * 0.55);
-    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, W / 2 - lw / 2, 40, lw, lh);
+    const scale = Math.min(logoMaxW / logo.naturalWidth, logoMaxH / logo.naturalHeight);
+    const lw = logo.naturalWidth * scale;
+    logoH = logo.naturalHeight * scale;
+    ctx.drawImage(logo, W / 2 - lw / 2, logoY, lw, logoH);
   }
 
-  // Stats stone tablet
-  const statsW = isMobile ? W - 40 : 320;
-  const statsH = 120;
-  const statsX = isMobile ? 20 : 24;
-  const statsY = 40;
-  drawStoneHudPanel(ctx, statsX, statsY, statsW, statsH, '#ffd06a');
-  ctx.fillStyle = '#f3ead6';
-  setUiFont(ctx, state, 16, '800');
-  ctx.textAlign = 'left';
-  ctx.fillText(`BEST SCORE: ${state.highScore}`, statsX + 16, statsY + 32);
-  ctx.fillText(`GEMS: ${state.gemsCurrency}`, statsX + 16, statsY + 58);
-  ctx.fillText(`FURTHEST: ${Math.max(1, state.furthestLevel + 1)} / ${state.totalLevels}`, statsX + 16, statsY + 84);
-
   const diffConfig = DIFFICULTY_SETTINGS[state.difficulty];
-  const toggleW = 260;
+  const toggleW = Math.min(280, W - 80);
   const toggleH = 52;
   const toggleX = W / 2 - toggleW / 2;
-  const toggleY = statsY + statsH + 20;
+  const toggleY = logoY + logoH + 12;
   ctx.save();
-  const bronze = ctx.createLinearGradient(toggleX, toggleY, toggleX, toggleY + toggleH);
-  bronze.addColorStop(0, '#6c4c2a'); bronze.addColorStop(1, '#a67c46');
-  ctx.fillStyle = bronze;
+  const toggleStone = ctx.createLinearGradient(toggleX, toggleY, toggleX, toggleY + toggleH);
+  toggleStone.addColorStop(0, '#2b2621');
+  toggleStone.addColorStop(1, '#161311');
+  ctx.fillStyle = toggleStone;
   roundRect(ctx, toggleX, toggleY, toggleW, toggleH, 18);
   ctx.fill();
-  ctx.strokeStyle = diffConfig.color;
+  const bronze = ctx.createLinearGradient(toggleX, toggleY, toggleX, toggleY + toggleH);
+  bronze.addColorStop(0, '#7c5a2e');
+  bronze.addColorStop(1, '#c59852');
+  ctx.strokeStyle = bronze;
   ctx.lineWidth = 3;
-  ctx.strokeRect(toggleX + 6, toggleY + 6, toggleW - 12, toggleH - 12);
-  ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(toggleX + 20, toggleY + toggleH / 2, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#9ae6de'; ctx.beginPath(); ctx.arc(toggleX + toggleW - 20, toggleY + toggleH / 2, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#0f0c10';
+  roundRect(ctx, toggleX, toggleY, toggleW, toggleH, 18);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 214, 120, 0.35)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, toggleX + 5, toggleY + 5, toggleW - 10, toggleH - 10, 14);
+  ctx.stroke();
+  ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(toggleX + 20, toggleY + toggleH / 2, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9ae6de'; ctx.beginPath(); ctx.arc(toggleX + toggleW - 20, toggleY + toggleH / 2, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f3ead6';
   setUiFont(ctx, state, 16, '800');
   ctx.textAlign = 'center';
   ctx.fillText(`DIFFICULTY: ${diffConfig.label.toUpperCase()}`, toggleX + toggleW / 2, toggleY + 33);
@@ -636,10 +651,10 @@ function drawMenuScreen(
   const isMobileLayout = compactMobileLayout;
   const cardW = isMobileLayout ? W - 60 : 280;
   const cardH = isMobileLayout ? 85 : 120;
-  const gap = isMobileLayout ? 12 : 30;
+  const gap = isMobileLayout ? 15 : 24;
   const cols = isMobileLayout ? 1 : 2;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
+  const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
   const menuCards = [
     { title: tr(state, 'menu_campaign'), subtitle: tr(state, 'menu_campaign_subtitle'), color: ELEMENT_COLORS.fire, icon: 'map', active: state.selectedMenuButton === 0 },
     { title: tr(state, 'menu_wave'), subtitle: tr(state, 'menu_wave_subtitle'), color: ELEMENT_COLORS.wind, icon: 'swords', active: state.selectedMenuButton === 1 },

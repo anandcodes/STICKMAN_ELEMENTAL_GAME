@@ -373,11 +373,22 @@ function App() {
         const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W - 60 : 280;
         const cardH = isMobileLayout ? 85 : 120;
-        const gap = isMobileLayout ? 12 : 30;
+        const gap = isMobileLayout ? 15 : 24;
         const cols = isMobileLayout ? 1 : 2;
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const toggleY = 40 + 120 + 20;
-        const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
+        const statsY = 18;
+        const statsH = 56;
+        const logo = assetLoader.getAsset('logo');
+        const logoMaxH = CANVAS_H * 0.25;
+        const logoMaxW = Math.min(CANVAS_W * 0.7, 720);
+        const logoScale = logo?.complete && logo.naturalWidth > 0
+          ? Math.min(logoMaxW / logo.naturalWidth, logoMaxH / logo.naturalHeight)
+          : 0;
+        const logoH = logoScale > 0 ? logo.naturalHeight * logoScale : Math.min(logoMaxH, 160);
+        const logoY = statsY + statsH + 18;
+        const toggleH = 52;
+        const toggleY = logoY + logoH + 12;
+        const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
 
         for (let i = 0; i < 4; i++) {
           const col = i % cols;
@@ -1288,7 +1299,7 @@ function App() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
@@ -1337,68 +1348,81 @@ function App() {
         </button>
       )}
       {menuOverlay.visible && (
-        <div
-          className="menu-overlay"
-          style={{
-            width: Math.floor(canvasWidth * canvasScale),
-            height: Math.floor(CANVAS_H * canvasScale),
-          }}
-        >
-          {(() => {
-            const isMobileLayout = isCompactMobileLayout();
-            const cardW = isMobileLayout ? canvasWidth - 60 : 280;
-            const cardH = isMobileLayout ? 85 : 120;
-            const gap = isMobileLayout ? 12 : 30;
-            const cols = isMobileLayout ? 1 : 2;
-            const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-            const toggleY = 40 + 120 + 20;
-            const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
-            const cards = [
-              { key: 'campaign', index: 0 },
-              { key: 'survival', index: 1 },
-              { key: 'shop', index: 2 },
-              { key: 'daily', index: 3 },
-            ];
-            return cards.map(({ key, index }) => {
-              const col = index % cols;
-              const row = Math.floor(index / cols);
-              const x = startX + col * (cardW + gap);
-              const y = startY + row * (cardH + gap);
-              return (
-                <div
-                  key={key}
-                  className="menu-card menu-stone"
-                  data-active={menuOverlay.selected === index}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={key}
-                  onPointerEnter={() => setMenuSelection(index)}
-                  onFocus={() => setMenuSelection(index)}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    setMenuSelection(index);
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleMenuCardActivate(index);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
+        <div className="menu-overlay">
+          <div
+            className="menu-overlay-inner"
+            style={{
+              width: Math.floor(canvasWidth * canvasScale),
+              height: Math.floor(CANVAS_H * canvasScale),
+            }}
+          >
+            {(() => {
+              const isMobileLayout = isCompactMobileLayout();
+              const cardW = isMobileLayout ? canvasWidth - 60 : 280;
+              const cardH = isMobileLayout ? 85 : 120;
+              const gap = isMobileLayout ? 15 : 24;
+              const cols = isMobileLayout ? 1 : 2;
+              const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+              const statsY = 18;
+              const statsH = 56;
+              const logo = assetLoader.getAsset('logo');
+              const logoMaxH = CANVAS_H * 0.25;
+              const logoMaxW = canvasWidth * 0.7;
+              const logoScale = logo?.complete && logo.naturalWidth > 0
+                ? Math.min(logoMaxW / logo.naturalWidth, logoMaxH / logo.naturalHeight)
+                : 0;
+              const logoH = logoScale > 0 ? logo.naturalHeight * logoScale : Math.min(logoMaxH, 160);
+              const logoY = statsY + statsH + 18;
+              const toggleH = 52;
+              const toggleY = logoY + logoH + 12;
+              const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
+              const cards = [
+                { key: 'campaign', index: 0 },
+                { key: 'survival', index: 1 },
+                { key: 'shop', index: 2 },
+                { key: 'daily', index: 3 },
+              ];
+              return cards.map(({ key, index }) => {
+                const col = index % cols;
+                const row = Math.floor(index / cols);
+                const x = startX + col * (cardW + gap);
+                const y = startY + row * (cardH + gap);
+                return (
+                  <div
+                    key={key}
+                    className="menu-card menu-stone"
+                    data-active={menuOverlay.selected === index}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={key}
+                    onPointerEnter={() => setMenuSelection(index)}
+                    onFocus={() => setMenuSelection(index)}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setMenuSelection(index);
+                    }}
+                    onClick={(event) => {
                       event.preventDefault();
+                      event.stopPropagation();
                       handleMenuCardActivate(index);
-                    }
-                  }}
-                  style={{
-                    left: x * canvasScale,
-                    top: y * canvasScale,
-                    width: cardW * canvasScale,
-                    height: cardH * canvasScale,
-                  }}
-                />
-              );
-            });
-          })()}
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleMenuCardActivate(index);
+                      }
+                    }}
+                    style={{
+                      left: x * canvasScale,
+                      top: y * canvasScale,
+                      width: cardW * canvasScale,
+                      height: cardH * canvasScale,
+                    }}
+                  />
+                );
+              });
+            })()}
+          </div>
         </div>
       )}
       <canvas
