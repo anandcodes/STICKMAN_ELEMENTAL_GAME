@@ -42,12 +42,31 @@ export function drawWorld(
     ctx.fill();
   }
 
-  // Moon
+  // Moon (Crescent Shape)
   const moonX = 900 - cam.x * 0.05;
-  ctx.fillStyle = 'rgba(255, 255, 220, 0.15)';
-  ctx.beginPath(); ctx.arc(moonX, 80, 60, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255, 255, 220, 0.8)';
-  ctx.beginPath(); ctx.arc(moonX, 80, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(moonX, 80);
+  
+  // Moon Glow
+  const moonGlow = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+  moonGlow.addColorStop(0, 'rgba(255, 255, 220, 0.15)');
+  moonGlow.addColorStop(1, 'rgba(255, 255, 220, 0)');
+  ctx.fillStyle = moonGlow;
+  ctx.beginPath(); ctx.arc(0, 0, 70, 0, Math.PI * 2); ctx.fill();
+
+  // Crescent
+  ctx.rotate(-Math.PI * 0.15);
+  ctx.fillStyle = 'rgba(255, 255, 220, 0.95)';
+  ctx.beginPath();
+  ctx.arc(0, 0, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cutout for Crescent
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(10, -5, 28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   drawMountains(ctx, cam.x, W, H, state);
 
@@ -169,6 +188,14 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
       ctx.fillStyle = iGrad;
       roundRect(ctx, p.x, p.y, p.width, p.height, 4); ctx.fill();
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+    } else if (p.type === 'earth') {
+      const eGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+      eGrad.addColorStop(0, '#5a4d3a'); eGrad.addColorStop(1, '#3e3422');
+      ctx.fillStyle = eGrad;
+      roundRect(ctx, p.x, p.y, p.width, p.height, 4); ctx.fill();
+      // Add some rock cracks
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p.x + 10, p.y + 5); ctx.lineTo(p.x + 25, p.y + 12); ctx.stroke();
     } else {
       ctx.fillStyle = '#555';
       roundRect(ctx, p.x, p.y, p.width, p.height, 4); ctx.fill();
@@ -492,6 +519,205 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: EnvObject, state: Gam
       }
       break;
     }
+    case 'fire_pit': {
+      const active = obj.state === 'burning';
+      const grad = ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height);
+      grad.addColorStop(0, '#552211'); grad.addColorStop(1, '#221100');
+      ctx.fillStyle = grad;
+      ctx.fillRect(obj.x, obj.y + 10, obj.width, obj.height - 10);
+      
+      if (active) {
+        // Lava/Fire Surface
+        ctx.fillStyle = '#ff4400';
+        ctx.fillRect(obj.x + 4, obj.y + 5, obj.width - 8, 10);
+        
+        // Flames
+        const now = performance.now();
+        ctx.save();
+        ctx.shadowColor = '#ff6600';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff8800';
+        for (let i = 0; i < 4; i++) {
+          const fx = obj.x + 10 + i * (obj.width / 4);
+          const fh = 15 + Math.sin(now * 0.01 + i) * 8;
+          ctx.beginPath();
+          ctx.moveTo(fx, obj.y + 10);
+          ctx.lineTo(fx + 5, obj.y + 10 - fh);
+          ctx.lineTo(fx + 10, obj.y + 10);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      break;
+    }
+    case 'spike': {
+      ctx.fillStyle = '#444c5a';
+      const spikeW = 15;
+      const count = Math.ceil(obj.width / spikeW);
+      for (let i = 0; i < count; i++) {
+        const sx = obj.x + i * spikeW;
+        ctx.beginPath();
+        ctx.moveTo(sx, obj.y + obj.height);
+        ctx.lineTo(sx + spikeW / 2, obj.y);
+        ctx.lineTo(sx + spikeW, obj.y + obj.height);
+        ctx.fill();
+        // Highlight
+        ctx.strokeStyle = '#6a788d';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx + spikeW / 2, obj.y);
+        ctx.lineTo(sx + spikeW, obj.y + obj.height);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'rock': {
+      ctx.save();
+      ctx.translate(cx, cy);
+      const r = obj.width / 2;
+      // Irregular rock shape
+      ctx.fillStyle = '#4a3d35';
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI * 2 * i) / 8;
+        const dist = r * (0.8 + Math.sin(i * 1.5) * 0.2);
+        const px = Math.cos(angle) * dist;
+        const py = Math.sin(angle) * dist;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Cracks/Texture
+      ctx.strokeStyle = '#322822';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.4, -r * 0.2);
+      ctx.lineTo(r * 0.2, r * 0.3);
+      ctx.stroke();
+      ctx.restore();
+      break;
+    }
+    case 'wind_zone': {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.setLineDash([20, 40]);
+      ctx.lineWidth = 1;
+      const speed = (obj.windDirection || 0) * (obj.windStrength || 1) * 5;
+      const offset = (performance.now() * 0.1 * speed) % 60;
+      for (let i = 0; i < 5; i++) {
+        const rowY = obj.y + (i + 0.5) * (obj.height / 5);
+        ctx.beginPath();
+        ctx.moveTo(obj.x, rowY);
+        ctx.lineTo(obj.x + obj.width, rowY);
+        ctx.lineDashOffset = -offset - i * 15;
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'water_current': {
+       const grad = ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height);
+       grad.addColorStop(0, 'rgba(0, 100, 255, 0.15)');
+       grad.addColorStop(1, 'rgba(0, 100, 255, 0.05)');
+       ctx.fillStyle = grad;
+       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+       
+       // Surface bubbles/ripples
+       ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+       const speed = obj.currentSpeed || 1;
+       const offset = (performance.now() * 0.05 * speed) % 40;
+       for (let i = 0; i < obj.width / 30; i++) {
+         const bx = obj.x + (i * 30 + offset) % obj.width;
+         ctx.beginPath();
+         ctx.arc(bx, obj.y + 2, 2, 0, Math.PI * 2);
+         ctx.fill();
+       }
+       }
+       break;
+    case 'puddle': {
+      ctx.fillStyle = 'rgba(0, 100, 255, 0.4)';
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 5);
+      ctx.fill();
+      break;
+    }
+    case 'mud_trap': {
+      const grad = ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height);
+      grad.addColorStop(0, '#4b3c2a'); grad.addColorStop(1, '#2a1f12');
+      ctx.fillStyle = grad;
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 8);
+      ctx.fill();
+      // Mud bubbles
+      const now = performance.now() * 0.002;
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      for (let i = 0; i < 3; i++) {
+        const bx = obj.x + 20 + i * (obj.width / 4) + Math.sin(now + i) * 10;
+        const br = 4 + Math.sin(now * 2 + i) * 2;
+        ctx.beginPath(); ctx.arc(bx, obj.y + 5, br, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'magma_pool': {
+      const now = performance.now();
+      const pulse = Math.sin(now * 0.003) * 0.2 + 0.8;
+      ctx.save();
+      ctx.shadowColor = '#ff4400';
+      ctx.shadowBlur = 15;
+      const grad = ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height);
+      grad.addColorStop(0, '#ff4400'); grad.addColorStop(1, '#aa2200');
+      ctx.fillStyle = grad;
+      roundRect(ctx, obj.x, obj.y, obj.width, obj.height, 5);
+      ctx.fill();
+      
+      ctx.fillStyle = `rgba(255, 200, 0, ${0.3 * pulse})`;
+      for (let i = 0; i < 4; i++) {
+        const bx = obj.x + 10 + i * 30 + Math.sin(now * 0.005 + i) * 10;
+        ctx.beginPath(); ctx.arc(bx, obj.y + 10, 6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'steam_cloud': {
+      const now = performance.now() * 0.001;
+      ctx.save();
+      ctx.globalAlpha = 0.4 + Math.sin(now) * 0.1;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 5; i++) {
+        const sx = cx + Math.cos(now + i) * 30;
+        const sy = cy + Math.sin(now * 1.5 + i) * 20;
+        ctx.beginPath(); ctx.arc(sx, sy, 30, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'dust_devil': {
+      const now = performance.now() * 0.01;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(180, 160, 120, 0.6)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const r = 10 + i * 8;
+        const offset = Math.sin(now + i * 0.5) * 15;
+        ctx.beginPath();
+        ctx.ellipse(cx + offset, obj.y + obj.height - i * 15, r, r * 0.4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'synergy_zone': {
+      const now = performance.now() * 0.005;
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, obj.width / 2);
+      grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+      grad.addColorStop(0.5, `hsl(${now % 360}, 70%, 50%)`);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(cx, cy, (obj.width / 2) * (0.9 + Math.sin(now) * 0.1), 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      break;
+    }
     // Add other cases as needed or use a default
     default: {
       ctx.fillStyle = '#777';
@@ -518,7 +744,21 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, nowMs:
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; ctx.beginPath(); ctx.arc(p.x - p.size * 0.3, p.y - p.size * 0.3, p.size * 0.3, 0, Math.PI * 2); ctx.fill();
     } else if (p.element === 'earth') {
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(t * (p.vx > 0 ? 1.5 : -1.5));
-      ctx.fillStyle = '#3e3422'; ctx.beginPath(); ctx.arc(0, 0, p.size, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3e3422';
+      // Rock shape for projectile
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI * 2 * i) / 6;
+        const dist = p.size * (0.8 + Math.sin(i * 2) * 0.2);
+        const px = Math.cos(angle) * dist;
+        const py = Math.sin(angle) * dist;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // Highlight side
+      ctx.fillStyle = '#5a4d3a';
+      ctx.beginPath(); ctx.arc(-p.size * 0.2, -p.size * 0.2, p.size * 0.3, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     } else if (p.element === 'wind') {
       ctx.strokeStyle = 'rgba(220, 240, 255, 0.8)'; ctx.lineWidth = 2;
