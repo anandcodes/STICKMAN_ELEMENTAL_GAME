@@ -1,5 +1,15 @@
 <svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="80" cy="80" r="64" fill="#ffffff" fill-opacity="0.08"/>
-  <path d="M44 38L120 80L44 122L58 88L44 38Z" fill="#f8fbff"/>
-  <path d="M58 72H98V88H58Z" fill="#ff9a56"/>
+  <defs>
+    <linearGradient id="bow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c99a5d"/>
+      <stop offset="100%" stop-color="#7a532a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(214,184,126,0.78)" stroke-width="6"/>
+  <path d="M48 32 Q30 80 48 128" fill="none" stroke="url(#bow)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M76 32 Q94 80 76 128" fill="none" stroke="url(#bow)" stroke-width="10" stroke-linecap="round"/>
+  <line x1="48" y1="36" x2="76" y2="36" stroke="#e8dfcf" stroke-width="4" stroke-linecap="round"/>
+  <line x1="48" y1="124" x2="76" y2="124" stroke="#e8dfcf" stroke-width="4" stroke-linecap="round"/>
+  <path d="M76 80 L114 80" stroke="#e8dfcf" stroke-width="6" stroke-linecap="round"/>
+  <path d="M114 80 L100 70 L100 90 Z" fill="#e8dfcf"/>
 </svg>

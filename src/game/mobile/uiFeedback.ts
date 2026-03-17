@@ -8,8 +8,8 @@ function drawGlyph(ctx: CanvasRenderingContext2D, image: HTMLImageElement | unde
     return;
   }
 
-  ctx.fillStyle = '#f4fbff';
-  ctx.font = `700 ${Math.round(size * 0.46)}px "Rajdhani", sans-serif`;
+  ctx.fillStyle = '#f4ead8';
+  ctx.font = `700 ${Math.round(size * 0.46)}px "Cormorant Garamond", serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(fallback, x, y);
@@ -23,50 +23,99 @@ export function drawFloatingJoystick(
   radius: number,
   active: boolean,
 ): void {
-  const alpha = active ? 0.88 : 0.42;
+  const alpha = active ? 0.94 : 0.52;
   const base = assets.joystickBase;
   const knob = assets.joystickKnob;
-  const knobX = center.x + vector.x * radius * 0.72;
-  const knobY = center.y + vector.y * radius * 0.72;
+  const tilt = Math.min(1, Math.sqrt(vector.x * vector.x + vector.y * vector.y));
+  const knobX = center.x + vector.x * radius * 0.68;
+  const knobY = center.y + vector.y * radius * 0.68;
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.shadowColor = active ? 'rgba(96, 212, 255, 0.55)' : 'rgba(6, 18, 34, 0.3)';
-  ctx.shadowBlur = active ? 22 : 10;
+  ctx.shadowColor = active ? 'rgba(184, 255, 214, 0.55)' : 'rgba(6, 12, 18, 0.28)';
+  ctx.shadowBlur = active ? 26 : 12;
 
   if (base && base.complete && base.naturalWidth > 0) {
     const size = radius * 2.25;
     ctx.drawImage(base, center.x - size / 2, center.y - size / 2, size, size);
   } else {
-    const ring = ctx.createRadialGradient(center.x, center.y, radius * 0.1, center.x, center.y, radius * 1.1);
-    ring.addColorStop(0, 'rgba(147, 215, 255, 0.22)');
-    ring.addColorStop(1, 'rgba(15, 28, 48, 0.78)');
+    // Stone dial with rune etchings and gem sockets
+    const ring = ctx.createRadialGradient(center.x, center.y, radius * 0.2, center.x, center.y, radius * 1.08);
+    ring.addColorStop(0, '#353434');
+    ring.addColorStop(0.55, '#2c2a2f');
+    ring.addColorStop(1, '#1a1a1f');
     ctx.fillStyle = ring;
-    ctx.beginPath();
-    ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(205, 238, 255, 0.5)';
+    ctx.beginPath(); ctx.arc(center.x, center.y, radius * 1.02, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(186, 214, 209, 0.35)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(center.x, center.y, radius * 1.08, 0, Math.PI * 2); ctx.stroke();
+
+    // Rune scratches
+    ctx.strokeStyle = 'rgba(120, 190, 190, 0.2)';
     ctx.lineWidth = 2;
-    ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI * 2 * i) / 6;
+      const sx = center.x + Math.cos(a) * radius * 0.4;
+      const sy = center.y + Math.sin(a) * radius * 0.4;
+      const ex = center.x + Math.cos(a) * radius * 0.75;
+      const ey = center.y + Math.sin(a) * radius * 0.75;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    }
+
+    // Gem sockets
+    const gemColors = ['#f5f3e4', '#ff5f2d', '#6bc8ff', '#9b6b3d'];
+    for (let i = 0; i < 4; i++) {
+      const a = -Math.PI / 2 + (Math.PI / 2) * i;
+      const gx = center.x + Math.cos(a) * radius * 0.9;
+      const gy = center.y + Math.sin(a) * radius * 0.9;
+      const g = ctx.createRadialGradient(gx, gy, 1, gx, gy, radius * 0.18);
+      g.addColorStop(0, '#fefdf8');
+      g.addColorStop(0.4, gemColors[i]);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(gx, gy, radius * 0.16, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(gx, gy, radius * 0.16, 0, Math.PI * 2); ctx.stroke();
+    }
   }
 
   ctx.restore();
 
   ctx.save();
-  ctx.globalAlpha = active ? 0.95 : 0.78;
-  ctx.shadowColor = 'rgba(255,255,255,0.28)';
-  ctx.shadowBlur = 12;
+  ctx.globalAlpha = active ? 0.98 : 0.82;
+  ctx.shadowColor = 'rgba(255,230,160,0.32)';
+  ctx.shadowBlur = active ? 18 + tilt * 6 : 10 + tilt * 4;
   if (knob && knob.complete && knob.naturalWidth > 0) {
     const size = radius * 1.18;
     ctx.drawImage(knob, knobX - size / 2, knobY - size / 2, size, size);
   } else {
-    const grad = ctx.createRadialGradient(knobX, knobY - radius * 0.14, radius * 0.1, knobX, knobY, radius * 0.46);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(1, '#73d4ff');
-    ctx.fillStyle = grad;
+    // Bronze lever with a simplified dragon-like silhouette
+    ctx.save();
+    ctx.translate(knobX, knobY);
+    ctx.rotate(Math.atan2(vector.y, vector.x || 0.01) + Math.PI / 2);
+    const bodyGrad = ctx.createLinearGradient(0, -radius * 0.8, 0, radius * 0.2);
+    bodyGrad.addColorStop(0, '#7f5326');
+    bodyGrad.addColorStop(1, '#c28a3f');
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.arc(knobX, knobY, radius * 0.42, 0, Math.PI * 2);
+    ctx.moveTo(0, -radius * 0.8);
+    ctx.quadraticCurveTo(radius * 0.22, -radius * 0.25, radius * 0.14, radius * 0.15);
+    ctx.lineTo(-radius * 0.14, radius * 0.15);
+    ctx.quadraticCurveTo(-radius * 0.22, -radius * 0.25, 0, -radius * 0.8);
+    ctx.closePath();
     ctx.fill();
+
+    // Dragon crest
+    ctx.fillStyle = '#e9d3a3';
+    ctx.beginPath();
+    ctx.moveTo(0, -radius * 0.78);
+    ctx.lineTo(radius * 0.16, -radius * 0.62);
+    ctx.lineTo(0, -radius * 0.55);
+    ctx.lineTo(-radius * 0.16, -radius * 0.62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -84,7 +133,7 @@ export function drawActionButton(
     active?: boolean;
     disabled?: boolean;
     cooldownProgress?: number;
-    glow?: number;
+  glow?: number;
   },
 ): void {
   const {
@@ -93,40 +142,54 @@ export function drawActionButton(
   } = opts;
 
   ctx.save();
-  ctx.globalAlpha = disabled ? 0.48 : active ? 0.98 : 0.88;
-  ctx.shadowColor = active ? color : 'rgba(11, 27, 44, 0.4)';
-  ctx.shadowBlur = active ? 20 : 10 + glow * 10;
+  const scale = active ? 0.95 : 1;
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.translate(-x, -y);
 
-  const fill = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
-  fill.addColorStop(0, disabled ? 'rgba(70, 79, 94, 0.92)' : 'rgba(18, 34, 58, 0.94)');
-  fill.addColorStop(1, disabled ? 'rgba(40, 45, 56, 0.92)' : 'rgba(10, 18, 31, 0.98)');
-  ctx.fillStyle = fill;
+  ctx.globalAlpha = disabled ? 0.48 : active ? 0.98 : 0.9;
+  ctx.shadowColor = active ? color : 'rgba(32, 24, 14, 0.55)';
+  ctx.shadowBlur = active ? 22 : 14 + glow * 10;
+
+  // Stone base
+  const stone = ctx.createRadialGradient(x - radius * 0.2, y - radius * 0.2, radius * 0.2, x, y, radius * 1.1);
+  stone.addColorStop(0, '#2f2a26');
+  stone.addColorStop(1, '#141312');
+  ctx.fillStyle = stone;
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+
+  // Bronze ring
+  const bronze = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
+  bronze.addColorStop(0, '#7c5a2e');
+  bronze.addColorStop(1, '#c59852');
+  ctx.strokeStyle = disabled ? 'rgba(124, 90, 46, 0.45)' : bronze;
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(x, y, radius - 2, 0, Math.PI * 2); ctx.stroke();
+
+  // Rune scratch
+  ctx.strokeStyle = 'rgba(224, 212, 184, 0.22)';
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = disabled ? 'rgba(185, 199, 214, 0.18)' : color;
-  ctx.lineWidth = 2.5;
+  ctx.arc(x, y, radius * 0.64, Math.PI * 0.25, Math.PI * 1.4);
   ctx.stroke();
 
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.arc(x, y, radius - 6, Math.PI * 1.08, Math.PI * 1.82);
-  ctx.stroke();
+  if (active) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.arc(x, y, radius - 1, 0, Math.PI * 2); ctx.fill();
+  }
 
-  drawGlyph(ctx, iconKey ? assets[iconKey] : undefined, x, y, radius * 1.05, fallbackLabel);
+  drawGlyph(ctx, iconKey ? assets[iconKey] : undefined, x, y, radius * 1.02, fallbackLabel);
 
   if (cooldownProgress < 1) {
-    ctx.fillStyle = 'rgba(3, 8, 16, 0.64)';
+    ctx.fillStyle = 'rgba(5, 5, 8, 0.68)';
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.arc(x, y, radius + 1, -Math.PI / 2, -Math.PI / 2 + (1 - cooldownProgress) * Math.PI * 2, false);
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(110, 239, 194, 0.9)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(154, 225, 214, 0.95)';
+    ctx.lineWidth = 3.2;
     ctx.beginPath();
     ctx.arc(x, y, radius + 3, -Math.PI / 2, -Math.PI / 2 + cooldownProgress * Math.PI * 2);
     ctx.stroke();
@@ -146,13 +209,19 @@ export function drawAimPad(
   assistWeight: number,
 ): void {
   ctx.save();
-  ctx.globalAlpha = active ? 0.92 : 0.26;
+  ctx.globalAlpha = active ? 0.9 : 0.32;
+
+  // Outer runic circle
+  const rune = ctx.createRadialGradient(center.x, center.y, radius * 0.4, center.x, center.y, radius * 1.05);
+  rune.addColorStop(0, 'rgba(255, 235, 198, 0.14)');
+  rune.addColorStop(1, 'rgba(126, 229, 222, 0.18)');
+  ctx.fillStyle = rune;
+  ctx.beginPath(); ctx.arc(center.x, center.y, radius * 1.08, 0, Math.PI * 2); ctx.fill();
+
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 8]);
-  ctx.beginPath();
-  ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.lineWidth = 2.4;
+  ctx.setLineDash([12, 9]);
+  ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([]);
 
   const dx = current.x - center.x;
@@ -182,13 +251,14 @@ export function drawAbilitySlot(
   radius: number,
 ): void {
   ctx.save();
-  ctx.globalAlpha = 0.34;
-  ctx.fillStyle = 'rgba(10, 18, 32, 0.82)';
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(140, 187, 214, 0.28)';
-  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.42;
+  const stone = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
+  stone.addColorStop(0, '#2c2925');
+  stone.addColorStop(1, '#1a1816');
+  ctx.fillStyle = stone;
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(166, 214, 210, 0.35)';
+  ctx.lineWidth = 1.6;
   ctx.stroke();
   drawGlyph(ctx, assets.abilitySlot, x, y, radius * 0.96, '.');
   ctx.restore();

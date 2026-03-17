@@ -1,3 +1,12 @@
 <svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
-  <path d="M80 32L122 82H95V128H65V82H38L80 32Z" fill="#f5fbff"/>
+  <defs>
+    <linearGradient id="wing" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8dfcf"/>
+      <stop offset="100%" stop-color="#b7a489"/>
+    </linearGradient>
+  </defs>
+  <circle cx="80" cy="80" r="68" fill="none" stroke="rgba(214,184,126,0.78)" stroke-width="6"/>
+  <path d="M34 84 C46 64 64 54 84 54 L84 72 C70 72 58 80 54 92 Z" fill="url(#wing)" stroke="#e8dfcf" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M126 84 C114 64 96 54 76 54 L76 72 C90 72 102 80 106 92 Z" fill="url(#wing)" stroke="#e8dfcf" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M80 70 L80 108" stroke="#e8dfcf" stroke-width="5" stroke-linecap="round"/>
 </svg>

@@ -187,6 +187,13 @@ export function createInitialState(
     relicChoices: [],
     trialActive: false,
     shockwaves: [],
+    ultimateReady: false,
+    ultimateTrigger: false,
+    elementMastery: {},
+    slowmoTimer: 0,
+    slowmoFactor: 1,
+    ultimateHintShown: false,
+    bossDefeated: false,
   };
 }
 
@@ -257,6 +264,44 @@ function spawnProjectile(state: GameState) {
     s.vx -= vx * 2;
     s.vy -= vy * 2;
   }
+
+  // Track favorite element usage
+  state.elementUsage = state.elementUsage || { fire: 0, water: 0, earth: 0, wind: 0 };
+  state.elementUsage[state.selectedElement] = (state.elementUsage[state.selectedElement] || 0) + 1;
+}
+
+function triggerElementalBurst(state: GameState) {
+  const s = state.stickman;
+  const burstElement = state.selectedElement;
+  const cx = s.x + s.width / 2;
+  const cy = s.y + s.height / 2;
+  spawnParticles(state, cx, cy, burstElement, 40);
+  state.shockwaves.push({ x: cx, y: cy, radius: 40, life: 18, color: '#ffe0b3' });
+  for (const enemy of state.enemies) {
+    if (enemy.state !== 'dead') {
+      enemy.health = 0;
+      enemy.state = 'dead';
+      enemy.hurtTimer = 30;
+      spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y, 'BURST!', '#ffd06a', 14);
+    }
+  }
+  state.screenShake = Math.max(state.screenShake, 28);
+  s.mana = 0;
+  state.ultimateTrigger = false;
+  state.ultimateReady = false;
+  state.slowmoTimer = 30;
+  state.slowmoFactor = 0.1;
+  if (state.enemies.every((e) => e.state === 'dead')) {
+    state.bossDefeated = true;
+    state.screen = 'victory';
+    state.slowmoTimer = 0;
+    state.slowmoFactor = 1;
+    // Set favorite element summary
+    if (state.elementUsage) {
+      const sorted = Object.entries(state.elementUsage).sort((a, b) => b[1] - a[1]);
+      state.favoriteElement = sorted[0]?.[0] as Element;
+    }
+  }
 }
 
 
@@ -266,6 +311,9 @@ export function update(state: GameState): void {
     state.screenTimer++;
     updateFloatingTexts(state);
     if (state.screen === 'relicSelection') return;
+    if (state.screen === 'victory') {
+      state.endingShown = true;
+    }
 
     if (state.screen === 'levelComplete' && state.screenTimer === 1) {
       state.furthestLevel = Math.max(state.furthestLevel, state.currentLevel + 1);
@@ -276,6 +324,11 @@ export function update(state: GameState): void {
 
   // IMP-1: Pause check
   if (state.paused) return;
+
+  if (state.slowmoTimer && state.slowmoTimer > 0) {
+    state.slowmoTimer--;
+    if (state.slowmoTimer <= 0) state.slowmoFactor = 1;
+  }
 
   state.timeElapsed++;
   applyRelicEffects(state);
@@ -317,9 +370,24 @@ export function update(state: GameState): void {
     state.moveInputY = 0;
   }
 
-  // Input & Player update
+  // Input & Player update (inputs run at full rate; movement scaled via dt)
   handlePlayerInput(state);
-  updatePlayer(state);
+  const dt = state.slowmoFactor || 1;
+  updatePlayer(state, dt);
+  const prevUltimate = state.ultimateReady;
+  state.ultimateReady = state.stickman.mana >= state.stickman.maxMana - 0.001;
+  if (!prevUltimate && state.ultimateReady) {
+    Audio.playUltimateReady();
+    if (!state.ultimateHintShown) {
+      state.activeDialog = [{ speaker: 'ANCIENT VOICE', text: 'Your mana overflows. Tap the runic center to unleash your elemental burst.' }];
+      state.dialogCharIndex = 0;
+      state.ultimateHintShown = true;
+    }
+  }
+  if (state.ultimateTrigger && state.ultimateReady) {
+    Audio.duckMusicForUltimate();
+    triggerElementalBurst(state);
+  }
 
   // Shooting Logic
   if (state.castCooldown > 0) state.castCooldown--;
@@ -355,7 +423,7 @@ export function update(state: GameState): void {
 
   // Physics & Collision
   state.onIce = false;
-  applyPhysics(state);
+  applyPhysics(state, dt);
 
   // IMP-15: Tutorial Hint triggers
   for (const hint of state.tutorialHints) {
@@ -439,10 +507,14 @@ export function update(state: GameState): void {
   }
 
   // Camera follow
-  const targetCamX = s.x - CANVAS_W / 2 + s.width / 2;
-  const targetCamY = Math.min(0, s.y - CANVAS_H / 2);
+  const leadX = Math.max(-120, Math.min(120, s.vx * 20 || s.facing * 40));
+  const fovBoostX = state.selectedElement === 'wind' ? s.facing * 80 : 0;
+  const fovBoostY = state.selectedElement === 'wind' ? -20 : 0;
+  const targetCamX = s.x - CANVAS_W / 2 + s.width / 2 + fovBoostX + leadX;
+  const targetCamY = Math.min(0, s.y - CANVAS_H / 2 + fovBoostY);
   state.camera.x += (targetCamX - state.camera.x) * 0.08;
-  state.camera.y += (targetCamY - state.camera.y) * 0.08;
+  const verticalLerp = state.selectedElement === 'wind' ? 0.06 : 0.08;
+  state.camera.y += (targetCamY - state.camera.y) * verticalLerp;
 
   // Clamp camera to world bounds
   state.camera.x = Math.max(0, Math.min(state.worldWidth - CANVAS_W, state.camera.x));

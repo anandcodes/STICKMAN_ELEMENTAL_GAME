@@ -1,6 +1,6 @@
 import type { GameState } from '../types';
 import { particlePool } from '../services/poolManager';
-import { spawnParticles, addScore } from './utils';
+import { spawnParticles, addScore, spawnFloatingText } from './utils';
 import * as Audio from '../audio';
 
 export function updateEnvironment(state: GameState) {
@@ -102,9 +102,23 @@ export function updateEnvironment(state: GameState) {
     // Fire pit damage
     if (obj.type === 'fire_pit' && obj.state === 'burning' && s.invincibleTimer <= 0) {
       const d = Math.abs((s.x + s.width / 2) - (obj.x + obj.width / 2));
-      if (d < 40 && s.y + s.height > obj.y - 10) {
+      if (d < 40 && s.y + s.height > obj.y - 10 && state.selectedElement !== 'fire') {
         s.health -= 0.3;
         if (Math.random() > 0.9) state.redFlash = 10;
+      }
+    }
+
+    // Cracked rock hint
+    if (obj.type === 'rock' && state.selectedElement !== 'earth') {
+      const dx = Math.abs((s.x + s.width / 2) - (obj.x + obj.width / 2));
+      const dy = Math.abs((s.y + s.height / 2) - (obj.y + obj.height / 2));
+      if (dx < 40 && dy < 60) {
+        (obj as any).hintTimer = ((obj as any).hintTimer || 0) + 1;
+        if ((obj as any).hintTimer === 180) {
+          spawnFloatingText(state, obj.x + obj.width / 2, obj.y - 10, 'Only the strength of Earth can break this.', '#e8dfcf', 12);
+        }
+      } else {
+        (obj as any).hintTimer = 0;
       }
     }
   }

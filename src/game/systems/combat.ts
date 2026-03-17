@@ -76,9 +76,10 @@ export function handleElementInteraction(state: GameState, proj: Projectile, obj
                 addScore(state, 5);
             }
             if (elem === 'earth') {
-                obj.width += 5; obj.height += 5; obj.y -= 5;
-                spawnParticles(state, obj.x + obj.width / 2, obj.y, 'earth', 10);
-                addScore(state, 5);
+                obj.state = 'destroyed'; obj.solid = false;
+                spawnParticles(state, obj.x + obj.width / 2, obj.y, 'earth', 20);
+                addScore(state, 15);
+                state.screenShake = Math.max(state.screenShake, 14);
             }
             break;
 
@@ -138,8 +139,15 @@ export function updateProjectiles(state: GameState) {
             if (s.invincibleTimer <= 0 && p.x > s.x - p.size && p.x < s.x + s.width + p.size &&
                 p.y > s.y - p.size && p.y < s.y + s.height + p.size) {
                 const ds = DIFFICULTY_SETTINGS[state.difficulty];
-                const damage = Math.floor(20 * ds.enemyDamageMult);
-                s.health -= damage; s.invincibleTimer = 60; s.vy = -6; s.vx = p.vx > 0 ? 4 : -4;
+                let damage = Math.floor(20 * ds.enemyDamageMult);
+                if (state.selectedElement === 'fire' && p.element === 'fire') damage *= 0.5;
+                if (state.selectedElement === 'fire' && p.element === 'water') damage *= 2;
+                s.health -= damage; s.invincibleTimer = 60;
+                if (state.selectedElement === 'earth') {
+                    s.vy = -3; s.vx = 0;
+                } else {
+                    s.vy = -6; s.vx = p.vx > 0 ? 4 : -4;
+                }
                 state.redFlash = 15;
                 spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, p.element, 15);
                 state.screenShake = 15; spawnFloatingText(state, s.x + s.width / 2, s.y - 20, `-${damage}`, '#ff4444', 16);

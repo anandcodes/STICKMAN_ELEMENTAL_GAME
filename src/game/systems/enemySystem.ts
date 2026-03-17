@@ -1,6 +1,6 @@
 import type { GameState } from '../types';
 import { DIFFICULTY_SETTINGS } from '../constants';
-import { handleEnemyHit, vibrate } from './utils';
+import { handleEnemyHit, vibrate, spawnParticles } from './utils';
 
 import { BEHAVIORS } from './enemyBehaviors';
 
@@ -10,6 +10,18 @@ export function updateEnemies(state: GameState): void {
 
     for (const enemy of state.enemies) {
         if (enemy.state === 'dead') continue;
+
+        if (enemy.burnTimer && enemy.burnTimer > 0) {
+            enemy.burnTimer--;
+            enemy.health -= 0.3;
+            spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, 'fire', 1);
+            if (enemy.health <= 0) enemy.state = 'dead';
+        }
+
+        if (enemy.type === 'guardian_aether') {
+            updateGuardianAether(state, enemy, s);
+            continue;
+        }
 
         enemy.animTimer++;
         const dx = (s.x + s.width / 2) - (enemy.x + enemy.width / 2);
@@ -86,10 +98,53 @@ export function updateEnemies(state: GameState): void {
             s.invincibleTimer = 60;
             state.redFlash = 10;
             state.screenShake = 10;
-            s.vx = (s.x < enemy.x ? -8 : 8);
-            s.vy = -4;
+            if (state.selectedElement === 'earth') {
+                s.vx = 0;
+                s.vy = -3;
+            } else {
+                s.vx = (s.x < enemy.x ? -8 : 8);
+                s.vy = -4;
+            }
             vibrate(state, 50);
             if (state.onDamage) state.onDamage();
+        }
+    }
+}
+
+function updateGuardianAether(state: GameState, enemy: any, s: any) {
+    const hpRatio = enemy.health / enemy.maxHealth;
+    enemy.phase = hpRatio > 0.66 ? 1 : hpRatio > 0.33 ? 2 : 3;
+    if (enemy.stunTimer && enemy.stunTimer > 0) enemy.stunTimer--;
+
+    // Phase behaviors
+    if (enemy.phase === 1) {
+        if (!enemy.stunTimer) {
+            // Fire wave damage if player not water
+            const dx = Math.abs((s.x + s.width / 2) - (enemy.x + enemy.width / 2));
+            if (dx < 220 && state.selectedElement !== 'water' && s.invincibleTimer <= 0) {
+                s.health -= 0.3;
+            }
+        }
+    } else if (enemy.phase === 2) {
+        // Ground slam every 240 frames
+        enemy.attackTimer = (enemy.attackTimer || 0) + 1;
+        if (enemy.attackTimer > 240) {
+            enemy.attackTimer = 0;
+            state.screenShake = 20;
+            if (state.selectedElement !== 'wind' && s.onGround) s.health = 0;
+        }
+    } else if (enemy.phase === 3) {
+        if (!enemy.shieldBroken) {
+            enemy.invulnerable = true;
+        } else {
+            enemy.invulnerable = false;
+        }
+    }
+
+    // Rising hazard when low hp
+    if (hpRatio < 0.25) {
+        for (const plat of state.platforms) {
+            if (plat.type === 'ground') plat.y += 0.15;
         }
     }
 }

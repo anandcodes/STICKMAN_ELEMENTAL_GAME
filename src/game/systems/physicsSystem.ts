@@ -1,26 +1,29 @@
 import type { GameState } from '../types';
 import { GRAVITY, FRICTION } from '../constants';
 
-export function applyPhysics(state: GameState) {
+export function applyPhysics(state: GameState, dt = 1) {
   const s = state.stickman;
   const landingAssist = state.balanceCurve.landingAssist;
   const prevX = s.x;
   const prevY = s.y;
+  const element = state.selectedElement;
+  const gravityMul = element === 'wind' ? 0.7 : element === 'earth' ? 1.1 : 1;
+  const groundFriction = element === 'water' ? 0.97 : FRICTION;
 
   // Apply gravity
   if (!s.onGround && !s.isDashing) {
-    s.vy += GRAVITY;
+    s.vy += GRAVITY * gravityMul * dt;
   }
 
   // Apply ground friction as safety net (primary deceleration is in playerSystem)
   if (!s.walking && s.onGround && !s.isDashing) {
-    s.vx *= FRICTION;
+    s.vx *= Math.pow(groundFriction, dt);
     if (Math.abs(s.vx) < 0.15) s.vx = 0;
   }
 
   // Update position
-  s.x += s.vx;
-  s.y += s.vy;
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
 
   // Ground collision (simple floor)
   if (s.y + s.height > state.worldHeight - 40) {

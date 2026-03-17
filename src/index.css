@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 * {
@@ -16,13 +16,15 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   background:
-    radial-gradient(1200px 800px at 20% 20%, #183568 0%, transparent 60%),
-    radial-gradient(1000px 700px at 85% 15%, #3a1d4f 0%, transparent 55%),
-    linear-gradient(160deg, #040811 0%, #07122a 45%, #060a18 100%);
-  background-size: 200% 200%;
-  animation: moveBackground 20s ease-in-out infinite alternate;
-  color: #e9f2ff;
-  font-family: "Rajdhani", "Trebuchet MS", sans-serif;
+    radial-gradient(900px 620px at 55% 12%, rgba(255, 196, 120, 0.08) 0%, transparent 58%),
+    radial-gradient(1200px 900px at 30% 10%, rgba(116, 91, 63, 0.25) 0%, transparent 70%),
+    radial-gradient(1400px 1100px at 70% 20%, rgba(37, 55, 83, 0.35) 0%, transparent 72%),
+    linear-gradient(175deg, #07070d 0%, #0c0f1a 46%, #0a0b13 100%);
+  background-size: 220% 220%;
+  animation: moveBackground 22s ease-in-out infinite alternate;
+  color: #e8dfcf;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  letter-spacing: 0.2px;
 }
 
 @keyframes moveBackground {
@@ -52,9 +54,9 @@ body {
   image-rendering: crisp-edges;
   border-radius: 14px;
   box-shadow:
-    0 0 0 1px rgba(125, 191, 255, 0.28),
-    0 18px 60px rgba(7, 22, 44, 0.7),
-    inset 0 0 80px rgba(0, 0, 0, 0.3);
+    0 0 0 1px rgba(214, 182, 126, 0.25),
+    0 18px 60px rgba(5, 6, 10, 0.8),
+    inset 0 0 90px rgba(0, 0, 0, 0.4);
 }
 
 @media (max-width: 1024px),
@@ -72,13 +74,13 @@ body {
     bottom: 10px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(5, 13, 28, 0.92);
-    color: #7db8ff;
-    border: 1px solid rgba(125, 184, 255, 0.35);
+    background: rgba(10, 9, 14, 0.9);
+    color: #d7c7a1;
+    border: 1px solid rgba(221, 190, 130, 0.35);
     padding: 8px 18px;
     border-radius: 24px;
     font-size: 12px;
-    font-family: "Rajdhani", "Trebuchet MS", sans-serif;
+    font-family: "Cormorant Garamond", "Georgia", serif;
     font-weight: 600;
     letter-spacing: 0.5px;
     z-index: 100;

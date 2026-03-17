@@ -92,6 +92,266 @@ export function drawBackdrop(
   }
 }
 
+function drawStoneHudPanel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  accentColor: string = '#9ae6de',
+) {
+  const stone = ctx.createLinearGradient(x, y, x, y + height);
+  stone.addColorStop(0, '#26252b');
+  stone.addColorStop(1, '#141419');
+  ctx.fillStyle = stone;
+  roundRect(ctx, x, y, width, height, 12);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(240, 226, 196, 0.2)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, x, y, width, height, 12);
+  ctx.stroke();
+
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 14, y + 6);
+  ctx.lineTo(x + width - 14, y + 6);
+  ctx.stroke();
+
+  // Rivets
+  ctx.fillStyle = 'rgba(189, 170, 136, 0.7)';
+  const rivets = [
+    [x + 12, y + 12], [x + width - 12, y + 12],
+    [x + 12, y + height - 12], [x + width - 12, y + height - 12],
+  ];
+  rivets.forEach(([rx, ry]) => { ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI * 2); ctx.fill(); });
+}
+
+function drawTexturedBar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  ratio: number,
+  type: 'fire' | 'wind',
+  timeMs: number,
+  opts: { lowHealth?: boolean } = {},
+) {
+  ctx.save();
+  roundRect(ctx, x, y, width, height, height / 2);
+  ctx.clip();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fillRect(x, y, width, height);
+
+  const len = Math.max(0, Math.min(1, ratio));
+  if (type === 'fire') {
+    const grad = ctx.createLinearGradient(x, y, x + width, y + height);
+    grad.addColorStop(0, '#2d0c0c');
+    grad.addColorStop(1, '#531616');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, width * len, height);
+
+    const flame = ctx.createLinearGradient(x, y, x, y + height);
+    flame.addColorStop(0, '#ffb347');
+    flame.addColorStop(1, '#ff512f');
+    ctx.fillStyle = flame;
+    ctx.fillRect(x, y, width * len, height * 0.9);
+
+    // Flicker overlay
+    const flicker = 0.18 + 0.12 * Math.sin(timeMs * 0.03);
+    ctx.globalAlpha = flicker;
+    ctx.fillStyle = 'rgba(255,180,90,0.7)';
+    ctx.fillRect(x, y, width * len, height);
+    ctx.globalAlpha = 1;
+
+    // Scrolling embers
+    const scroll = (timeMs * 0.12) % 40;
+    ctx.save();
+    ctx.translate(-scroll, 0);
+    const stripe = ctx.createLinearGradient(x, y, x + 24, y);
+    stripe.addColorStop(0, 'rgba(255,230,170,0.35)');
+    stripe.addColorStop(1, 'rgba(255,140,70,0)');
+    ctx.fillStyle = stripe;
+    ctx.globalAlpha = 0.45;
+    ctx.fillRect(x, y, width + 40, height);
+    ctx.restore();
+  } else {
+    const grad = ctx.createLinearGradient(x, y, x + width, y + height);
+    grad.addColorStop(0, '#0d1c2a');
+    grad.addColorStop(1, '#163347');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, width * len, height);
+
+    const swirl = ctx.createLinearGradient(x, y, x, y + height);
+    swirl.addColorStop(0, '#9de6ff');
+    swirl.addColorStop(1, '#e8f6ff');
+    ctx.fillStyle = swirl;
+    ctx.fillRect(x, y, width * len, height * 0.85);
+
+    // Horizontal swirl motion
+    const scroll = (timeMs * 0.08) % 50;
+    ctx.save();
+    ctx.translate(-scroll, 0);
+    const streak = ctx.createLinearGradient(x, y, x + 30, y + height);
+    streak.addColorStop(0, 'rgba(155,230,222,0.28)');
+    streak.addColorStop(1, 'rgba(155,230,222,0)');
+    ctx.fillStyle = streak;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(x, y, width + 60, height);
+    ctx.restore();
+  }
+
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(240, 226, 196, 0.35)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x, y, width, height, height / 2);
+  ctx.stroke();
+
+  if (type === 'fire' && opts.lowHealth) {
+    const pulse = 0.45 + 0.4 * Math.sin(timeMs * 0.02);
+    ctx.strokeStyle = `rgba(255, 80, 60, ${pulse})`;
+    ctx.lineWidth = 3.5;
+    roundRect(ctx, x + 2, y + 2, width - 4, height - 4, height / 2);
+    ctx.stroke();
+  }
+}
+
+function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
+  ctx.fillStyle = '#1a1610';
+  ctx.fillRect(0, 0, W, H);
+  const parchment = ctx.createLinearGradient(0, 0, W, H);
+  parchment.addColorStop(0, '#3a3329');
+  parchment.addColorStop(1, '#2a241c');
+  ctx.fillStyle = parchment;
+  const inset = 30;
+  roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 18);
+  ctx.fill();
+
+  // Rune nodes
+  const nodeCount = state.totalLevels;
+  for (let i = 0; i < nodeCount; i++) {
+    const x = inset + 80 + (i % 6) * ((W - inset * 2 - 120) / 5);
+    const y = inset + 120 + Math.floor(i / 6) * 90;
+    const unlocked = i <= state.furthestLevel;
+    ctx.save();
+    ctx.globalAlpha = unlocked ? 1 : 0.3;
+    const glow = ctx.createRadialGradient(x, y, 4, x, y, 28);
+    glow.addColorStop(0, unlocked ? '#cbe7ff' : '#111');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(x, y, 28, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = unlocked ? '#9ae6de' : '#555';
+    ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
+    setUiFont(ctx, state, 12, '700');
+    ctx.fillStyle = '#f3ead6';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(i + 1), x, y + 4);
+    ctx.restore();
+  }
+
+  // Fog of war
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = 'rgba(8,8,12,0.7)';
+  ctx.beginPath(); ctx.rect(inset, inset, W - inset * 2, H - inset * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i <= state.furthestLevel; i++) {
+    const x = inset + 80 + (i % 6) * ((W - inset * 2 - 120) / 5);
+    const y = inset + 120 + Math.floor(i / 6) * 90;
+    ctx.beginPath(); ctx.arc(x, y, 34 + Math.sin(nowMs * 0.002 + i) * 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSkillTreeScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
+  ctx.fillStyle = '#0f0e12';
+  ctx.fillRect(0, 0, W, H);
+  drawStoneHudPanel(ctx, 20, 20, W - 40, H - 40, '#9ae6de');
+
+  const centerX = W / 2;
+  const centerY = H / 2;
+  const pulse = 0.9 + 0.1 * Math.sin(nowMs * 0.003);
+  ctx.fillStyle = '#1c191f';
+  ctx.beginPath(); ctx.arc(centerX, centerY, 48 * pulse, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#d8c6a3';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(centerX, centerY, 50, 0, Math.PI * 2); ctx.stroke();
+
+  const branches: Array<{ angle: number; color: string; label: string }> = [
+    { angle: -Math.PI / 2, color: '#ff6b2d', label: 'FIRE TRAIL' },
+    { angle: 0, color: '#5fc4ff', label: 'CHAIN LIGHT' },
+    { angle: Math.PI / 2, color: '#9c7a4d', label: 'STONE SKIN' },
+    { angle: Math.PI, color: '#d8f1ff', label: 'WATER SLIDE' },
+  ];
+
+  branches.forEach((b) => {
+    const endX = centerX + Math.cos(b.angle) * 200;
+    const endY = centerY + Math.sin(b.angle) * 200;
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(endX, endY); ctx.stroke();
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(endX, endY, 24, 0, Math.PI * 2); ctx.fill();
+    setUiFont(ctx, state, 14, '800');
+    ctx.fillStyle = '#f3ead6';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.label, endX, endY + 38);
+  });
+
+  setUiFont(ctx, state, 18, '800');
+  ctx.fillStyle = '#f3ead6';
+  ctx.textAlign = 'center';
+  ctx.fillText(`CRYSTAL SHARDS: ${state.gemsCurrency}`, centerX, 60);
+  ctx.fillText('Tap nodes to unlock sub-abilities (visual only placeholder)', centerX, 90);
+}
+
+function drawEndingScroll(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  ctx.fillStyle = '#0c0a0f';
+  ctx.fillRect(0, 0, W, H);
+  const parchment = ctx.createLinearGradient(0, 0, W, H);
+  parchment.addColorStop(0, '#3b3126');
+  parchment.addColorStop(1, '#2a241c');
+  const inset = 50;
+  ctx.fillStyle = parchment;
+  roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 24);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(214,184,126,0.6)';
+  ctx.lineWidth = 4;
+  roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 24);
+  ctx.stroke();
+
+  setDisplayFont(ctx, state, 42, '900');
+  ctx.fillStyle = '#f3ead6';
+  ctx.textAlign = 'center';
+  ctx.fillText('ENDING SCROLL', W / 2, inset + 80);
+
+  setUiFont(ctx, state, 20, '800');
+  ctx.fillText(`Total Gems Collected: ${state.totalGemsEver}`, W / 2, inset + 140);
+  ctx.fillText(`Enemies Vanquished: ${state.enemiesDefeated}`, W / 2, inset + 180);
+
+  const title = state.favoriteElement === 'fire' ? 'THE PYROMANCER'
+    : state.favoriteElement === 'water' ? 'THE TIDEWALKER'
+    : state.favoriteElement === 'earth' ? 'THE EARTH-SHAKER'
+    : state.favoriteElement === 'wind' ? 'THE STORMDANCER'
+    : 'THE WANDERER';
+  setDisplayFont(ctx, state, 32, '800');
+  ctx.fillText(title, W / 2, inset + 240);
+
+  const btnW = 220;
+  const btnH = 56;
+  const btnX = W / 2 - btnW / 2;
+  const btnY = H - inset - btnH - 30;
+  drawStoneHudPanel(ctx, btnX, btnY, btnW, btnH, '#ffd06a');
+  setUiFont(ctx, state, 18, '800');
+  ctx.fillStyle = '#0f0c10';
+  ctx.fillText('CONTINUE', W / 2, btnY + 35);
+
+  // Mark continue zone
+  state.continueButton = { x: btnX, y: btnY, w: btnW, h: btnH };
+}
+
 export function drawUIRenderer(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -103,6 +363,15 @@ export function drawUIRenderer(
   compactMobileLayout: boolean,
 ) {
   switch (state.screen) {
+    case 'map':
+      drawMapScreen(ctx, state, W, H, nowMs);
+      return;
+    case 'skillTree':
+      drawSkillTreeScreen(ctx, state, W, H, nowMs);
+      return;
+    case 'victory':
+      drawEndingScroll(ctx, state, W, H);
+      return;
     case 'menu':
       drawMenuScreen(ctx, state, W, H, nowMs, isMobile, compactMobileLayout);
       return;
@@ -708,76 +977,55 @@ function drawHUD(
   if (isPortraitMobile) {
     const leftW = 236;
     const rightW = 190;
-    drawPanel(ctx, state, 10, 10, leftW, 104, 12, '#7bd3ff');
-    drawPanel(ctx, state, W - rightW - 10, 10, rightW, 104, 12, '#88d8ff');
+    drawStoneHudPanel(ctx, 10, 10, leftW, 104);
+    drawStoneHudPanel(ctx, W - rightW - 10, 10, rightW, 104);
 
-    ctx.fillStyle = '#d8eeff';
-    setUiFont(ctx, state, 11, '700');
+    ctx.fillStyle = '#e8dfcf';
+    setUiFont(ctx, state, 12, '800');
     ctx.textAlign = 'left';
-    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), 20, 28);
+    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), 20, 30);
 
     const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
     const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
 
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    roundRect(ctx, 20, 36, leftW - 20, 12, 5);
-    ctx.fill();
-    ctx.fillStyle = '#78f3b6';
-    roundRect(ctx, 20, 36, (leftW - 20) * healthRatio, 12, 5);
-    ctx.fill();
+    drawTexturedBar(ctx, 20, 40, leftW - 24, 14, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
+    drawTexturedBar(ctx, 20, 62, leftW - 24, 12, manaRatio, 'wind', nowMs);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    roundRect(ctx, 20, 54, leftW - 20, 10, 5);
-    ctx.fill();
-    ctx.fillStyle = '#6bb8ff';
-    roundRect(ctx, 20, 54, (leftW - 20) * manaRatio, 10, 5);
-    ctx.fill();
-
-    ctx.fillStyle = '#f3fbff';
+    ctx.fillStyle = '#f3ead6';
     setDisplayFont(ctx, state, 22, '800');
     ctx.textAlign = 'right';
-    ctx.fillText(String(state.score), W - 20, 40);
+    ctx.fillText(String(state.score), W - 20, 42);
 
-    drawGemIcon(ctx, state, W - 165, 75, 8, nowMs);
+    drawGemIcon(ctx, state, W - 165, 78, 8, nowMs);
     setUiFont(ctx, state, 16, '700');
     ctx.textAlign = 'left';
-    ctx.fillText(String(state.gemsCurrency), W - 150, 80);
+    ctx.fillText(String(state.gemsCurrency), W - 150, 83);
   } else {
     const hudW = 320;
     const hudX = 20;
     const hudY = 20;
-    drawPanel(ctx, state, hudX, hudY, hudW, 110, 15, ELEMENT_COLORS[state.selectedElement]);
+    drawStoneHudPanel(ctx, hudX, hudY, hudW, 112, ELEMENT_COLORS[state.selectedElement]);
 
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, 14, '700');
+    ctx.fillStyle = '#e8dfcf';
+    setUiFont(ctx, state, 14, '800');
     ctx.textAlign = 'left';
-    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), hudX + 20, hudY + 30);
+    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), hudX + 18, hudY + 32);
 
     const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    roundRect(ctx, hudX + 20, hudY + 45, hudW - 40, 18, 9);
-    ctx.fill();
-    ctx.fillStyle = '#62eeb8';
-    roundRect(ctx, hudX + 20, hudY + 45, (hudW - 40) * healthRatio, 18, 9);
-    ctx.fill();
+    drawTexturedBar(ctx, hudX + 18, hudY + 46, hudW - 36, 18, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
 
     const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    roundRect(ctx, hudX + 20, hudY + 75, hudW - 40, 14, 7);
-    ctx.fill();
-    ctx.fillStyle = '#53b8ff';
-    roundRect(ctx, hudX + 20, hudY + 75, (hudW - 40) * manaRatio, 14, 7);
-    ctx.fill();
+    drawTexturedBar(ctx, hudX + 18, hudY + 76, hudW - 36, 14, manaRatio, 'wind', nowMs);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#f6ebd8';
     setDisplayFont(ctx, state, 32, '900');
     ctx.textAlign = 'right';
-    ctx.fillText(String(state.score), W - 30, 55);
+    ctx.fillText(String(state.score), W - 30, 58);
 
-    drawGemIcon(ctx, state, W - 120, 95, 10, nowMs);
-    setUiFont(ctx, state, 20, '700');
+    drawGemIcon(ctx, state, W - 120, 98, 10, nowMs);
+    setUiFont(ctx, state, 20, '800');
     ctx.textAlign = 'left';
-    ctx.fillText(String(state.gemsCurrency), W - 100, 102);
+    ctx.fillText(String(state.gemsCurrency), W - 100, 104);
   }
 }
 
@@ -910,6 +1158,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   const textY = panelY + 40;
   const maxWidth = panelW - (portraitSize + 60);
   const textToDraw = dialog.text.substring(0, Math.floor(state.dialogCharIndex));
+  // Typewriter effect is already driven by dialogCharIndex increment in engine
 
   ctx.fillStyle = '#e9f2ff';
   setUiFont(ctx, state, isPortraitMobile ? 14 : 18, '600');

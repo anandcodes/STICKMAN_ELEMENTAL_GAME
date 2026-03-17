@@ -46,16 +46,23 @@ export function spawnParticles(state: GameState, x: number, y: number, element: 
     }
 }
 
-export function spawnFloatingText(state: GameState, x: number, y: number, text: string, color: string, size = 14) {
-    state.floatingTexts.push({ x, y, text, color, life: 60, maxLife: 60, size });
+export function spawnFloatingText(state: GameState, x: number, y: number, text: string, color: string, size = 14, opts: { wiggle?: boolean } = {}) {
+    if (!state.floatingTextsPool) state.floatingTextsPool = [];
+    const ft = state.floatingTextsPool.pop() || { x: 0, y: 0, text: '', color: '#fff', life: 0, maxLife: 0, size: 14 };
+    ft.x = x; ft.y = y; ft.text = text; ft.color = color; ft.life = 60; ft.maxLife = 60; ft.size = size; (ft as any).wiggle = opts.wiggle;
+    state.floatingTexts.push(ft as any);
 }
 
 export function updateFloatingTexts(state: GameState): void {
     for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
         const t = state.floatingTexts[i];
         t.y -= 0.5;
+        if (t.wiggle) t.x += Math.sin((t.maxLife - t.life) * 0.6) * 0.6;
         t.life--;
-        if (t.life <= 0) state.floatingTexts.splice(i, 1);
+        if (t.life <= 0) {
+            const dead = state.floatingTexts.splice(i, 1)[0];
+            state.floatingTextsPool?.push(dead);
+        }
     }
 }
 
@@ -133,6 +140,28 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
         dmg *= berserkBonus;
     }
 
+    if (elem === 'fire' && enemy.type === 'tree_guardian') {
+        enemy.burnTimer = 120;
+        spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, 'fire', 10);
+    }
+    if (enemy.type === 'guardian_aether') {
+        if (enemy.phase === 1 && elem === 'water') {
+            enemy.stunTimer = 120;
+        }
+        if (enemy.phase === 3 && !enemy.shieldBroken && elem === 'earth') {
+            enemy.shieldBroken = true;
+            enemy.invulnerable = false;
+            spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, 'earth', 20);
+        }
+        if (enemy.invulnerable) {
+            return; // no damage until conditions met
+        }
+    }
+
+    const colorMap: Record<Element, string> = {
+        fire: '#ff9a56', water: '#6bc4ff', earth: '#b58a52', wind: '#e7f7ff',
+    };
+
     if (elem === enemy.weakness) {
         dmg = 35 * dmgMul;
         spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, elem, 20);
@@ -147,16 +176,20 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
                 size: 5, color: '#ffff00',
             });
         }
+        spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 6, `${Math.round(dmg)}`, colorMap[elem] || '#fff', 20, { wiggle: true });
     } else if (elem === enemy.resistance) {
         dmg = 5 * dmgMul;
         spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, elem, 5);
+        spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 6, `${Math.round(dmg)}`, colorMap[elem] || '#fff', 12);
     } else {
         spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, elem, 10);
+        spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 6, `${Math.round(dmg)}`, colorMap[elem] || '#fff', 14);
     }
 
     enemy.health -= dmg;
     enemy.state = 'hurt';
     enemy.hurtTimer = 15;
+    if (elem === 'earth') state.screenShake = Math.max(state.screenShake, 12);
     state.screenShake = Math.max(state.screenShake, elem === enemy.weakness ? 6 : 3);
     enemy.vx = (proj.vx > 0 ? 1 : -1) * 3;
     Audio.playEnemyHit();
@@ -168,6 +201,11 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
         const killScore = elem === enemy.weakness ? 50 : 25;
         addScore(state, killScore);
         spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 20, `+${killScore}`, '#ffcc00', 16);
+        const elite = ['boss1', 'boss2', 'tree_guardian', 'void_brute', 'void_titan'].includes(enemy.type);
+        if (elite) {
+            state.slowmoTimer = 3;
+            vibrate(state, 30);
+        }
         if (elem === enemy.weakness) {
             spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y - 40, 'SUPER EFFECTIVE!', '#ff4444', 12);
             Audio.playSuperEffective();

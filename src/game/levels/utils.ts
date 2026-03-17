@@ -15,6 +15,7 @@ export function makeEnemy(
     boss1: [90, 110], boss2: [70, 90], tree_guardian: [80, 120],
     shadow_wolf: [38, 28], lava_crab: [40, 30], thunder_hawk: [34, 24],
     corrupted_wraith: [32, 40], void_brute: [50, 60], void_titan: [100, 120],
+    guardian_aether: [160, 160],
   };
   const [w, h] = sizes[type];
   return {
@@ -31,7 +32,7 @@ export function makeGem(x: number, y: number, color?: string): EnvObject {
   return {
     id: nid(), type: 'gem', x, y, width: 16, height: 16,
     health: 1, maxHealth: 1, state: 'normal', solid: false,
-    gemColor: color || ['#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', '#44ffff'][Math.floor(Math.random() * 6)],
+    gemColor: color || ['#f5d85c', '#6bc8ff', '#c17bff'][Math.floor(Math.random() * 3)],
   };
 }
 
@@ -79,4 +80,3 @@ export function makeMovingPlatform(x: number, y: number, w: number, h: number, m
     moveOriginX: x, moveOriginY: y, moveRange, vx, vy
   };
 }
-

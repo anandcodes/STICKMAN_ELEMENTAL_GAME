@@ -79,7 +79,7 @@ export function handlePlayerInput(state: GameState) {
   }
 }
 
-export function updatePlayer(state: GameState) {
+export function updatePlayer(state: GameState, _dt = 1) {
   const s = state.stickman;
 
   // Coyote timer
@@ -91,14 +91,14 @@ export function updatePlayer(state: GameState) {
     else if (s.jumpsUsed === 0) s.jumpsUsed = 1; // walk off ledge
   }
 
-  const maxJumps = 1 + (state.upgrades.doubleJumpLevel > 0 ? 1 : 0);
+  const maxJumps = 1 + (state.upgrades.doubleJumpLevel > 0 ? 1 : 0) + (state.selectedElement === 'wind' ? 1 : 0);
   const canJump = (s.coyoteTimer > 0 && s.jumpsUsed === 0) || (!s.onGround && s.jumpsUsed < maxJumps);
 
   if (s.jumpBufferTimer > 0 && canJump) {
     let jf = JUMP_FORCE;
-    if (state.selectedElement === 'wind' && state.activeRelics.some(r => r.type === 'storm_crown')) {
-      jf *= 1.2;
-    }
+    if (state.selectedElement === 'earth') jf *= 0.9;
+    if (state.selectedElement === 'wind') jf *= 1.05;
+    if (state.selectedElement === 'wind' && state.activeRelics.some(r => r.type === 'storm_crown')) jf *= 1.2;
     s.vy = jf;
     s.onGround = false;
     s.jumping = true;
