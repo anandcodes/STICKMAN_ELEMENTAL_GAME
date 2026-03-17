@@ -231,6 +231,8 @@ export function handleTouchStart(
         state.screen = 'map';
         state.screenTimer = 0;
         state.bossDefeated = false;
+        state.endingShown = false;
+        state.continueButton = undefined;
         continue;
       }
     }

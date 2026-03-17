@@ -95,9 +95,48 @@ function App() {
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
+  const [menuOverlay, setMenuOverlay] = useState({ visible: true, selected: 0 });
+  const menuOverlayRef = useRef(menuOverlay);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+  };
+
+  useEffect(() => {
+    menuOverlayRef.current = menuOverlay;
+  }, [menuOverlay]);
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const s = stateRef.current;
+      const next = { visible: s.screen === 'menu', selected: s.selectedMenuButton };
+      const prev = menuOverlayRef.current;
+      if (prev.visible !== next.visible || prev.selected !== next.selected) {
+        setMenuOverlay(next);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const setMenuSelection = (index: number) => {
+    const s = stateRef.current;
+    if (s.screen !== 'menu') return;
+    s.selectedMenuButton = index;
+  };
+
+  const handleMenuCardActivate = (index: number) => {
+    const s = stateRef.current;
+    if (s.screen !== 'menu') return;
+    s.selectedMenuButton = index;
+    Audio.playStoneOpen();
+    if (index === 0) s.screen = 'levelSelect';
+    if (index === 1) s.screen = 'survivalDifficulty';
+    if (index === 2) s.screen = 'shop';
+    if (index === 3) s.screen = 'challenges';
+    enterMobileImmersive();
   };
 
   useEffect(() => {
@@ -330,7 +369,6 @@ function App() {
       if (s.screen === 'menu') {
         if (tx === undefined || ty === undefined) return;
 
-
         // Responsive Grid buttons
         const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W - 60 : 280;
@@ -338,7 +376,8 @@ function App() {
         const gap = isMobileLayout ? 12 : 30;
         const cols = isMobileLayout ? 1 : 2;
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = isMobileLayout ? 282 : 320;
+        const toggleY = 40 + 120 + 20;
+        const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
 
         for (let i = 0; i < 4; i++) {
           const col = i % cols;
@@ -346,7 +385,7 @@ function App() {
           const x = startX + col * (cardW + gap);
           const y = startY + row * (cardH + gap);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
-            Audio.playMenuSelect();
+            Audio.playStoneOpen();
             if (i === 0) s.screen = 'levelSelect';
             if (i === 1) s.screen = 'survivalDifficulty';
             if (i === 2) s.screen = 'shop';
@@ -608,7 +647,12 @@ function App() {
           if (index >= 0 && index < s.totalLevels) {
             if (index <= s.furthestLevel) {
               const saved = loadSave();
-              assignState(buildPlayingState(index, saved.highScore, s.difficulty));
+              const nextState = buildPlayingState(index, saved.highScore, s.difficulty);
+              nextState.endingShown = false;
+              nextState.bossDefeated = false;
+              nextState.continueButton = undefined;
+              nextState.screenTimer = 0;
+              assignState(nextState);
               Audio.playMenuSelect();
               Audio.startMusic(index);
               enterMobileImmersive();
@@ -774,7 +818,12 @@ function App() {
           } else if (key === 'Enter' || key === ' ') {
             if (s.levelSelectionIndex <= s.furthestLevel) {
               const saved = loadSave();
-              assignState(buildPlayingState(s.levelSelectionIndex, saved.highScore, s.difficulty));
+              const nextState = buildPlayingState(s.levelSelectionIndex, saved.highScore, s.difficulty);
+              nextState.endingShown = false;
+              nextState.bossDefeated = false;
+              nextState.continueButton = undefined;
+              nextState.screenTimer = 0;
+              assignState(nextState);
               Audio.playMenuSelect();
               Audio.startMusic(s.levelSelectionIndex);
             }
@@ -897,19 +946,7 @@ function App() {
       }
 
       if (s.screen === 'menu') {
-        const tx = s.mousePos.x;
-        const ty = s.mousePos.y;
-        const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
-        const campX = CANVAS_W / 2 - btnW - gap / 2;
-        const waveX = CANVAS_W / 2 + gap / 2;
-
-        if (ty >= baseY && ty <= baseY + btnH) {
-          if (tx >= campX && tx <= campX + btnW) s.selectedMenuButton = 0;
-          else if (tx >= waveX && tx <= waveX + btnW) s.selectedMenuButton = 1;
-          else s.selectedMenuButton = -1;
-        } else {
-          s.selectedMenuButton = -1;
-        }
+        return;
       }
     };
 
@@ -1298,6 +1335,71 @@ function App() {
           <span style={{ fontSize: '1.1em', opacity: 0.8 }}>⚙</span>
           {t(settings.locale, 'app_open_settings').toUpperCase()}
         </button>
+      )}
+      {menuOverlay.visible && (
+        <div
+          className="menu-overlay"
+          style={{
+            width: Math.floor(canvasWidth * canvasScale),
+            height: Math.floor(CANVAS_H * canvasScale),
+          }}
+        >
+          {(() => {
+            const isMobileLayout = isCompactMobileLayout();
+            const cardW = isMobileLayout ? canvasWidth - 60 : 280;
+            const cardH = isMobileLayout ? 85 : 120;
+            const gap = isMobileLayout ? 12 : 30;
+            const cols = isMobileLayout ? 1 : 2;
+            const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+            const toggleY = 40 + 120 + 20;
+            const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
+            const cards = [
+              { key: 'campaign', index: 0 },
+              { key: 'survival', index: 1 },
+              { key: 'shop', index: 2 },
+              { key: 'daily', index: 3 },
+            ];
+            return cards.map(({ key, index }) => {
+              const col = index % cols;
+              const row = Math.floor(index / cols);
+              const x = startX + col * (cardW + gap);
+              const y = startY + row * (cardH + gap);
+              return (
+                <div
+                  key={key}
+                  className="menu-card menu-stone"
+                  data-active={menuOverlay.selected === index}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={key}
+                  onPointerEnter={() => setMenuSelection(index)}
+                  onFocus={() => setMenuSelection(index)}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    setMenuSelection(index);
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handleMenuCardActivate(index);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleMenuCardActivate(index);
+                    }
+                  }}
+                  style={{
+                    left: x * canvasScale,
+                    top: y * canvasScale,
+                    width: cardW * canvasScale,
+                    height: cardH * canvasScale,
+                  }}
+                />
+              );
+            });
+          })()}
+        </div>
       )}
       <canvas
         ref={canvasRef}

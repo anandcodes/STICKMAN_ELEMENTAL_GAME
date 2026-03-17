@@ -1,0 +1,26 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="stone" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a342b"/>
+      <stop offset="60%" stop-color="#1e1b17"/>
+      <stop offset="100%" stop-color="#4a4237"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="128" height="128" fill="url(#stone)"/>
+  <g fill="#2a251f" opacity="0.6">
+    <circle cx="18" cy="22" r="4"/>
+    <circle cx="42" cy="18" r="3"/>
+    <circle cx="68" cy="26" r="5"/>
+    <circle cx="90" cy="16" r="4"/>
+    <circle cx="108" cy="28" r="3"/>
+    <circle cx="26" cy="68" r="4"/>
+    <circle cx="52" cy="82" r="5"/>
+    <circle cx="78" cy="70" r="3"/>
+    <circle cx="104" cy="88" r="4"/>
+  </g>
+  <g stroke="#5a5247" stroke-width="2" opacity="0.5">
+    <path d="M8 56 L36 40 L60 52" />
+    <path d="M70 92 L92 78 L120 84" />
+    <path d="M20 108 L44 96 L64 112" />
+  </g>
+</svg>

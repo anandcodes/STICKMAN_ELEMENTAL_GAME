@@ -219,6 +219,76 @@ function drawTexturedBar(
   }
 }
 
+function drawMenuCard(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  opts: {
+    x: number; y: number; w: number; h: number;
+    title: string; subtitle: string;
+    glowColor: string; icon: 'map' | 'swords' | 'bag' | 'star';
+    elementColor: string;
+    active: boolean;
+  },
+) {
+  const { x, y, w, h, title, subtitle, glowColor, icon, elementColor, active } = opts;
+  const scale = active ? 1.05 : 1;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.translate(-cx, -cy);
+  const stone = ctx.createLinearGradient(x, y, x, y + h);
+  stone.addColorStop(0, '#2c2824');
+  stone.addColorStop(1, '#171513');
+  ctx.fillStyle = stone;
+  roundRect(ctx, x, y, w, h, 18);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(214,184,126,0.4)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  if (active) {
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 6;
+    roundRect(ctx, x + 4, y + 4, w - 8, h - 8, 16);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Icon
+  ctx.save();
+  ctx.translate(x + 36, y + h / 2);
+  ctx.strokeStyle = elementColor;
+  ctx.fillStyle = elementColor;
+  ctx.lineWidth = 3;
+  if (icon === 'map') {
+    ctx.strokeRect(-12, -12, 24, 24);
+    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(0, -4); ctx.lineTo(8, -10); ctx.stroke();
+  } else if (icon === 'swords') {
+    ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(-10, 10); ctx.stroke();
+  } else if (icon === 'bag') {
+    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(6, -8); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(4, -2); ctx.lineTo(14, -2); ctx.lineTo(6, 4); ctx.lineTo(10, 14); ctx.lineTo(0, 8); ctx.lineTo(-10, 14); ctx.lineTo(-6, 4); ctx.lineTo(-14, -2); ctx.lineTo(-4, -2); ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f3ead6';
+  setUiFont(ctx, state, 18, '800');
+  ctx.fillText(title, x + 70, y + 38);
+  ctx.fillStyle = '#d6c49e';
+  setUiFont(ctx, state, 12, '600');
+  ctx.fillText(subtitle, x + 70, y + 62);
+  ctx.restore();
+}
+
 function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
   ctx.fillStyle = '#1a1610';
   ctx.fillRect(0, 0, W, H);
@@ -493,35 +563,75 @@ function drawMenuScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
-  const pulse = 0.5 + 0.5 * Math.sin(nowMs * 0.0025);
-
-  const aura = ctx.createRadialGradient(W * 0.5, 170, 40, W * 0.5, 170, 280);
-  aura.addColorStop(0, 'rgba(83, 184, 255, 0.18)');
-  aura.addColorStop(1, 'rgba(83, 184, 255, 0)');
-  ctx.fillStyle = aura;
+  // Cinematic ruins night sky with eclipse
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#0a0b12');
+  sky.addColorStop(0.5, '#0f1220');
+  sky.addColorStop(1, '#0c0d16');
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#d7f1ff';
-  setDisplayFont(ctx, state, 52, '900');
-  ctx.fillText(tr(state, 'menu_title_line_1'), W / 2, 96);
-  ctx.fillStyle = '#ffffff';
-  setDisplayFont(ctx, state, 68, '900');
-  ctx.fillText(tr(state, 'menu_title_line_2'), W / 2, 154);
-  ctx.fillStyle = UI_THEME.muted;
-  setUiFont(ctx, state, 16, '600');
-  ctx.fillText(tr(state, 'menu_subtitle'), W / 2, 186);
+  const eclipseX = W * 0.5;
+  const eclipseY = 120;
+  const corona = ctx.createRadialGradient(eclipseX, eclipseY, 20, eclipseX, eclipseY, 180);
+  corona.addColorStop(0, 'rgba(255, 160, 80, 0.22)');
+  corona.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = corona;
+  ctx.fillRect(0, 0, W, H);
+
+  // Floating embers/runes
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  for (let i = 0; i < 80; i++) {
+    const x = (i * 37 + nowMs * 0.04) % (W + 80) - 40;
+    const y = (i * 53 + nowMs * 0.02) % (H + 120) - 60;
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(255,165,100,0.45)' : 'rgba(154,230,222,0.4)';
+    ctx.beginPath(); ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // Logo
+  const logo = assetLoader.getAsset('logo');
+  if (logo?.complete && logo.naturalWidth > 0) {
+    const lw = Math.min(logo.naturalWidth, W * 0.55);
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, W / 2 - lw / 2, 40, lw, lh);
+  }
+
+  // Stats stone tablet
+  const statsW = isMobile ? W - 40 : 320;
+  const statsH = 120;
+  const statsX = isMobile ? 20 : 24;
+  const statsY = 40;
+  drawStoneHudPanel(ctx, statsX, statsY, statsW, statsH, '#ffd06a');
+  ctx.fillStyle = '#f3ead6';
+  setUiFont(ctx, state, 16, '800');
+  ctx.textAlign = 'left';
+  ctx.fillText(`BEST SCORE: ${state.highScore}`, statsX + 16, statsY + 32);
+  ctx.fillText(`GEMS: ${state.gemsCurrency}`, statsX + 16, statsY + 58);
+  ctx.fillText(`FURTHEST: ${Math.max(1, state.furthestLevel + 1)} / ${state.totalLevels}`, statsX + 16, statsY + 84);
 
   const diffConfig = DIFFICULTY_SETTINGS[state.difficulty];
-  drawPanel(ctx, state, W / 2 - 120, 208, 240, 44, 12, diffConfig.color, 0.92);
-  ctx.fillStyle = '#ffffff';
-  setUiFont(ctx, state, 15, '700');
-  ctx.fillText(
-    tr(state, 'menu_difficulty', { difficulty: diffConfig.label.toUpperCase() }),
-    W / 2,
-    237,
-  );
+  const toggleW = 260;
+  const toggleH = 52;
+  const toggleX = W / 2 - toggleW / 2;
+  const toggleY = statsY + statsH + 20;
+  ctx.save();
+  const bronze = ctx.createLinearGradient(toggleX, toggleY, toggleX, toggleY + toggleH);
+  bronze.addColorStop(0, '#6c4c2a'); bronze.addColorStop(1, '#a67c46');
+  ctx.fillStyle = bronze;
+  roundRect(ctx, toggleX, toggleY, toggleW, toggleH, 18);
+  ctx.fill();
+  ctx.strokeStyle = diffConfig.color;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(toggleX + 6, toggleY + 6, toggleW - 12, toggleH - 12);
+  ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(toggleX + 20, toggleY + toggleH / 2, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9ae6de'; ctx.beginPath(); ctx.arc(toggleX + toggleW - 20, toggleY + toggleH / 2, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0f0c10';
+  setUiFont(ctx, state, 16, '800');
+  ctx.textAlign = 'center';
+  ctx.fillText(`DIFFICULTY: ${diffConfig.label.toUpperCase()}`, toggleX + toggleW / 2, toggleY + 33);
+  ctx.restore();
 
   const isMobileLayout = compactMobileLayout;
   const cardW = isMobileLayout ? W - 60 : 280;
@@ -529,64 +639,31 @@ function drawMenuScreen(
   const gap = isMobileLayout ? 12 : 30;
   const cols = isMobileLayout ? 1 : 2;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = isMobileLayout ? 282 : 320;
+  const startY = isMobileLayout ? toggleY + 80 : toggleY + 100;
   const menuCards = [
-    {
-      title: tr(state, 'menu_campaign'),
-      subtitle: tr(state, 'menu_campaign_subtitle'),
-      hint: isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_campaign'),
-      accent: '#62eeb8',
-      selected: state.selectedMenuButton === 0,
-    },
-    {
-      title: tr(state, 'menu_wave'),
-      subtitle: tr(state, 'menu_wave_subtitle'),
-      hint: isMobile ? tr(state, 'menu_tap_play') : tr(state, 'menu_key_wave'),
-      accent: '#ffb463',
-      selected: state.selectedMenuButton === 1,
-    },
-    {
-      title: tr(state, 'menu_shop'),
-      subtitle: tr(state, 'shop_currency', { gems: state.gemsCurrency }),
-      hint: isMobile ? tr(state, 'menu_tap_open') : tr(state, 'menu_key_open'),
-      accent: '#ffd37f',
-      selected: false,
-    },
-    {
-      title: 'DAILY CHALLENGES',
-      subtitle: 'Claim rewards and track progression',
-      hint: 'Open missions',
-      accent: '#c693ff',
-      selected: false,
-    },
-  ] as const;
+    { title: tr(state, 'menu_campaign'), subtitle: tr(state, 'menu_campaign_subtitle'), color: ELEMENT_COLORS.fire, icon: 'map', active: state.selectedMenuButton === 0 },
+    { title: tr(state, 'menu_wave'), subtitle: tr(state, 'menu_wave_subtitle'), color: ELEMENT_COLORS.wind, icon: 'swords', active: state.selectedMenuButton === 1 },
+    { title: tr(state, 'menu_shop'), subtitle: tr(state, 'shop_currency', { gems: state.gemsCurrency }), color: ELEMENT_COLORS.earth, icon: 'bag', active: false },
+    { title: 'DAILY CHALLENGES', subtitle: 'Claim rewards and track progression', color: '#9ae6de', icon: 'star', active: false },
+  ];
 
-  menuCards.forEach((card, index) => {
+  const drawCardAt = (card: typeof menuCards[number], index: number) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
     const x = startX + col * (cardW + gap);
     const y = startY + row * (cardH + gap);
-    drawPanel(ctx, state, x, y, cardW, cardH, 16, card.accent, card.selected ? 1 : 0.86);
-    if (card.selected) {
-      ctx.save();
-      ctx.globalAlpha = 0.16 + pulse * 0.08;
-      ctx.fillStyle = card.accent;
-      roundRect(ctx, x + 8, y + 8, cardW - 16, cardH - 16, 12);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#ffffff';
-    setUiFont(ctx, state, isMobileLayout ? 18 : 22, '800');
-    ctx.fillText(card.title, x + 20, y + (isMobileLayout ? 32 : 40));
-    ctx.fillStyle = UI_THEME.muted;
-    setUiFont(ctx, state, isMobileLayout ? 11 : 13, '600');
-    ctx.fillText(card.subtitle, x + 20, y + (isMobileLayout ? 54 : 68));
-    ctx.fillStyle = card.accent;
-    setUiFont(ctx, state, isMobileLayout ? 11 : 12, '700');
-    ctx.fillText(card.hint, x + 20, y + cardH - 18);
-  });
+    drawMenuCard(ctx, state, {
+      x, y, w: cardW, h: cardH,
+      title: card.title,
+      subtitle: card.subtitle,
+      glowColor: card.color,
+      icon: card.icon,
+      elementColor: card.color,
+      active: card.active,
+    });
+  };
+  menuCards.forEach((card, index) => { if (!card.active) drawCardAt(card, index); });
+  menuCards.forEach((card, index) => { if (card.active) drawCardAt(card, index); });
 
   drawPanel(ctx, state, 24, H - 92, W - 48, 56, 14, '#7bd3ff', 0.78);
   ctx.fillStyle = '#dff4ff';
