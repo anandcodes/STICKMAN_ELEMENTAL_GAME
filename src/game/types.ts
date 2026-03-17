@@ -346,4 +346,13 @@ export interface GameState {
   favoriteElement?: Element;
   elementUsage?: Record<Element, number>;
   continueButton?: { x: number; y: number; w: number; h: number };
+  menuParallax?: Vec2;
+  screenTransition?: {
+    active: boolean;
+    timer: number;
+    duration: number;
+    phase: 'out' | 'in';
+    target: GameScreen;
+    mode: 'fade';
+  };
 }

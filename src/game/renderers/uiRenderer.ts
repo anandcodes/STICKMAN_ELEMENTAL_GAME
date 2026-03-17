@@ -433,6 +433,19 @@ function drawEndingScroll(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   state.continueButton = { x: btnX, y: btnY, w: btnW, h: btnH };
 }
 
+function drawScreenTransitionOverlay(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
+  const transition = state.screenTransition;
+  if (!transition?.active) return;
+  const progress = Math.min(1, transition.timer / transition.duration);
+  const alpha = transition.phase === 'out' ? progress : 1 - progress;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#050408';
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
 export function drawUIRenderer(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -443,60 +456,66 @@ export function drawUIRenderer(
   isPortraitMobile: boolean,
   compactMobileLayout: boolean,
 ) {
+  let isPlaying = false;
   switch (state.screen) {
     case 'map':
       drawMapScreen(ctx, state, W, H, nowMs);
-      return;
+      break;
     case 'skillTree':
       drawSkillTreeScreen(ctx, state, W, H, nowMs);
-      return;
+      break;
     case 'victory':
       drawEndingScroll(ctx, state, W, H);
-      return;
+      break;
     case 'menu':
       drawMenuScreen(ctx, state, W, H, nowMs, isMobile, compactMobileLayout);
-      return;
+      break;
     case 'survivalDifficulty':
       drawSurvivalDifficultyScreen(ctx, state, W, H, isMobile, compactMobileLayout);
-      return;
+      break;
     case 'challenges':
       drawChallengesScreen(ctx, state, W, H, nowMs, isMobile, compactMobileLayout);
-      return;
+      break;
     case 'levelSelect':
       drawLevelSelectScreen(ctx, state, W, H, isMobile, compactMobileLayout);
-      return;
+      break;
     case 'levelComplete':
       drawLevelCompleteScreen(ctx, state, W, H, isMobile);
-      return;
+      break;
     case 'gameOver':
       drawGameOverScreen(ctx, state, W, H, isMobile);
-      return;
+      break;
     case 'shop':
       drawShopScreen(ctx, state, W, H, compactMobileLayout);
-      return;
+      break;
     case 'settings':
       drawSettingsScreen(ctx, state, W, H);
-      return;
+      break;
     case 'relicSelection':
       drawRelicSelectionScreen(ctx, state, W, H, isMobile);
-      return;
+      break;
     case 'playing':
+      isPlaying = true;
       break;
   }
 
-  drawHUD(ctx, state, W, nowMs, isPortraitMobile);
+  if (isPlaying) {
+    drawHUD(ctx, state, W, nowMs, isPortraitMobile);
 
-  if (state.activeDialog.length > 0) {
-    drawDialogSystem(ctx, state, W, H, nowMs, isPortraitMobile);
+    if (state.activeDialog.length > 0) {
+      drawDialogSystem(ctx, state, W, H, nowMs, isPortraitMobile);
+    }
+
+    if (state.paused) {
+      drawPauseOverlay(ctx, state, W, H, isMobile);
+    }
+
+    if (state.showLevelIntro) {
+      drawLevelIntro(ctx, state, W, H);
+    }
   }
 
-  if (state.paused) {
-    drawPauseOverlay(ctx, state, W, H, isMobile);
-  }
-
-  if (state.showLevelIntro) {
-    drawLevelIntro(ctx, state, W, H);
-  }
+  drawScreenTransitionOverlay(ctx, state, W, H);
 }
 
 function drawScreenHeading(
@@ -565,13 +584,19 @@ function drawMenuScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  // Cinematic ruins night sky with eclipse
+  const parallax = state.menuParallax ?? { x: 0, y: 0 };
+  const bgOffsetX = parallax.x * 18;
+  const bgOffsetY = parallax.y * 12;
+
+  // Cinematic ruins night sky with eclipse (parallaxed)
+  ctx.save();
+  ctx.translate(bgOffsetX, bgOffsetY);
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, '#0a0b12');
   sky.addColorStop(0.5, '#0f1220');
   sky.addColorStop(1, '#0c0d16');
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(-60, -60, W + 120, H + 120);
 
   const eclipseX = W * 0.5;
   const eclipseY = 120;
@@ -579,7 +604,7 @@ function drawMenuScreen(
   corona.addColorStop(0, 'rgba(255, 160, 80, 0.22)');
   corona.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = corona;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(-60, -60, W + 120, H + 120);
 
   // Floating embers/runes
   ctx.save();
@@ -591,6 +616,7 @@ function drawMenuScreen(
     ctx.beginPath(); ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
+  ctx.restore();
 
   const statsH = 56;
   const statsY = 18;
@@ -601,9 +627,49 @@ function drawMenuScreen(
   ctx.fillStyle = '#f3ead6';
   setUiFont(ctx, state, 15, '800');
   const statsCol = statsW / 3;
-  ctx.fillText(`BEST: ${state.highScore}`, statsX + statsCol * 0.5, statsY + 34);
-  ctx.fillText(`GEMS: ${state.gemsCurrency}`, statsX + statsCol * 1.5, statsY + 34);
-  ctx.fillText(`FURTHEST: ${Math.max(1, state.furthestLevel + 1)} / ${state.totalLevels}`, statsX + statsCol * 2.5, statsY + 34);
+  const baseY = statsY + 34;
+  ctx.fillText(`BEST: ${state.highScore}`, statsX + statsCol * 0.5, baseY);
+  ctx.fillText(`FURTHEST: ${Math.max(1, state.furthestLevel + 1)} / ${state.totalLevels}`, statsX + statsCol * 2.5, baseY);
+
+  const upg = state.upgrades;
+  const upgradeLevels = [
+    upg.healthLevel, upg.manaLevel, upg.regenLevel,
+    upg.damageLevel, upg.doubleJumpLevel, upg.dashDistanceLevel,
+  ];
+  const upgradeCosts = [
+    (upg.healthLevel + 1) * 30,
+    (upg.manaLevel + 1) * 30,
+    (upg.regenLevel + 1) * 50,
+    (upg.damageLevel + 1) * 60,
+    (upg.doubleJumpLevel + 1) * 100,
+    (upg.dashDistanceLevel + 1) * 80,
+  ];
+  const canAffordUpgrade = upgradeCosts.some((cost, idx) => upgradeLevels[idx] < 5 && state.gemsCurrency >= cost);
+  const pulsePhase = (nowMs % 5000) / 5000;
+  const pulse = canAffordUpgrade ? Math.max(0, Math.sin(pulsePhase * Math.PI * 2)) : 0;
+  const gemIconX = statsX + statsCol * 1.5 - 22;
+  const gemIconY = baseY - 6;
+
+  ctx.save();
+  ctx.translate(gemIconX, gemIconY);
+  const gemScale = 1 + pulse * 0.18;
+  ctx.scale(gemScale, gemScale);
+  ctx.shadowColor = `rgba(255, 214, 120, ${0.25 + pulse * 0.5})`;
+  ctx.shadowBlur = 10 + pulse * 8;
+  ctx.fillStyle = '#7bd3ff';
+  ctx.beginPath();
+  ctx.moveTo(0, -7);
+  ctx.lineTo(6, 0);
+  ctx.lineTo(0, 7);
+  ctx.lineTo(-6, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillText(`GEMS: ${state.gemsCurrency}`, statsX + statsCol * 1.5 + 10, baseY);
 
   const logo = assetLoader.getAsset('logo');
   const logoMaxH = H * 0.25;
@@ -651,9 +717,10 @@ function drawMenuScreen(
   const isMobileLayout = compactMobileLayout;
   const cardW = isMobileLayout ? W - 60 : 280;
   const cardH = isMobileLayout ? 85 : 120;
-  const gap = isMobileLayout ? 15 : 24;
+  const gapX = isMobileLayout ? 0 : 24;
+  const gapY = 15;
   const cols = isMobileLayout ? 1 : 2;
-  const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+  const startX = W / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
   const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
   const menuCards = [
     { title: tr(state, 'menu_campaign'), subtitle: tr(state, 'menu_campaign_subtitle'), color: ELEMENT_COLORS.fire, icon: 'map', active: state.selectedMenuButton === 0 },
@@ -665,8 +732,8 @@ function drawMenuScreen(
   const drawCardAt = (card: typeof menuCards[number], index: number) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
-    const x = startX + col * (cardW + gap);
-    const y = startY + row * (cardH + gap);
+    const x = startX + col * (cardW + gapX);
+    const y = startY + row * (cardH + gapY);
     drawMenuCard(ctx, state, {
       x, y, w: cardW, h: cardH,
       title: card.title,
@@ -695,7 +762,7 @@ function drawMenuScreen(
   const snapshot = getProgressionSnapshot(state);
   const sidebarW = isMobileLayout ? W - 60 : 250;
   const sidebarX = isMobileLayout ? 30 : W - sidebarW - 30;
-  const sidebarY = isMobileLayout ? startY + cardH * 2 + gap * 2 + 8 : 84;
+  const sidebarY = isMobileLayout ? startY + cardH * 2 + gapY * 2 + 8 : 84;
   const daily = snapshot.dailies[0];
 
   if (sidebarY + 180 < H - 110) {

@@ -258,6 +258,15 @@ export function duckMusicForUltimate(): void {
     }
 }
 
+export function fadeMusicTo(multiplier: number, duration = 0.4): void {
+    ensureContext();
+    if (!musicGain) return;
+    const now = audioCtx!.currentTime;
+    const target = Math.max(0, Math.min(1, multiplier)) * musicVolume;
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setTargetAtTime(target, now, Math.max(0.01, duration / 3));
+}
+
 export function playSpikeHit(): void {
     playTone(180, 0.12, 'sawtooth', 0.18);
     playNoise(0.08, 0.1, 1200);
@@ -272,6 +281,12 @@ export function playStoneOpen(): void {
     playNoise(0.15, 0.25, 400);
     playTone(140, 0.08, 'sawtooth', 0.12);
     playTone(80, 0.12, 'square', 0.08, 0, 0.05);
+}
+
+export function playMetalClick(): void {
+    playTone(520, 0.05, 'square', 0.16);
+    playTone(840, 0.04, 'sine', 0.12, 0, 0.02);
+    playNoise(0.03, 0.04, 3800);
 }
 
 // ===== BACKGROUND MUSIC =====

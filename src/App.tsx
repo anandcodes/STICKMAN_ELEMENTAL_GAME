@@ -97,6 +97,7 @@ function App() {
   const lastLeaderboardRefreshRef = useRef(0);
   const [menuOverlay, setMenuOverlay] = useState({ visible: true, selected: 0 });
   const menuOverlayRef = useRef(menuOverlay);
+  const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
@@ -127,12 +128,37 @@ function App() {
     s.selectedMenuButton = index;
   };
 
+  const beginCampaignTransition = () => {
+    const s = stateRef.current;
+    if (s.screen !== 'menu') return;
+    if (s.screenTransition?.active) return;
+    s.selectedMenuButton = 0;
+    s.screenTransition = {
+      active: true,
+      timer: 0,
+      duration: 26,
+      phase: 'out',
+      target: 'levelSelect',
+      mode: 'fade',
+    };
+    Audio.playStoneOpen();
+    Audio.fadeMusicTo(0, 0.35);
+    window.setTimeout(() => {
+      Audio.fadeMusicTo(1, 0.25);
+    }, 450);
+    enterMobileImmersive();
+  };
+
   const handleMenuCardActivate = (index: number) => {
     const s = stateRef.current;
     if (s.screen !== 'menu') return;
+    if (s.screenTransition?.active) return;
     s.selectedMenuButton = index;
+    if (index === 0) {
+      beginCampaignTransition();
+      return;
+    }
     Audio.playStoneOpen();
-    if (index === 0) s.screen = 'levelSelect';
     if (index === 1) s.screen = 'survivalDifficulty';
     if (index === 2) s.screen = 'shop';
     if (index === 3) s.screen = 'challenges';
@@ -140,14 +166,25 @@ function App() {
   };
 
   useEffect(() => {
+    const loadFonts = async () => {
+      if (!document.fonts?.load) return;
+      await Promise.all([
+        document.fonts.load('700 1em "Cinzel"'),
+        document.fonts.load('600 1em "Cormorant Garamond"'),
+      ]);
+      await document.fonts.ready;
+    };
 
-    // Load all game assets
-    assetLoader.loadAssets({
-      boss1: '/bosses/boss1.png',
-      boss2: '/bosses/boss2.png',
-      logo: '/assets/logo.png',
-      ...MOBILE_CONTROL_ASSET_PATHS,
-    }).then(() => {
+    // Load all game assets + fonts
+    Promise.all([
+      assetLoader.loadAssets({
+        boss1: '/bosses/boss1.png',
+        boss2: '/bosses/boss2.png',
+        logo: '/assets/logo.png',
+        ...MOBILE_CONTROL_ASSET_PATHS,
+      }),
+      loadFonts(),
+    ]).then(() => {
       setAssetsReady(true);
       setControlsAssets(Object.fromEntries(
         Object.keys(MOBILE_CONTROL_ASSET_PATHS).map((key) => [key, assetLoader.getAsset(key)]),
@@ -239,6 +276,56 @@ function App() {
       window.visualViewport?.removeEventListener('resize', computeScale);
     };
   }, [isMobile]);
+
+  useEffect(() => {
+    let raf = 0;
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const applyParallax = () => {
+      const p = parallaxRef.current;
+      p.x += (p.targetX - p.x) * 0.08;
+      p.y += (p.targetY - p.y) * 0.08;
+      const s = stateRef.current;
+      if (s.menuParallax) {
+        s.menuParallax.x = p.x;
+        s.menuParallax.y = p.y;
+      } else {
+        s.menuParallax = { x: p.x, y: p.y };
+      }
+      const host = containerRef.current;
+      if (host) {
+        host.style.setProperty('--parallax-x', `${p.x * 18}px`);
+        host.style.setProperty('--parallax-y', `${p.y * 12}px`);
+      }
+      raf = requestAnimationFrame(applyParallax);
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      const host = containerRef.current;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = (event.clientY - rect.top) / rect.height;
+      parallaxRef.current.targetX = clamp((nx - 0.5) * 2, -1, 1);
+      parallaxRef.current.targetY = clamp((ny - 0.5) * 2, -1, 1);
+    };
+
+    const onOrientation = (event: DeviceOrientationEvent) => {
+      const gamma = event.gamma ?? 0;
+      const beta = event.beta ?? 0;
+      parallaxRef.current.targetX = clamp(gamma / 30, -1, 1);
+      parallaxRef.current.targetY = clamp(beta / 30, -1, 1);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('deviceorientation', onOrientation);
+    raf = requestAnimationFrame(applyParallax);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('deviceorientation', onOrientation);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -368,14 +455,16 @@ function App() {
 
       if (s.screen === 'menu') {
         if (tx === undefined || ty === undefined) return;
+        if (s.screenTransition?.active) return;
 
         // Responsive Grid buttons
         const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W - 60 : 280;
         const cardH = isMobileLayout ? 85 : 120;
-        const gap = isMobileLayout ? 15 : 24;
+        const gapX = isMobileLayout ? 0 : 24;
+        const gapY = 15;
         const cols = isMobileLayout ? 1 : 2;
-        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
         const statsY = 18;
         const statsH = 56;
         const logo = assetLoader.getAsset('logo');
@@ -388,16 +477,28 @@ function App() {
         const logoY = statsY + statsH + 18;
         const toggleH = 52;
         const toggleY = logoY + logoH + 12;
+        const toggleW = Math.min(280, CANVAS_W - 80);
+        const toggleX = CANVAS_W / 2 - toggleW / 2;
         const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
+
+        if (tx >= toggleX && tx <= toggleX + toggleW && ty >= toggleY && ty <= toggleY + toggleH) {
+          s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
+          Audio.playMetalClick();
+          return;
+        }
 
         for (let i = 0; i < 4; i++) {
           const col = i % cols;
           const row = Math.floor(i / cols);
-          const x = startX + col * (cardW + gap);
-          const y = startY + row * (cardH + gap);
+          const x = startX + col * (cardW + gapX);
+          const y = startY + row * (cardH + gapY);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
+            if (i === 0) {
+              beginCampaignTransition();
+              return;
+            }
+            if (s.screenTransition?.active) return;
             Audio.playStoneOpen();
-            if (i === 0) s.screen = 'levelSelect';
             if (i === 1) s.screen = 'survivalDifficulty';
             if (i === 2) s.screen = 'shop';
             if (i === 3) s.screen = 'challenges';
@@ -756,6 +857,10 @@ function App() {
 
       if (s.screen !== 'playing') {
         if (s.screen === 'menu') {
+          if (s.screenTransition?.active) {
+            e.preventDefault();
+            return;
+          }
           if (keyLower === 'a' || key === 'ArrowLeft' || keyLower === 'd' || key === 'ArrowRight') {
             s.selectedMenuButton = s.selectedMenuButton === 0 ? 1 : 0;
             Audio.playMenuSelect();
@@ -763,8 +868,7 @@ function App() {
           }
           if (key === '1' || (s.selectedMenuButton === 0 && (key === 'Enter' || key === ' '))) {
             Audio.initAudio();
-            Audio.playMenuSelect();
-            s.screen = 'levelSelect';
+            beginCampaignTransition();
             e.preventDefault();
             return;
           }
@@ -779,7 +883,7 @@ function App() {
           }
           if (keyLower === 'd') {
             s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
-            Audio.playMenuSelect();
+            Audio.playMetalClick();
             return;
           }
           if (keyLower === 'u') {
@@ -1360,9 +1464,10 @@ function App() {
               const isMobileLayout = isCompactMobileLayout();
               const cardW = isMobileLayout ? canvasWidth - 60 : 280;
               const cardH = isMobileLayout ? 85 : 120;
-              const gap = isMobileLayout ? 15 : 24;
+              const gapX = isMobileLayout ? 0 : 24;
+              const gapY = 15;
               const cols = isMobileLayout ? 1 : 2;
-              const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+              const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
               const statsY = 18;
               const statsH = 56;
               const logo = assetLoader.getAsset('logo');
@@ -1385,8 +1490,8 @@ function App() {
               return cards.map(({ key, index }) => {
                 const col = index % cols;
                 const row = Math.floor(index / cols);
-                const x = startX + col * (cardW + gap);
-                const y = startY + row * (cardH + gap);
+                const x = startX + col * (cardW + gapX);
+                const y = startY + row * (cardH + gapY);
                 return (
                   <div
                     key={key}

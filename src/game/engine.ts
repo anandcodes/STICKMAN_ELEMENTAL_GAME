@@ -198,6 +198,8 @@ export function createInitialState(
     favoriteElement: undefined,
     elementUsage: { fire: 0, water: 0, earth: 0, wind: 0 },
     continueButton: undefined,
+    menuParallax: { x: 0, y: 0 },
+    screenTransition: undefined,
   };
 }
 
@@ -316,6 +318,21 @@ export function update(state: GameState): void {
   if (state.screen !== 'playing') {
     state.screenTimer++;
     updateFloatingTexts(state);
+
+    if (state.screenTransition?.active) {
+      state.screenTransition.timer++;
+      if (state.screenTransition.timer >= state.screenTransition.duration) {
+        if (state.screenTransition.phase === 'out') {
+          state.screen = state.screenTransition.target;
+          state.screenTimer = 0;
+          state.screenTransition.phase = 'in';
+          state.screenTransition.timer = 0;
+        } else {
+          state.screenTransition.active = false;
+        }
+      }
+    }
+
     if (state.screen === 'relicSelection') return;
     if (state.screen === 'victory') {
       state.endingShown = true;
