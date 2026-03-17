@@ -314,6 +314,9 @@ export function update(state: GameState): void {
     if (state.screen === 'victory') {
       state.endingShown = true;
     }
+    if (state.screenTimer === 1 && (state.screen === 'map' || state.screen === 'skillTree')) {
+      Audio.playStoneOpen();
+    }
 
     if (state.screen === 'levelComplete' && state.screenTimer === 1) {
       state.furthestLevel = Math.max(state.furthestLevel, state.currentLevel + 1);

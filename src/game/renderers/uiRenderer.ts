@@ -4,6 +4,7 @@ import { DIFFICULTY_SETTINGS } from '../constants';
 import { getLeaderboard, getLeaderboardStatus } from '../services/leaderboard';
 import { getProgressionSnapshot } from '../services/progression';
 import { UI_THEME, ELEMENT_COLORS } from './renderConstants';
+import { assetLoader } from '../services/assetLoader';
 import { formatFramesAsTime, roundRect, setUiFont, setDisplayFont, tr } from './renderUtils';
 
 export function drawPanel(
@@ -235,14 +236,15 @@ function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     const x = inset + 80 + (i % 6) * ((W - inset * 2 - 120) / 5);
     const y = inset + 120 + Math.floor(i / 6) * 90;
     const unlocked = i <= state.furthestLevel;
+    const isBoss = i === nodeCount - 1 && state.bossDefeated;
     ctx.save();
     ctx.globalAlpha = unlocked ? 1 : 0.3;
     const glow = ctx.createRadialGradient(x, y, 4, x, y, 28);
-    glow.addColorStop(0, unlocked ? '#cbe7ff' : '#111');
+    glow.addColorStop(0, isBoss ? '#ffd06a' : unlocked ? '#cbe7ff' : '#111');
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(x, y, 28, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = unlocked ? '#9ae6de' : '#555';
+    ctx.fillStyle = isBoss ? '#ffd06a' : unlocked ? '#9ae6de' : '#555';
     ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
     setUiFont(ctx, state, 12, '700');
     ctx.fillStyle = '#f3ead6';
@@ -326,6 +328,13 @@ function drawEndingScroll(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   ctx.fillStyle = '#f3ead6';
   ctx.textAlign = 'center';
   ctx.fillText('ENDING SCROLL', W / 2, inset + 80);
+
+  const logo = assetLoader.getAsset('logo');
+  if (logo?.complete && logo.naturalWidth > 0) {
+    const lw = Math.min(logo.naturalWidth, W * 0.5);
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, W / 2 - lw / 2, inset + 90, lw, lh);
+  }
 
   setUiFont(ctx, state, 20, '800');
   ctx.fillText(`Total Gems Collected: ${state.totalGemsEver}`, W / 2, inset + 140);

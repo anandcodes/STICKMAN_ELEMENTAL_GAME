@@ -106,6 +106,7 @@ function App() {
     assetLoader.loadAssets({
       boss1: '/bosses/boss1.png',
       boss2: '/bosses/boss2.png',
+      logo: '/assets/logo.png',
       ...MOBILE_CONTROL_ASSET_PATHS,
     }).then(() => {
       setAssetsReady(true);
