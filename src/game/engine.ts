@@ -194,6 +194,10 @@ export function createInitialState(
     slowmoFactor: 1,
     ultimateHintShown: false,
     bossDefeated: false,
+    endingShown: false,
+    favoriteElement: undefined,
+    elementUsage: { fire: 0, water: 0, earth: 0, wind: 0 },
+    continueButton: undefined,
   };
 }
 
@@ -291,7 +295,9 @@ function triggerElementalBurst(state: GameState) {
   state.ultimateReady = false;
   state.slowmoTimer = 30;
   state.slowmoFactor = 0.1;
-  if (state.enemies.every((e) => e.state === 'dead')) {
+  const hasGuardian = state.enemies.some((e) => e.type === 'guardian_aether');
+  const isFinalLevel = state.currentLevel >= TOTAL_LEVELS - 1;
+  if (state.enemies.every((e) => e.state === 'dead') && (hasGuardian || isFinalLevel)) {
     state.bossDefeated = true;
     state.screen = 'victory';
     state.slowmoTimer = 0;

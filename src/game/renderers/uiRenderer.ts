@@ -399,9 +399,6 @@ export function drawUIRenderer(
     case 'gameOver':
       drawGameOverScreen(ctx, state, W, H, isMobile);
       return;
-    case 'victory':
-      drawVictoryScreen(ctx, state, W, H, isMobile);
-      return;
     case 'shop':
       drawShopScreen(ctx, state, W, H, compactMobileLayout);
       return;
