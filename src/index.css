@@ -241,6 +241,41 @@ body {
   box-sizing: border-box;
   font-family: 'Roboto', sans-serif;
   color: #ffffff;
+  overflow: hidden;
+}
+
+.menu-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 68, 68, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(68, 170, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(68, 255, 136, 0.1) 0%, transparent 50%);
+  animation: floatParticles 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes floatParticles {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateY(-10px) rotate(90deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(10px) rotate(180deg);
+    opacity: 0.3;
+  }
+  75% {
+    transform: translateY(-5px) rotate(270deg);
+    opacity: 0.4;
+  }
 }
 
 .menu-header {
@@ -323,21 +358,44 @@ body {
 }
 
 .menu-button {
+  --accent: rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   gap: 15px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--accent);
   border-radius: 15px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   backdrop-filter: blur(10px);
   font-family: 'Roboto', sans-serif;
   color: #ffffff;
   text-align: left;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 0 18px var(--accent);
+  animation: glowPulse 3.2s ease-in-out infinite, tapHint 4s ease-in-out infinite;
+}
+
+@keyframes tapHint {
+  0%, 90%, 100% {
+    transform: scale(1);
+  }
+  95% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 18px var(--accent);
+  }
+
+  50% {
+    box-shadow: 0 0 28px var(--accent);
+  }
 }
 
 .menu-button::before {
@@ -363,8 +421,8 @@ body {
 }
 
 .menu-button.campaign {
-  border-color: #ff4444;
-  box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+  --accent: rgba(255, 68, 68, 0.35);
+  border-color: rgba(255, 68, 68, 0.5);
 }
 
 .menu-button.campaign:hover,
@@ -373,8 +431,8 @@ body {
 }
 
 .menu-button.survival {
-  border-color: #44aaff;
-  box-shadow: 0 0 20px rgba(68, 170, 255, 0.3);
+  --accent: rgba(68, 170, 255, 0.35);
+  border-color: rgba(68, 170, 255, 0.45);
 }
 
 .menu-button.survival:hover,
@@ -383,8 +441,8 @@ body {
 }
 
 .menu-button.shop {
-  border-color: #ffaa44;
-  box-shadow: 0 0 20px rgba(255, 170, 68, 0.3);
+  --accent: rgba(255, 170, 68, 0.35);
+  border-color: rgba(255, 170, 68, 0.45);
 }
 
 .menu-button.shop:hover,
@@ -393,8 +451,8 @@ body {
 }
 
 .menu-button.challenges {
-  border-color: #44ff88;
-  box-shadow: 0 0 20px rgba(68, 255, 136, 0.3);
+  --accent: rgba(68, 255, 136, 0.35);
+  border-color: rgba(68, 255, 136, 0.45);
 }
 
 .menu-button.challenges:hover,
@@ -403,8 +461,20 @@ body {
 }
 
 .button-icon {
-  font-size: 32px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.button-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: currentColor;
 }
 
 .button-content {
