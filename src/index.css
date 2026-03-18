@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=block");
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;700&family=Roboto:wght@400;700&display=swap');
 @import "tailwindcss";
 
 * {
@@ -220,5 +221,249 @@ body {
 
   100% {
     opacity: 0;
+  }
+}
+
+/* Menu Styles */
+
+.menu-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #1a1a24;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  box-sizing: border-box;
+  font-family: 'Roboto', sans-serif;
+  color: #ffffff;
+}
+
+.menu-header {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 25px;
+  backdrop-filter: blur(10px);
+}
+
+.menu-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #cccccc;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.menu-gems {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: #1a1a24;
+  font-weight: 700;
+}
+
+.gem-icon {
+  font-size: 16px;
+}
+
+.gem-count {
+  font-size: 16px;
+}
+
+.menu-title {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.menu-title h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.menu-button {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid transparent;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-family: 'Roboto', sans-serif;
+  color: #ffffff;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.menu-button:hover::before,
+.menu-button:active::before {
+  left: 100%;
+}
+
+.menu-button:hover,
+.menu-button:active {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.menu-button.campaign {
+  border-color: #ff4444;
+  box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+}
+
+.menu-button.campaign:hover,
+.menu-button.campaign:active {
+  background: rgba(255, 68, 68, 0.2);
+}
+
+.menu-button.survival {
+  border-color: #44aaff;
+  box-shadow: 0 0 20px rgba(68, 170, 255, 0.3);
+}
+
+.menu-button.survival:hover,
+.menu-button.survival:active {
+  background: rgba(68, 170, 255, 0.2);
+}
+
+.menu-button.shop {
+  border-color: #ffaa44;
+  box-shadow: 0 0 20px rgba(255, 170, 68, 0.3);
+}
+
+.menu-button.shop:hover,
+.menu-button.shop:active {
+  background: rgba(255, 170, 68, 0.2);
+}
+
+.menu-button.challenges {
+  border-color: #44ff88;
+  box-shadow: 0 0 20px rgba(68, 255, 136, 0.3);
+}
+
+.menu-button.challenges:hover,
+.menu-button.challenges:active {
+  background: rgba(68, 255, 136, 0.2);
+}
+
+.button-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.button-content {
+  flex: 1;
+}
+
+.button-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.button-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: #cccccc;
+  opacity: 0.8;
+}
+
+.menu-difficulty {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  backdrop-filter: blur(10px);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .menu-container {
+    padding: 10px;
+  }
+
+  .menu-title h1 {
+    font-size: 36px;
+  }
+
+  .menu-buttons {
+    max-width: 100%;
+    gap: 10px;
+  }
+
+  .menu-button {
+    padding: 15px;
+    gap: 10px;
+  }
+
+  .button-icon {
+    font-size: 24px;
+  }
+
+  .button-title {
+    font-size: 18px;
+  }
+
+  .button-subtitle {
+    font-size: 12px;
   }
 }

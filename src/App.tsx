@@ -18,6 +18,7 @@ import {
   buildRestartLevelState,
 } from './game/stateFactory';
 import { claimDailyReward, getProgressionSnapshot } from './game/services/progression';
+import Menu from './components/Menu';
 import {
   createTouchControlsState,
   handleTouchStart,
@@ -1451,84 +1452,14 @@ function App() {
           {t(settings.locale, 'app_open_settings').toUpperCase()}
         </button>
       )}
-      {menuOverlay.visible && (
-        <div className="menu-overlay">
-          <div
-            className="menu-overlay-inner"
-            style={{
-              width: Math.floor(canvasWidth * canvasScale),
-              height: Math.floor(CANVAS_H * canvasScale),
-            }}
-          >
-            {(() => {
-              const isMobileLayout = isCompactMobileLayout();
-              const cardW = isMobileLayout ? canvasWidth - 60 : 280;
-              const cardH = isMobileLayout ? 85 : 120;
-              const gapX = isMobileLayout ? 0 : 24;
-              const gapY = 15;
-              const cols = isMobileLayout ? 1 : 2;
-              const startX = canvasWidth / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
-              const statsY = 18;
-              const statsH = 56;
-              const logo = assetLoader.getAsset('logo');
-              const logoMaxH = CANVAS_H * 0.25;
-              const logoMaxW = canvasWidth * 0.7;
-              const logoScale = logo?.complete && logo.naturalWidth > 0
-                ? Math.min(logoMaxW / logo.naturalWidth, logoMaxH / logo.naturalHeight)
-                : 0;
-              const logoH = logoScale > 0 ? logo.naturalHeight * logoScale : Math.min(logoMaxH, 160);
-              const logoY = statsY + statsH + 18;
-              const toggleH = 52;
-              const toggleY = logoY + logoH + 12;
-              const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
-              const cards = [
-                { key: 'campaign', index: 0 },
-                { key: 'survival', index: 1 },
-                { key: 'shop', index: 2 },
-                { key: 'daily', index: 3 },
-              ];
-              return cards.map(({ key, index }) => {
-                const col = index % cols;
-                const row = Math.floor(index / cols);
-                const x = startX + col * (cardW + gapX);
-                const y = startY + row * (cardH + gapY);
-                return (
-                  <div
-                    key={key}
-                    className="menu-card menu-stone"
-                    data-active={menuOverlay.selected === index}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={key}
-                    onPointerEnter={() => setMenuSelection(index)}
-                    onFocus={() => setMenuSelection(index)}
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      setMenuSelection(index);
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleMenuCardActivate(index);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleMenuCardActivate(index);
-                      }
-                    }}
-                    style={{
-                      left: x * canvasScale,
-                      top: y * canvasScale,
-                      width: cardW * canvasScale,
-                      height: cardH * canvasScale,
-                    }}
-                  />
-                );
-              });
-            })()}
-          </div>
-        </div>
+      {stateRef.current.screen === 'menu' && (
+        <Menu
+          highScore={stateRef.current.highScore}
+          furthestLevel={stateRef.current.furthestLevel}
+          gems={stateRef.current.gemsCurrency}
+          difficulty={stateRef.current.difficulty}
+          onSelect={handleMenuCardActivate}
+        />
       )}
       <canvas
         ref={canvasRef}
@@ -1537,7 +1468,7 @@ function App() {
         id="game-canvas"
         aria-label="Game canvas"
         style={{
-          display: 'block',
+          display: stateRef.current.screen === 'menu' ? 'none' : 'block',
           width: Math.floor(canvasWidth * canvasScale),
           height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',
