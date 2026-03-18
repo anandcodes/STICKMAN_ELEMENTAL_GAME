@@ -231,63 +231,85 @@ function drawMenuCard(
   },
 ) {
   const { x, y, w, h, title, subtitle, glowColor, icon, elementColor, active } = opts;
-  const scale = active ? 1.05 : 1;
+  const scale = active ? 1.04 : 1;
   const cx = x + w / 2;
   const cy = y + h / 2;
+
+  // Simple shadow + base card
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
   ctx.translate(-cx, -cy);
-  const stone = ctx.createLinearGradient(x, y, x, y + h);
-  stone.addColorStop(0, '#2c2824');
-  stone.addColorStop(1, '#171513');
-  ctx.fillStyle = stone;
+
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 6;
+
+  const base = ctx.createLinearGradient(x, y, x, y + h);
+  base.addColorStop(0, 'rgba(34,32,36,0.9)');
+  base.addColorStop(1, 'rgba(16,14,18,0.85)');
+  ctx.fillStyle = base;
   roundRect(ctx, x, y, w, h, 18);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(214,184,126,0.4)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
 
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Active glow border
   if (active) {
     ctx.save();
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.35;
     ctx.strokeStyle = glowColor;
     ctx.lineWidth = 6;
-    roundRect(ctx, x + 4, y + 4, w - 8, h - 8, 16);
+    roundRect(ctx, x + 3, y + 3, w - 6, h - 6, 16);
     ctx.stroke();
     ctx.restore();
   }
 
-  // Icon
+  // Icon bubble
+  const iconSize = 38;
+  const iconX = x + 28;
+  const iconY = y + h / 2;
+
   ctx.save();
-  ctx.translate(x + 36, y + h / 2);
-  ctx.strokeStyle = elementColor;
   ctx.fillStyle = elementColor;
-  ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.14;
+  ctx.beginPath();
+  ctx.arc(iconX, iconY, iconSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = elementColor;
+  ctx.lineWidth = 2.5;
   if (icon === 'map') {
-    ctx.strokeRect(-12, -12, 24, 24);
-    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(0, -4); ctx.lineTo(8, -10); ctx.stroke();
+    ctx.strokeRect(iconX - 10, iconY - 10, 20, 20);
+    ctx.beginPath(); ctx.moveTo(iconX - 6, iconY - 4); ctx.lineTo(iconX, iconY - 2); ctx.lineTo(iconX + 6, iconY - 6); ctx.stroke();
   } else if (icon === 'swords') {
-    ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 10); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(-10, 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(iconX - 10, iconY - 10); ctx.lineTo(iconX + 10, iconY + 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(iconX + 10, iconY - 10); ctx.lineTo(iconX - 10, iconY + 10); ctx.stroke();
   } else if (icon === 'bag') {
-    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(6, -8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(iconX, iconY, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(iconX - 5, iconY - 7); ctx.lineTo(iconX + 5, iconY - 7); ctx.stroke();
   } else {
-    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(4, -2); ctx.lineTo(14, -2); ctx.lineTo(6, 4); ctx.lineTo(10, 14); ctx.lineTo(0, 8); ctx.lineTo(-10, 14); ctx.lineTo(-6, 4); ctx.lineTo(-14, -2); ctx.lineTo(-4, -2); ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(iconX, iconY - 12); ctx.lineTo(iconX + 4, iconY - 2); ctx.lineTo(iconX + 14, iconY - 2); ctx.lineTo(iconX + 6, iconY + 4);
+    ctx.lineTo(iconX + 10, iconY + 14); ctx.lineTo(iconX, iconY + 8); ctx.lineTo(iconX - 10, iconY + 14); ctx.lineTo(iconX - 6, iconY + 4);
+    ctx.lineTo(iconX - 14, iconY - 2); ctx.lineTo(iconX - 4, iconY - 2); ctx.closePath();
     ctx.stroke();
   }
   ctx.restore();
 
+  // Text
   ctx.textAlign = 'left';
   const titleY = y + h / 2 - 6;
   const subtitleY = y + h / 2 + 16;
   ctx.fillStyle = '#f3ead6';
-  setUiFont(ctx, state, 18, '800');
+  setUiFont(ctx, state, 17, '800');
   ctx.fillText(title, x + 70, titleY);
   ctx.fillStyle = '#d6c49e';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(subtitle, x + 70, subtitleY);
+
   ctx.restore();
 }
 
@@ -606,26 +628,35 @@ function drawMenuScreen(
   ctx.fillStyle = corona;
   ctx.fillRect(-60, -60, W + 120, H + 120);
 
-  // Floating embers/runes
+  // Subtle starfield background (fewer particles for better performance)
   ctx.save();
-  ctx.globalAlpha = 0.5;
-  for (let i = 0; i < 80; i++) {
-    const x = (i * 37 + nowMs * 0.04) % (W + 80) - 40;
-    const y = (i * 53 + nowMs * 0.02) % (H + 120) - 60;
-    ctx.fillStyle = i % 3 === 0 ? 'rgba(255,165,100,0.45)' : 'rgba(154,230,222,0.4)';
-    ctx.beginPath(); ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.35;
+  for (let i = 0; i < 40; i++) {
+    const x = ((i * 89 + nowMs * 0.02) % (W + 120)) - 60;
+    const y = ((i * 61 + nowMs * 0.015) % (H + 100)) - 50;
+    const size = 1 + (i % 2);
+    ctx.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,0.35)' : 'rgba(150,200,255,0.22)';
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
   ctx.restore();
 
-  const statsH = 56;
-  const statsY = 18;
+  const titleY = 60;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  setDisplayFont(ctx, state, 40, '900');
+  ctx.fillText('ELEMENTAL', W / 2, titleY);
+  setDisplayFont(ctx, state, 34, '800');
+  ctx.fillText('STICKMAN', W / 2, titleY + 42);
+
+  const statsH = 52;
+  const statsY = titleY + 62;
   const statsW = Math.min(W - 60, 720);
   const statsX = W / 2 - statsW / 2;
   drawStoneHudPanel(ctx, statsX, statsY, statsW, statsH, '#ffd06a');
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f3ead6';
-  setUiFont(ctx, state, 15, '800');
+  setUiFont(ctx, state, 14, '800');
   const statsCol = statsW / 3;
   const baseY = statsY + 34;
   ctx.fillText(`BEST: ${state.highScore}`, statsX + statsCol * 0.5, baseY);
