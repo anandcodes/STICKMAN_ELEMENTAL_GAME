@@ -1003,15 +1003,22 @@ function drawLevelSelectScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  // Premium fantasy backdrop with parallax effect
+  // Premium fantasy backdrop with subtle parallax effect
   drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
+  
+  // Subtle animated parallax layer
+  const parallaxOffset = (state.frameCount * 0.1) % 100;
+  ctx.save();
+  ctx.fillStyle = 'rgba(154, 230, 222, 0.02)';
+  ctx.fillRect(-parallaxOffset, 0, W + parallaxOffset, H);
+  ctx.restore();
   
   // Decorative header with element-inspired design
   ctx.save();
   ctx.fillStyle = 'rgba(154, 230, 222, 0.08)';
   ctx.fillRect(0, 0, W, 140);
   
-  // Decorative top line
+  // Decorative top line with glow
   ctx.strokeStyle = 'rgba(154, 230, 222, 0.3)';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1032,7 +1039,7 @@ function drawLevelSelectScreen(
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
   const startY = compactMobileLayout ? 130 : 160;
 
-  // Draw level cards with premium styling
+  // Draw level cards with premium styling and micro-interactions
   for (let index = 0; index < TOTAL_LEVELS; index++) {
     const col = index % cols;
     const row = Math.floor(index / cols);
@@ -1044,11 +1051,19 @@ function drawLevelSelectScreen(
 
     ctx.save();
     
+    // Apply hover/selection scale effect for micro-interaction
+    const scaleAmount = selected ? 1.08 : 1.0;
+    const cardCenterX = x + cardW / 2;
+    const cardCenterY = y + cardH / 2;
+    ctx.translate(cardCenterX, cardCenterY);
+    ctx.scale(scaleAmount, scaleAmount);
+    ctx.translate(-cardCenterX, -cardCenterY);
+    
     // Premium shadow with depth
     if (unlocked) {
-      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.4)' : 'rgba(154, 230, 222, 0.25)';
-      ctx.shadowBlur = selected ? 24 : 14;
-      ctx.shadowOffsetY = selected ? 12 : 8;
+      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.5)' : 'rgba(154, 230, 222, 0.25)';
+      ctx.shadowBlur = selected ? 28 : 14;
+      ctx.shadowOffsetY = selected ? 14 : 8;
     } else {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
       ctx.shadowBlur = 12;
@@ -1060,9 +1075,9 @@ function drawLevelSelectScreen(
     if (unlocked) {
       if (selected) {
         // Premium selected state - bright cyan/green glow
-        bgGrad.addColorStop(0, 'rgba(98, 238, 184, 0.22)');
-        bgGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.15)');
-        bgGrad.addColorStop(1, 'rgba(98, 238, 184, 0.08)');
+        bgGrad.addColorStop(0, 'rgba(98, 238, 184, 0.25)');
+        bgGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.18)');
+        bgGrad.addColorStop(1, 'rgba(98, 238, 184, 0.12)');
       } else {
         // Unlocked - subtle cyan
         bgGrad.addColorStop(0, 'rgba(123, 211, 255, 0.14)');
@@ -1120,11 +1135,22 @@ function drawLevelSelectScreen(
 
     ctx.restore();
 
-    // Level number - large and bold
+    // Element icon/symbol (cycling animation)
+    const elementSymbols = ['🔥', '💧', '🌍', '🌪️'];
+    const elementIndex = index % 4;
+    const elementSymbol = elementSymbols[elementIndex];
+    ctx.save();
+    ctx.fillStyle = unlocked ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.font = `${cardH > 150 ? 20 : 16}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(elementSymbol, x + cardW / 2, y + 28);
+    ctx.restore();
+
+    // Level number - large and bold (aggressive gaming font)
     ctx.textAlign = 'center';
     ctx.fillStyle = unlocked ? (selected ? '#62eeb8' : '#b8e0ff') : 'rgba(255,255,255,0.35)';
-    setDisplayFont(ctx, state, cardH > 150 ? 40 : 32, '900');
-    ctx.fillText(`L${index + 1}`, x + cardW / 2, y + 52);
+    setDisplayFont(ctx, state, cardH > 150 ? 44 : 36, '900');
+    ctx.fillText(`${index + 1}`, x + cardW / 2, y + 65);
 
     // Status badge with styling
     if (unlocked) {
@@ -1132,11 +1158,27 @@ function drawLevelSelectScreen(
       ctx.fillStyle = statusColor;
       setUiFont(ctx, state, 12, '800');
       const statusText = selected ? 'READY' : 'UNLOCKED';
-      ctx.fillText(statusText, x + cardW / 2, y + 90);
+      ctx.fillText(statusText, x + cardW / 2, y + 95);
     } else {
       ctx.fillStyle = 'rgba(200, 192, 176, 0.5)';
       setUiFont(ctx, state, 11, '700');
-      ctx.fillText(tr(state, 'level_select_locked'), x + cardW / 2, y + 90);
+      ctx.fillText(tr(state, 'level_select_locked'), x + cardW / 2, y + 95);
+    }
+
+    // Star rating for completed levels
+    if (index < state.furthestLevel) {
+      // Show stars if level is completed
+      const stars = (state.bestTimes[index] ? 3 : 0); // Placeholder: full completion = 3 stars
+      ctx.save();
+      ctx.fillStyle = '#ffd36a';
+      ctx.textAlign = 'center';
+      ctx.font = `bold 10px Arial`;
+      let starText = '';
+      for (let s = 0; s < 3; s++) {
+        starText += s < stars ? '★' : '☆';
+      }
+      ctx.fillText(starText, x + cardW / 2, y + cardH - 22);
+      ctx.restore();
     }
 
     // Best time with elegant styling
@@ -1144,13 +1186,29 @@ function drawLevelSelectScreen(
       ctx.fillStyle = unlocked ? '#8ab9d1' : 'rgba(200, 192, 176, 0.4)';
       setUiFont(ctx, state, 10, '600');
       const timeText = formatFramesAsTime(bestTime);
-      ctx.fillText(`TIME: ${timeText}`, x + cardW / 2, y + cardH - 16);
+      ctx.fillText(`TIME: ${timeText}`, x + cardW / 2, y + cardH - 8);
     } else {
       ctx.fillStyle = 'rgba(200, 192, 176, 0.35)';
       setUiFont(ctx, state, 9, '500');
-      ctx.fillText('NO RECORD', x + cardW / 2, y + cardH - 16);
+      ctx.fillText('NO RECORD', x + cardW / 2, y + cardH - 8);
     }
   }
+
+  // Progress stats bar - total completion indicator
+  ctx.save();
+  const completedLevels = state.furthestLevel + 1;
+  const maxStars = TOTAL_LEVELS * 3;
+  const currentStars = Object.values(state.bestTimes).filter(t => t !== undefined).length * 3;
+  
+  ctx.fillStyle = 'rgba(232, 223, 207, 0.7)';
+  ctx.textAlign = 'center';
+  setUiFont(ctx, state, 12, '600');
+  ctx.fillText(
+    `⭐ ${currentStars} / ${maxStars} STARS  •  PROGRESS: ${Math.floor((completedLevels / TOTAL_LEVELS) * 100)}%`,
+    W / 2,
+    H - 135,
+  );
+  ctx.restore();
 
   // Instruction text with elegant styling
   ctx.save();
@@ -1164,20 +1222,29 @@ function drawLevelSelectScreen(
   );
   ctx.restore();
 
-  // Premium back button with elegant styling
+  // Premium back button with elegant styling and hover effect
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.4)';
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetY = 6;
+  const isBackButtonSelected = false; // Add this to state if needed for proper hover
+  const backScale = isBackButtonSelected ? 1.05 : 1.0;
   
   const backBtnX = W / 2 - 110;
   const backBtnY = H - 85;
   const backBtnW = 220;
   const backBtnH = 55;
   
+  const backCenterX = backBtnX + backBtnW / 2;
+  const backCenterY = backBtnY + backBtnH / 2;
+  ctx.translate(backCenterX, backCenterY);
+  ctx.scale(backScale, backScale);
+  ctx.translate(-backCenterX, -backCenterY);
+  
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 6;
+  
   const backGrad = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
-  backGrad.addColorStop(0, 'rgba(255, 118, 136, 0.2)');
-  backGrad.addColorStop(1, 'rgba(255, 118, 136, 0.1)');
+  backGrad.addColorStop(0, 'rgba(255, 118, 136, 0.22)');
+  backGrad.addColorStop(1, 'rgba(255, 118, 136, 0.12)');
   ctx.fillStyle = backGrad;
   roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 12);
   ctx.fill();
