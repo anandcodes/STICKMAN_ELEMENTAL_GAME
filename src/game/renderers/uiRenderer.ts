@@ -1006,12 +1006,12 @@ function drawLevelSelectScreen(
   drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
   drawScreenHeading(ctx, state, tr(state, 'level_select_title'), 'Select a campaign level', W, 86);
 
-  const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 194;
-  const cardH = compactMobileLayout ? 110 : 130;
-  const gap = compactMobileLayout ? 12 : 16;
-  const cols = compactMobileLayout ? 3 : 5;
+  const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 240;
+  const cardH = compactMobileLayout ? 120 : 160;
+  const gap = compactMobileLayout ? 14 : 20;
+  const cols = compactMobileLayout ? 3 : 4;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = compactMobileLayout ? 118 : 140;
+  const startY = compactMobileLayout ? 120 : 150;
 
   for (let index = 0; index < TOTAL_LEVELS; index++) {
     const col = index % cols;
@@ -1022,22 +1022,62 @@ function drawLevelSelectScreen(
     const selected = index === state.levelSelectionIndex;
     const bestTime = state.bestTimes[index];
 
-    drawPanel(ctx, state, x, y, cardW, cardH, 14, unlocked ? (selected ? '#62eeb8' : '#7bd3ff') : '#555a70', unlocked ? 0.94 : 0.55);
+    // Enhanced card styling with gradient and shadow
+    ctx.save();
+    
+    // Shadow effect
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 8;
+    
+    // Card gradient background
+    const cardGradient = ctx.createLinearGradient(x, y, x, y + cardH);
+    if (unlocked) {
+      if (selected) {
+        cardGradient.addColorStop(0, 'rgba(98,238,184,0.15)');
+        cardGradient.addColorStop(1, 'rgba(123,211,255,0.08)');
+      } else {
+        cardGradient.addColorStop(0, 'rgba(123,211,255,0.12)');
+        cardGradient.addColorStop(1, 'rgba(98,238,184,0.06)');
+      }
+    } else {
+      cardGradient.addColorStop(0, 'rgba(85,90,112,0.08)');
+      cardGradient.addColorStop(1, 'rgba(85,90,112,0.04)');
+    }
+    
+    ctx.fillStyle = cardGradient;
+    roundRect(ctx, x, y, cardW, cardH, 16);
+    ctx.fill();
+    
+    ctx.shadowColor = 'transparent';
+    
+    // Border styling
+    ctx.strokeStyle = unlocked ? (selected ? '#62eeb8' : '#7bd3ff') : '#555a70';
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.globalAlpha = unlocked ? (selected ? 0.8 : 0.5) : 0.3;
+    roundRect(ctx, x, y, cardW, cardH, 16);
+    ctx.stroke();
+    
+    ctx.restore();
+
+    // Level number
     ctx.textAlign = 'center';
-    ctx.fillStyle = unlocked ? '#ffffff' : 'rgba(255,255,255,0.5)';
-    setDisplayFont(ctx, state, 30, '900');
-    ctx.fillText(`L${index + 1}`, x + cardW / 2, y + 42);
+    ctx.fillStyle = unlocked ? '#ffffff' : 'rgba(255,255,255,0.4)';
+    setDisplayFont(ctx, state, 36, '900');
+    ctx.fillText(`L${index + 1}`, x + cardW / 2, y + 52);
 
-    ctx.fillStyle = unlocked ? UI_THEME.paper : UI_THEME.muted;
+    // Status text
+    ctx.fillStyle = unlocked ? '#b8e0ff' : 'rgba(255,255,255,0.3)';
     setUiFont(ctx, state, 13, '700');
-    ctx.fillText(state.levelSelectionIndex === index && unlocked ? 'READY' : unlocked ? 'UNLOCKED' : tr(state, 'level_select_locked'), x + cardW / 2, y + 70);
+    ctx.fillText(state.levelSelectionIndex === index && unlocked ? 'READY' : unlocked ? 'UNLOCKED' : tr(state, 'level_select_locked'), x + cardW / 2, y + 82);
 
-    ctx.fillStyle = UI_THEME.muted;
-    setUiFont(ctx, state, 12, '600');
+    // Best time
+    ctx.fillStyle = unlocked ? '#8ab9d1' : 'rgba(255,255,255,0.2)';
+    setUiFont(ctx, state, 11, '600');
     ctx.fillText(
       bestTime ? tr(state, 'level_select_best', { time: formatFramesAsTime(bestTime) }) : tr(state, 'level_select_none'),
       x + cardW / 2,
-      y + 96,
+      y + 110,
     );
   }
 
