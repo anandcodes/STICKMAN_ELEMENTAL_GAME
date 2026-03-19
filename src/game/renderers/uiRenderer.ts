@@ -1140,7 +1140,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   }
 }
 
-function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
+function _drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
   drawBackdrop(ctx, state, W, H, ['#08181a', '#143642', '#091418']);
   drawScreenHeading(ctx, state, tr(state, 'victory_title'), tr(state, 'victory_subtitle'), W, 118);
 

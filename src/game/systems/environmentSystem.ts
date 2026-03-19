@@ -113,12 +113,12 @@ export function updateEnvironment(state: GameState) {
       const dx = Math.abs((s.x + s.width / 2) - (obj.x + obj.width / 2));
       const dy = Math.abs((s.y + s.height / 2) - (obj.y + obj.height / 2));
       if (dx < 40 && dy < 60) {
-        (obj as any).hintTimer = ((obj as any).hintTimer || 0) + 1;
-        if ((obj as any).hintTimer === 180) {
+        obj.hintTimer = (obj.hintTimer || 0) + 1;
+        if (obj.hintTimer === 180) {
           spawnFloatingText(state, obj.x + obj.width / 2, obj.y - 10, 'Only the strength of Earth can break this.', '#e8dfcf', 12);
         }
       } else {
-        (obj as any).hintTimer = 0;
+        obj.hintTimer = 0;
       }
     }
   }

@@ -45,6 +45,7 @@ export interface EnvObject {
   currentSpeed?: number;  // for water_current
   dialogue?: DialogNode[]; // for lore_tome
   energyTimer?: number; // for corrupted_crystal pulse
+  hintTimer?: number; // for hint display timers
 }
 
 export interface Enemy {

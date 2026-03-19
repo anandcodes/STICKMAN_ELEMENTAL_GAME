@@ -48,9 +48,9 @@ export function spawnParticles(state: GameState, x: number, y: number, element: 
 
 export function spawnFloatingText(state: GameState, x: number, y: number, text: string, color: string, size = 14, opts: { wiggle?: boolean } = {}) {
     if (!state.floatingTextsPool) state.floatingTextsPool = [];
-    const ft = state.floatingTextsPool.pop() || { x: 0, y: 0, text: '', color: '#fff', life: 0, maxLife: 0, size: 14 };
-    ft.x = x; ft.y = y; ft.text = text; ft.color = color; ft.life = 60; ft.maxLife = 60; ft.size = size; (ft as any).wiggle = opts.wiggle;
-    state.floatingTexts.push(ft as any);
+    const ft = state.floatingTextsPool.pop() || { x: 0, y: 0, text: '', color: '#fff', life: 0, maxLife: 0, size: 14, wiggle: false };
+    ft.x = x; ft.y = y; ft.text = text; ft.color = color; ft.life = 60; ft.maxLife = 60; ft.size = size; ft.wiggle = opts.wiggle;
+    state.floatingTexts.push(ft);
 }
 
 export function updateFloatingTexts(state: GameState): void {

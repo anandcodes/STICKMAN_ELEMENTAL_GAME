@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { update, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
-import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality } from './game/types';
+import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality, Upgrades } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
@@ -99,9 +99,23 @@ function App() {
   const [menuOverlay, setMenuOverlay] = useState({ visible: true, selected: 0 });
   const menuOverlayRef = useRef(menuOverlay);
   const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
+  const [currentScreen, setCurrentScreen] = useState<GameState['screen']>('menu');
+  const [highScore, setHighScore] = useState(initialState.highScore);
+  const [furthestLevel, setFurthestLevel] = useState(initialState.furthestLevel);
+  const [gems, setGems] = useState(initialState.gemsCurrency);
+  const [difficulty, setDifficulty] = useState(initialState.difficulty);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+  };
+
+  const enterMobileImmersive = () => {
+    if (!isMobileRef.current) return;
+
+    const host = containerRef.current;
+    if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
+      void host.requestFullscreen().catch(() => { });
+    }
   };
 
   useEffect(() => {
@@ -117,19 +131,32 @@ function App() {
       if (prev.visible !== next.visible || prev.selected !== next.selected) {
         setMenuOverlay(next);
       }
+      
+      // Sync render state for Menu component
+      if (s.screen === 'menu') {
+        setCurrentScreen(s.screen);
+        setHighScore(s.highScore);
+        setFurthestLevel(s.furthestLevel);
+        setGems(s.gemsCurrency);
+        setDifficulty(s.difficulty);
+      } else if (currentScreen === 'menu') {
+        // Menu exited, update screen state
+        setCurrentScreen(s.screen);
+      }
+      
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [currentScreen]);
 
-  const setMenuSelection = (index: number) => {
+  const _setMenuSelection = (index: number) => {
     const s = stateRef.current;
     if (s.screen !== 'menu') return;
     s.selectedMenuButton = index;
   };
 
-  const beginCampaignTransition = () => {
+  const beginCampaignTransition = useCallback(() => {
     const s = stateRef.current;
     if (s.screen !== 'menu') return;
     if (s.screenTransition?.active) return;
@@ -148,7 +175,7 @@ function App() {
       Audio.fadeMusicTo(1, 0.25);
     }, 450);
     enterMobileImmersive();
-  };
+  }, []);
 
   const handleMenuCardActivate = (index: number) => {
     const s = stateRef.current;
@@ -219,15 +246,6 @@ function App() {
   };
 
   const isCompactMobileLayout = () => compactMobileLayoutRef.current;
-
-  const enterMobileImmersive = () => {
-    if (!isMobileRef.current) return;
-
-    const host = containerRef.current;
-    if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
-      void host.requestFullscreen().catch(() => { });
-    }
-  };
 
   // Compute scale to fill screen while preserving aspect ratio
   useEffect(() => {
@@ -436,16 +454,16 @@ function App() {
         (upg.dashDistanceLevel + 1) * 80,
       ];
 
-      const keys: (keyof typeof upg)[] = ['healthLevel', 'manaLevel', 'regenLevel', 'damageLevel', 'doubleJumpLevel', 'dashDistanceLevel'];
+      const keys: (keyof Upgrades)[] = ['healthLevel', 'manaLevel', 'regenLevel', 'damageLevel', 'doubleJumpLevel', 'dashDistanceLevel'];
       const field = keys[index];
       const cost = costs[index];
 
-      if (s.gemsCurrency >= cost && (upg[field] as number) < 5) {
+      if (s.gemsCurrency >= cost && upg[field] < 5) {
         s.gemsCurrency -= cost;
-        (upg as unknown as Record<string, number>)[field] = (upg[field] as number) + 1;
+        upg[field] = upg[field] + 1;
         saveProgress(s);
         Audio.playGemCollect?.();
-        spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success' as any), '#8bffaf', 20);
+        spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success'), '#8bffaf', 20);
       } else {
         Audio.playPause(); // Error sound
       }
@@ -1316,7 +1334,7 @@ function App() {
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
-  }, [assetsReady]);
+  }, [assetsReady, beginCampaignTransition]);
 
   if (fatalError) {
     return (
@@ -1452,12 +1470,12 @@ function App() {
           {t(settings.locale, 'app_open_settings').toUpperCase()}
         </button>
       )}
-      {stateRef.current.screen === 'menu' && (
+      {currentScreen === 'menu' && (
         <Menu
-          highScore={stateRef.current.highScore}
-          furthestLevel={stateRef.current.furthestLevel}
-          gems={stateRef.current.gemsCurrency}
-          difficulty={stateRef.current.difficulty}
+          highScore={highScore}
+          furthestLevel={furthestLevel}
+          gems={gems}
+          difficulty={difficulty}
           onSelect={handleMenuCardActivate}
         />
       )}
@@ -1468,7 +1486,7 @@ function App() {
         id="game-canvas"
         aria-label="Game canvas"
         style={{
-          display: stateRef.current.screen === 'menu' ? 'none' : 'block',
+          display: currentScreen === 'menu' ? 'none' : 'block',
           width: Math.floor(canvasWidth * canvasScale),
           height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',

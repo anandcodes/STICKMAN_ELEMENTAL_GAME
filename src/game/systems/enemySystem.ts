@@ -56,11 +56,11 @@ export function updateEnemies(state: GameState): void {
         enemy.y += enemy.vy;
 
         // Ground collision for enemies
-        (enemy as any).onGround = false;
+        enemy.onGround = false;
         if (enemy.y + enemy.height > state.worldHeight - 40) {
             enemy.y = state.worldHeight - 40 - enemy.height;
             enemy.vy = 0;
-            (enemy as any).onGround = true;
+            enemy.onGround = true;
         }
         for (const plat of state.platforms) {
             if (enemy.vx > 0 && enemy.x + enemy.width > plat.x && enemy.x < plat.x + plat.width && enemy.y + enemy.height > plat.y + 5 && enemy.y < plat.y + plat.height - 5) {
@@ -69,7 +69,7 @@ export function updateEnemies(state: GameState): void {
                 enemy.x = plat.x + plat.width; enemy.vx *= -1; enemy.facing *= -1;
             }
             if (enemy.vy > 0 && enemy.y + enemy.height > plat.y && enemy.y < plat.y + plat.height && enemy.x + enemy.width > plat.x + 5 && enemy.x < plat.x + plat.width - 5) {
-                enemy.y = plat.y - enemy.height; enemy.vy = 0; (enemy as any).onGround = true;
+                enemy.y = plat.y - enemy.height; enemy.vy = 0; enemy.onGround = true;
             }
         }
 
