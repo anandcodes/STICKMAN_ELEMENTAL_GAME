@@ -57,7 +57,7 @@ function drawMovementPad(
   ctx.stroke();
 
   // Animated glow effect on active
-  const hasMovement = layout.activePointers.size > 0;
+  const hasMovement = layout.movementTouchId !== null;
   if (hasMovement) {
     ctx.fillStyle = 'rgba(98, 238, 184, 0.08)';
     ctx.beginPath();

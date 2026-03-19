@@ -4,7 +4,8 @@
  * Optimized for simultaneous multi-touch (movement + ability casting)
  */
 
-import type { GameState } from '../types';
+import type { Element, GameState, Vec2 } from '../types';
+import { DASH_BASE_COOLDOWN, DASH_MANA_COST } from '../constants';
 import { ELEMENT_COLORS } from '../renderers/renderConstants';
 
 export type ThumbArcButton = 'jump' | 'punch' | 'fire' | 'water' | 'earth' | 'wind' | 'dash' | 'pause';
@@ -27,6 +28,9 @@ export interface ThumbArcLayout {
   // Left side: Movement controls
   movementCenter: { x: number; y: number };
   movementRadius: number;
+  movementTouchId: number | null;
+  movementTouchPoint: Vec2;
+  movementVector: Vec2;
 
   // Right side: Action buttons (Punch + 3 Elemental skills)
   actionButtons: Map<ThumbArcButton, ThumbArcButtonState>;
@@ -39,6 +43,17 @@ export interface ThumbArcLayout {
   // Multi-touch tracking
   activePointers: Map<number, { button: ThumbArcButton; startTime: number }>;
 }
+
+type ThumbArcHitTarget = ThumbArcButton | 'movement';
+
+const ELEMENT_BUTTONS: Element[] = ['fire', 'water', 'earth', 'wind'];
+const ELEMENT_MANA_COSTS: Record<Element, number> = {
+  fire: 8,
+  water: 6,
+  earth: 15,
+  wind: 5,
+};
+const MAX_CAST_COOLDOWN_FRAMES = 40;
 
 /**
  * Initialize the Thumb Arc layout for a given screen size
@@ -68,6 +83,22 @@ export function initializeThumbArcLayout(
   const arcRadius = actionRadius * 3; // Distance from center to button centers
 
   const actionButtons: Map<ThumbArcButton, ThumbArcButtonState> = new Map([
+    [
+      'jump',
+      {
+        id: 'jump',
+        label: 'JUMP',
+        x: actionCenter.x,
+        y: actionCenter.y,
+        radius: actionRadius * 0.98,
+        isPressed: false,
+        touchId: null,
+        color: '#7fe8ff',
+        icon: '⬆️',
+        cooldownProgress: 0,
+        isLocked: false,
+      },
+    ],
     [
       'punch',
       {
@@ -169,6 +200,9 @@ export function initializeThumbArcLayout(
   return {
     movementCenter,
     movementRadius,
+    movementTouchId: null,
+    movementTouchPoint: { ...movementCenter },
+    movementVector: { x: 0, y: 0 },
     actionButtons,
     visible: true,
     opacity: 0.75,
@@ -186,7 +220,7 @@ export function getHitButton(
   touchX: number,
   touchY: number,
   hitSlop: number = 1.85,
-): ThumbArcButton | null {
+): ThumbArcHitTarget | null {
   // Check action buttons (right side)
   for (const [buttonId, button] of layout.actionButtons) {
     const dx = touchX - button.x;
@@ -202,7 +236,7 @@ export function getHitButton(
   const dy = touchY - layout.movementCenter.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
   if (distance <= layout.movementRadius * hitSlop) {
-    return 'jump'; // Movement area hit
+    return 'movement';
   }
 
   return null;
@@ -219,8 +253,11 @@ export function handleThumbArcTouchStart(
 ): ThumbArcButton | null {
   const hitButton = getHitButton(layout, touchX, touchY);
 
-  if (hitButton === 'jump') {
-    // Movement control - handled by movement system
+  if (hitButton === 'movement') {
+    if (layout.movementTouchId === null) {
+      layout.movementTouchId = touchId;
+      updateMovementTouch(layout, touchX, touchY);
+    }
     return null;
   }
 
@@ -246,6 +283,11 @@ export function handleThumbArcTouchMove(
   touchX: number,
   touchY: number,
 ): void {
+  if (touchId === layout.movementTouchId) {
+    updateMovementTouch(layout, touchX, touchY);
+    return;
+  }
+
   const pointerData = layout.activePointers.get(touchId);
   if (!pointerData) return;
 
@@ -268,6 +310,13 @@ export function handleThumbArcTouchMove(
  * Handle touch end - deactivate button
  */
 export function handleThumbArcTouchEnd(layout: ThumbArcLayout, touchId: number): void {
+  if (touchId === layout.movementTouchId) {
+    layout.movementTouchId = null;
+    layout.movementTouchPoint = { ...layout.movementCenter };
+    layout.movementVector = { x: 0, y: 0 };
+    return;
+  }
+
   const pointerData = layout.activePointers.get(touchId);
   if (!pointerData) return;
 
@@ -286,25 +335,27 @@ export function handleThumbArcTouchEnd(layout: ThumbArcLayout, touchId: number):
  */
 export function updateThumbArcLayout(layout: ThumbArcLayout, state: GameState): void {
   for (const [buttonId, button] of layout.actionButtons) {
-    // Update ability cooldowns based on game state
-    if (buttonId === 'fire' && state.selectedElement === 'fire') {
-      button.cooldownProgress = state.fireSkillCooldown / 60; // Assuming 60 frame cooldown max
-    } else if (buttonId === 'water' && state.selectedElement === 'water') {
-      button.cooldownProgress = state.waterSkillCooldown / 60;
-    } else if (buttonId === 'earth' && state.selectedElement === 'earth') {
-      button.cooldownProgress = state.earthSkillCooldown / 60;
-    } else if (buttonId === 'wind' && state.selectedElement === 'wind') {
-      button.cooldownProgress = state.windSkillCooldown / 60;
+    // This project uses a shared cast cooldown and a stickman-local dash cooldown.
+    if (ELEMENT_BUTTONS.includes(buttonId as Element)) {
+      button.cooldownProgress = state.castCooldown / MAX_CAST_COOLDOWN_FRAMES;
     } else if (buttonId === 'dash') {
-      button.cooldownProgress = state.dashCooldown / 60;
+      button.cooldownProgress = state.stickman.dashCooldown / DASH_BASE_COOLDOWN;
+    } else {
+      button.cooldownProgress = 0;
     }
 
     // Clamp cooldown progress to [0, 1]
     button.cooldownProgress = Math.max(0, Math.min(1, button.cooldownProgress));
 
     // Lock buttons based on game state
-    if (buttonId.match(/fire|water|earth|wind/)) {
-      button.isLocked = state.selectedElement !== buttonId && state.mana < 10;
+    if (ELEMENT_BUTTONS.includes(buttonId as Element)) {
+      const element = buttonId as Element;
+      button.isLocked = !state.unlockedElements.includes(element)
+        || state.stickman.mana < getElementManaCost(state, element);
+    } else if (buttonId === 'dash') {
+      button.isLocked = state.stickman.dashCooldown > 0 || state.stickman.mana < DASH_MANA_COST;
+    } else {
+      button.isLocked = false;
     }
   }
 }
@@ -329,21 +380,22 @@ export function getMovementDirection(
 
   const maxDistance = layout.movementRadius;
   const clampedDistance = Math.min(distance, maxDistance);
+  const safeDistance = Math.max(distance, 1);
 
   return {
-    x: (dx / clampedDistance) * (clampedDistance / maxDistance),
-    y: (dy / clampedDistance) * (clampedDistance / maxDistance),
+    x: (dx / safeDistance) * (clampedDistance / maxDistance),
+    y: (dy / safeDistance) * (clampedDistance / maxDistance),
   };
+}
+
+export function getCurrentMovementDirection(layout: ThumbArcLayout): Vec2 {
+  return { ...layout.movementVector };
 }
 
 /**
  * Check if a specific button is currently active
  */
 export function isThumbArcButtonActive(layout: ThumbArcLayout, buttonId: ThumbArcButton): boolean {
-  if (buttonId === 'jump') {
-    return layout.activePointers.size > 0;
-  }
-
   const button = layout.actionButtons.get(buttonId);
   return button?.isPressed ?? false;
 }
@@ -356,5 +408,21 @@ export function resetThumbArcLayout(layout: ThumbArcLayout): void {
     button.isPressed = false;
     button.touchId = null;
   }
+  layout.movementTouchId = null;
+  layout.movementTouchPoint = { ...layout.movementCenter };
+  layout.movementVector = { x: 0, y: 0 };
   layout.activePointers.clear();
+}
+
+function updateMovementTouch(layout: ThumbArcLayout, touchX: number, touchY: number): void {
+  layout.movementTouchPoint = { x: touchX, y: touchY };
+  layout.movementVector = getMovementDirection(layout, touchX, touchY);
+}
+
+function getElementManaCost(state: GameState, element: Element): number {
+  const baseCost = ELEMENT_MANA_COSTS[element];
+  if (state.activeRelics.some((relic) => relic.type === 'mana_flux')) {
+    return baseCost * 0.7;
+  }
+  return baseCost;
 }

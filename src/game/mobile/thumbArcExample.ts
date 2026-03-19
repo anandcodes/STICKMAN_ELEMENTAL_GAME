@@ -10,9 +10,9 @@ import {
   handleThumbArcTouchMove,
   handleThumbArcTouchEnd,
   updateThumbArcLayout,
-  getMovementDirection,
 } from './thumbArc';
 import {
+  createThumbArcBridgeState,
   collectThumbArcInput,
   applyThumbArcInputToGameState,
 } from './thumbArcIntegration';
@@ -30,6 +30,7 @@ export function setupThumbArcExample(
 ) {
   // Step 1: Initialize layout (do this once at app startup)
   const thumbArcLayout = initializeThumbArcLayout(canvasWidth, canvasHeight);
+  const bridgeState = createThumbArcBridgeState();
 
   // Step 2: Register touch event listeners
   function handleCanvasTouchStart(event: TouchEvent) {
@@ -71,7 +72,7 @@ export function setupThumbArcExample(
   canvasElement.addEventListener('touchend', handleCanvasTouchEnd, { passive: false });
 
   // Step 3: Create game loop function
-  function gameLoopTick() {
+  function tick() {
     const state = gameStateRef.current;
 
     // Update Thumb Arc layout based on current game state
@@ -81,15 +82,9 @@ export function setupThumbArcExample(
     // Collect current input from Thumb Arc
     const thumbArcInput = collectThumbArcInput(thumbArcLayout);
 
-    // Get movement direction for visualization (optional)
-    const movementDir = getMovementDirection(
-      thumbArcLayout,
-      thumbArcLayout.movementCenter.x,
-      thumbArcLayout.movementCenter.y,
-    );
-
-    // Apply input to game state (updates velocity, abilities, etc.)
-    applyThumbArcInputToGameState(state, thumbArcLayout, thumbArcInput);
+    // Bridge the UI into the player controller before your fixed update step.
+    // This keeps move input continuous while jump/skill taps are buffered.
+    applyThumbArcInputToGameState(state, thumbArcInput, bridgeState);
 
     // ... rest of game update logic (physics, AI, enemies, etc.)
 
@@ -98,20 +93,22 @@ export function setupThumbArcExample(
     // renderGameScene(ctx, state);
 
     // Render Thumb Arc UI (on top)
-    drawThumbArcUI(ctx, thumbArcLayout, state.frameCount);
+    drawThumbArcUI(ctx, thumbArcLayout, state.timeElapsed);
 
     // Optional: Debug visualization
     if (false) {
       // Show movement direction vector
-      drawMovementVector(ctx, thumbArcLayout, movementDir);
+      drawMovementVector(ctx, thumbArcLayout, thumbArcInput.movement);
     }
   }
 
-  // Return cleanup function
-  return () => {
-    canvasElement.removeEventListener('touchstart', handleCanvasTouchStart);
-    canvasElement.removeEventListener('touchmove', handleCanvasTouchMove);
-    canvasElement.removeEventListener('touchend', handleCanvasTouchEnd);
+  return {
+    tick,
+    destroy() {
+      canvasElement.removeEventListener('touchstart', handleCanvasTouchStart);
+      canvasElement.removeEventListener('touchmove', handleCanvasTouchMove);
+      canvasElement.removeEventListener('touchend', handleCanvasTouchEnd);
+    },
   };
 }
 
@@ -158,11 +155,11 @@ export function advancedMultiTouchExample() {
 export function createMockThumbArcInput() {
   return {
     movement: { x: 0.5, y: 0 }, // Moving right
-    jumpPressed: false,
-    punchPressed: true,
-    abilityPressed: null,
-    dashPressed: false,
-    pausePressed: false,
+    jumpHeld: false,
+    punchHeld: true,
+    elementHeld: null,
+    dashHeld: false,
+    pauseHeld: false,
   };
 }
 
@@ -172,7 +169,7 @@ export function createMockThumbArcInput() {
 export function simulateTouchInput(
   layout: any,
   action: 'start' | 'move' | 'end',
-  button: string,
+  _button: string,
   x: number,
   y: number,
 ) {

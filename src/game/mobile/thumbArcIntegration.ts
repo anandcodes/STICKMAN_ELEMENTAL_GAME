@@ -1,163 +1,284 @@
 /**
- * Thumb Arc Integration with Game State
- * Maps touch input to character actions, handling multi-touch simultaneously
+ * Thumb Arc -> Player controller bridge
+ *
+ * This layer is designed to be called once per render frame before the fixed-step
+ * game update. It translates multi-touch UI state into player intent, preserves
+ * movement while actions fire, and buffers tap actions so short mistimings are
+ * still honored by the gameplay loop.
  */
 
-import type { GameState } from '../types';
-import type { ThumbArcLayout, ThumbArcButton } from './thumbArc';
-import { isThumbArcButtonActive } from './thumbArc';
+import type { Element, GameState, Vec2 } from '../types';
+import { DASH_MANA_COST } from '../constants';
+import type { ThumbArcButton, ThumbArcLayout } from './thumbArc';
+import { getCurrentMovementDirection, isThumbArcButtonActive } from './thumbArc';
+
+export type PlayerLocomotionState = 'idle' | 'run' | 'airborne' | 'dash';
 
 export interface ThumbArcInputState {
-  movement: { x: number; y: number };
-  jumpPressed: boolean;
-  punchPressed: boolean;
-  abilityPressed: ThumbArcButton | null;
-  dashPressed: boolean;
-  pausePressed: boolean;
+  movement: Vec2;
+  jumpHeld: boolean;
+  punchHeld: boolean;
+  dashHeld: boolean;
+  pauseHeld: boolean;
+  elementHeld: Element | null;
 }
 
+export interface PlayerStateMachine {
+  locomotion: PlayerLocomotionState;
+  queueJump(): void;
+  queueDash(): void;
+  canTriggerElementSkill(element: Element): boolean;
+  triggerElementSkill(element: Element): boolean;
+  canTriggerPunch(): boolean;
+  triggerPunch(): boolean;
+}
+
+export interface ThumbArcBufferConfig {
+  skillBufferFrames: number;
+  punchBufferFrames: number;
+  onPunch?: (state: GameState) => boolean;
+}
+
+interface BufferedSkill {
+  element: Element | null;
+  framesRemaining: number;
+}
+
+type BufferedButtonKey = 'jump' | 'punch' | 'dash' | 'pause' | Element;
+
+export interface ThumbArcBridgeState {
+  previousButtons: Record<BufferedButtonKey, boolean>;
+  pendingSkill: BufferedSkill;
+  pendingPunchFrames: number;
+  config: ThumbArcBufferConfig;
+}
+
+const DEFAULT_BUFFER_CONFIG: ThumbArcBufferConfig = {
+  skillBufferFrames: 12,
+  punchBufferFrames: 8,
+};
+
+const EDGE_BUTTONS: BufferedButtonKey[] = [
+  'jump',
+  'punch',
+  'dash',
+  'pause',
+  'fire',
+  'water',
+  'earth',
+  'wind',
+];
+
+const ELEMENT_MANA_COSTS: Record<Element, number> = {
+  fire: 8,
+  water: 6,
+  earth: 15,
+  wind: 5,
+};
+
 /**
- * Update game state based on Thumb Arc input
- * Called once per game frame
- *
- * This is the critical function that maps UI input to character actions
- * Multi-touch is handled naturally: separate touch IDs can be active simultaneously
+ * Own one of these next to the Thumb Arc layout. Feed it through the bridge
+ * each frame so tap actions can survive brief cooldown/landing mismatches.
  */
-export function applyThumbArcInputToGameState(
-  state: GameState,
-  layout: ThumbArcLayout,
-  input: ThumbArcInputState,
-): void {
-  // Movement: Apply direction to player
-  if (Math.abs(input.movement.x) > 0.1 || Math.abs(input.movement.y) > 0.1) {
-    state.playerVelocityX = input.movement.x * state.maxSpeed;
-    // Y movement could be used for climbing/swimming if needed
-  } else {
-    // Gentle deceleration when no input
-    state.playerVelocityX *= 0.95;
-  }
-
-  // Jump: One-frame pulse (prevents continuous jumping)
-  if (input.jumpPressed && !state.isJumping && state.isOnGround) {
-    state.playerVelocityY = -state.jumpForce;
-    state.isJumping = true;
-    state.jumpFrames = 0;
-  }
-
-  // Abilities: Only one ability can be "casting" at a time
-  // But input can come from different touch pointers
-  if (input.abilityPressed && !state.isCasting) {
-    const elementMap: Record<string, any> = {
-      fire: 'fire',
-      water: 'water',
-      earth: 'earth',
-      wind: 'wind',
-    };
-
-    const element = elementMap[input.abilityPressed];
-    if (element) {
-      state.selectedElement = element;
-      state.isCasting = true;
-      state.castingFrames = 0;
-      state.mana -= 10;
-    }
-  }
-
-  // Dash: Quick movement in current facing direction
-  if (input.dashPressed && !state.isDashing && state.dashCooldown <= 0) {
-    state.isDashing = true;
-    state.dashFrames = 0;
-    state.playerVelocityX = Math.sign(state.playerVelocityX || 1) * state.maxSpeed * 2;
-    state.dashCooldown = 90; // 1.5s at 60fps
-  }
-
-  // Punch: Melee attack
-  if (input.punchPressed && !state.isPunching && state.punchCooldown <= 0) {
-    state.isPunching = true;
-    state.punchFrames = 0;
-    state.punchCooldown = 15; // 0.25s at 60fps
-  }
+export function createThumbArcBridgeState(
+  config: Partial<ThumbArcBufferConfig> = {},
+): ThumbArcBridgeState {
+  return {
+    previousButtons: {
+      jump: false,
+      punch: false,
+      dash: false,
+      pause: false,
+      fire: false,
+      water: false,
+      earth: false,
+      wind: false,
+    },
+    pendingSkill: {
+      element: null,
+      framesRemaining: 0,
+    },
+    pendingPunchFrames: 0,
+    config: {
+      ...DEFAULT_BUFFER_CONFIG,
+      ...config,
+    },
+  };
 }
 
 /**
- * Collect current input from Thumb Arc layout
- * This reads the button states and returns normalized input
+ * Build a lightweight state-machine facade over the current player/runtime state.
+ * Movement is intentionally independent from actions, so running can continue
+ * while buffered jump/skill requests are consumed.
+ */
+export function createPlayerStateMachine(
+  state: GameState,
+  onPunch?: (state: GameState) => boolean,
+): PlayerStateMachine {
+  return {
+    locomotion: resolveLocomotionState(state),
+    queueJump() {
+      state.stickman.jumpBufferTimer = Math.max(
+        state.stickman.jumpBufferTimer,
+        state.balanceCurve.jumpBufferFrames,
+      );
+    },
+    queueDash() {
+      state.dashBufferFrames = Math.max(
+        state.dashBufferFrames,
+        state.balanceCurve.dashBufferFrames,
+      );
+    },
+    canTriggerElementSkill(element) {
+      return canCastAbility(state, element);
+    },
+    triggerElementSkill(element) {
+      if (!canCastAbility(state, element)) {
+        return false;
+      }
+
+      state.selectedElement = element;
+      state.shootQueued = true;
+      state.buttonFireActive = true;
+      return true;
+    },
+    canTriggerPunch() {
+      return typeof onPunch === 'function';
+    },
+    triggerPunch() {
+      if (typeof onPunch !== 'function') {
+        return false;
+      }
+      return onPunch(state);
+    },
+  };
+}
+
+/**
+ * Reads the current Thumb Arc state and returns a normalized snapshot.
+ * The bridge handles edge detection and buffering on top of this held-state view.
  */
 export function collectThumbArcInput(layout: ThumbArcLayout): ThumbArcInputState {
-  // Determine which ability button is currently pressed (if any)
-  let abilityPressed: ThumbArcButton | null = null;
-  for (const buttonId of ['fire', 'water', 'earth', 'wind'] as ThumbArcButton[]) {
-    if (isThumbArcButtonActive(layout, buttonId)) {
-      abilityPressed = buttonId;
-      break; // Only process first ability press
+  let elementHeld: Element | null = null;
+  for (const element of ['fire', 'water', 'earth', 'wind'] as const) {
+    if (isThumbArcButtonActive(layout, element)) {
+      elementHeld = element;
+      break;
     }
   }
 
   return {
-    movement: { x: 0, y: 0 }, // Updated separately by movement touch handler
-    jumpPressed: isThumbArcButtonActive(layout, 'jump'),
-    punchPressed: isThumbArcButtonActive(layout, 'punch'),
-    abilityPressed,
-    dashPressed: isThumbArcButtonActive(layout, 'dash'),
-    pausePressed: isThumbArcButtonActive(layout, 'pause'),
+    movement: getCurrentMovementDirection(layout),
+    jumpHeld: isThumbArcButtonActive(layout, 'jump'),
+    punchHeld: isThumbArcButtonActive(layout, 'punch'),
+    dashHeld: isThumbArcButtonActive(layout, 'dash'),
+    pauseHeld: isThumbArcButtonActive(layout, 'pause'),
+    elementHeld,
   };
 }
 
 /**
- * Reset input state when game is paused/unpaused
+ * Main loop entry point.
+ *
+ * Call this once per render frame before the fixed `update(state)` step.
+ * It will:
+ * 1. Push left-pad movement into `moveInputX/moveInputY`
+ * 2. Convert tap edges into jump/dash buffers that `playerSystem.ts` already consumes
+ * 3. Buffer elemental skills/punch so brief timing mismatches do not drop the action
  */
-export function resetThumbArcInput(input: ThumbArcInputState): void {
+export function applyThumbArcInputToGameState(
+  state: GameState,
+  input: ThumbArcInputState,
+  bridge: ThumbArcBridgeState,
+): PlayerStateMachine {
+  state.moveInputX = clampAxis(input.movement.x);
+  state.moveInputY = clampAxis(input.movement.y);
+
+  const stateMachine = createPlayerStateMachine(state, bridge.config.onPunch);
+
+  if (consumeJustPressed(bridge, 'jump', input.jumpHeld)) {
+    stateMachine.queueJump();
+  }
+
+  if (consumeJustPressed(bridge, 'dash', input.dashHeld)) {
+    stateMachine.queueDash();
+  }
+
+  if (consumeJustPressed(bridge, 'pause', input.pauseHeld)) {
+    state.paused = !state.paused;
+  }
+
+  for (const element of ['fire', 'water', 'earth', 'wind'] as const) {
+    const isHeld = input.elementHeld === element;
+    if (consumeJustPressed(bridge, element, isHeld)) {
+      bridge.pendingSkill = {
+        element,
+        framesRemaining: bridge.config.skillBufferFrames,
+      };
+    }
+  }
+
+  if (consumeJustPressed(bridge, 'punch', input.punchHeld)) {
+    bridge.pendingPunchFrames = Math.max(
+      bridge.pendingPunchFrames,
+      bridge.config.punchBufferFrames,
+    );
+  }
+
+  consumeBufferedSkill(stateMachine, bridge);
+  consumeBufferedPunch(stateMachine, bridge);
+
+  if (!input.elementHeld) {
+    state.buttonFireActive = false;
+  }
+
+  return stateMachine;
+}
+
+export function resetThumbArcInput(
+  input: ThumbArcInputState,
+  bridge?: ThumbArcBridgeState,
+): void {
   input.movement = { x: 0, y: 0 };
-  input.jumpPressed = false;
-  input.punchPressed = false;
-  input.abilityPressed = null;
-  input.dashPressed = false;
-  input.pausePressed = false;
+  input.jumpHeld = false;
+  input.punchHeld = false;
+  input.elementHeld = null;
+  input.dashHeld = false;
+  input.pauseHeld = false;
+
+  if (bridge) {
+    for (const button of EDGE_BUTTONS) {
+      bridge.previousButtons[button] = false;
+    }
+    bridge.pendingSkill = { element: null, framesRemaining: 0 };
+    bridge.pendingPunchFrames = 0;
+  }
 }
 
 /**
- * Validate that an ability can be cast given current game state
- * Checks: mana, cooldown, ability unlocked, etc.
+ * Matches the projectile rules in `engine.ts`.
  */
-export function canCastAbility(state: GameState, abilityId: ThumbArcButton): boolean {
-  if (!['fire', 'water', 'earth', 'wind'].includes(abilityId)) {
+export function canCastAbility(state: GameState, abilityId: ThumbArcButton): abilityId is Element {
+  if (!isElementButton(abilityId)) {
     return false;
   }
 
-  // Check if ability is unlocked
-  const abilityUnlocked = state.unlockedElements?.includes(abilityId as any) ?? true;
-  if (!abilityUnlocked) {
+  if (!state.unlockedElements.includes(abilityId)) {
     return false;
   }
 
-  // Check cooldown
-  const cooldownMap: Record<string, number> = {
-    fire: state.fireSkillCooldown,
-    water: state.waterSkillCooldown,
-    earth: state.earthSkillCooldown,
-    wind: state.windSkillCooldown,
-  };
-
-  if ((cooldownMap[abilityId] ?? 0) > 0) {
+  if (state.castCooldown > 0) {
     return false;
   }
 
-  // Check mana
-  if (state.mana < 10) {
-    return false;
-  }
-
-  return true;
+  return state.stickman.mana >= getElementManaCost(state, abilityId);
 }
 
-/**
- * Create a debug visualization of the input state
- * Useful for debugging multi-touch issues
- */
 export function drawThumbArcDebugInfo(
   ctx: CanvasRenderingContext2D,
   input: ThumbArcInputState,
   layout: ThumbArcLayout,
+  bridge: ThumbArcBridgeState,
   x: number,
   y: number,
 ): void {
@@ -167,7 +288,7 @@ export function drawThumbArcDebugInfo(
 
   ctx.save();
   ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-  ctx.fillRect(x, y, 200, 150);
+  ctx.fillRect(x, y, 230, 166);
 
   ctx.fillStyle = '#00ff00';
   ctx.font = `bold ${fontSize}px monospace`;
@@ -175,11 +296,13 @@ export function drawThumbArcDebugInfo(
 
   const debugLines = [
     `Movement: [${input.movement.x.toFixed(2)}, ${input.movement.y.toFixed(2)}]`,
-    `Jump: ${input.jumpPressed ? 'YES' : 'no'}`,
-    `Punch: ${input.punchPressed ? 'YES' : 'no'}`,
-    `Ability: ${input.abilityPressed ?? 'none'}`,
-    `Dash: ${input.dashPressed ? 'YES' : 'no'}`,
-    `Active Pointers: ${layout.activePointers.size}`,
+    `Jump: ${input.jumpHeld ? 'HELD' : 'idle'}`,
+    `Punch Buffer: ${bridge.pendingPunchFrames}`,
+    `Element Held: ${input.elementHeld ?? 'none'}`,
+    `Element Buffer: ${bridge.pendingSkill.element ?? 'none'} (${bridge.pendingSkill.framesRemaining})`,
+    `Dash: ${input.dashHeld ? 'HELD' : 'idle'}`,
+    `Action Pointers: ${layout.activePointers.size}`,
+    `Movement Active: ${layout.movementTouchId !== null ? 'YES' : 'no'}`,
   ];
 
   for (const text of debugLines) {
@@ -188,4 +311,85 @@ export function drawThumbArcDebugInfo(
   }
 
   ctx.restore();
+}
+
+function resolveLocomotionState(state: GameState): PlayerLocomotionState {
+  if (state.stickman.isDashing) {
+    return 'dash';
+  }
+  if (!state.stickman.onGround) {
+    return 'airborne';
+  }
+  if (Math.abs(state.moveInputX) >= 0.08) {
+    return 'run';
+  }
+  return 'idle';
+}
+
+function clampAxis(value: number): number {
+  return Math.max(-1, Math.min(1, value));
+}
+
+function consumeJustPressed(
+  bridge: ThumbArcBridgeState,
+  button: BufferedButtonKey,
+  isDown: boolean,
+): boolean {
+  const wasDown = bridge.previousButtons[button];
+  bridge.previousButtons[button] = isDown;
+  return isDown && !wasDown;
+}
+
+function consumeBufferedSkill(
+  stateMachine: PlayerStateMachine,
+  bridge: ThumbArcBridgeState,
+): void {
+  const { element, framesRemaining } = bridge.pendingSkill;
+  if (!element || framesRemaining <= 0) {
+    bridge.pendingSkill = { element: null, framesRemaining: 0 };
+    return;
+  }
+
+  if (stateMachine.canTriggerElementSkill(element) && stateMachine.triggerElementSkill(element)) {
+    bridge.pendingSkill = { element: null, framesRemaining: 0 };
+    return;
+  }
+
+  bridge.pendingSkill.framesRemaining--;
+  if (bridge.pendingSkill.framesRemaining <= 0) {
+    bridge.pendingSkill = { element: null, framesRemaining: 0 };
+  }
+}
+
+function consumeBufferedPunch(
+  stateMachine: PlayerStateMachine,
+  bridge: ThumbArcBridgeState,
+): void {
+  if (bridge.pendingPunchFrames <= 0) {
+    bridge.pendingPunchFrames = 0;
+    return;
+  }
+
+  if (stateMachine.canTriggerPunch() && stateMachine.triggerPunch()) {
+    bridge.pendingPunchFrames = 0;
+    return;
+  }
+
+  bridge.pendingPunchFrames--;
+}
+
+function isElementButton(button: ThumbArcButton): button is Element {
+  return button === 'fire' || button === 'water' || button === 'earth' || button === 'wind';
+}
+
+function getElementManaCost(state: GameState, element: Element): number {
+  const baseCost = ELEMENT_MANA_COSTS[element];
+  if (state.activeRelics.some((relic) => relic.type === 'mana_flux')) {
+    return baseCost * 0.7;
+  }
+  return baseCost;
+}
+
+export function getDashReady(state: GameState): boolean {
+  return state.stickman.dashCooldown <= 0 && state.stickman.mana >= DASH_MANA_COST;
 }
