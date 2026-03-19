@@ -1003,16 +1003,36 @@ function drawLevelSelectScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
+  // Premium fantasy backdrop with parallax effect
   drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
-  drawScreenHeading(ctx, state, tr(state, 'level_select_title'), 'Select a campaign level', W, 86);
+  
+  // Decorative header with element-inspired design
+  ctx.save();
+  ctx.fillStyle = 'rgba(154, 230, 222, 0.08)';
+  ctx.fillRect(0, 0, W, 140);
+  
+  // Decorative top line
+  ctx.strokeStyle = 'rgba(154, 230, 222, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(60, 75);
+  ctx.lineTo(W - 60, 75);
+  ctx.stroke();
+  
+  ctx.restore();
 
-  const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 240;
-  const cardH = compactMobileLayout ? 120 : 160;
-  const gap = compactMobileLayout ? 14 : 20;
+  // Main title with fantasy styling
+  drawScreenHeading(ctx, state, tr(state, 'level_select_title'), 'Select your next challenge', W, 86);
+
+  // Grid layout - optimized for visual balance
+  const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 200;
+  const cardH = compactMobileLayout ? 130 : 180;
+  const gap = compactMobileLayout ? 16 : 24;
   const cols = compactMobileLayout ? 3 : 4;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = compactMobileLayout ? 120 : 150;
+  const startY = compactMobileLayout ? 130 : 160;
 
+  // Draw level cards with premium styling
   for (let index = 0; index < TOTAL_LEVELS; index++) {
     const col = index % cols;
     const row = Math.floor(index / cols);
@@ -1022,75 +1042,157 @@ function drawLevelSelectScreen(
     const selected = index === state.levelSelectionIndex;
     const bestTime = state.bestTimes[index];
 
-    // Enhanced card styling with gradient and shadow
     ctx.save();
     
-    // Shadow effect
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = 16;
-    ctx.shadowOffsetY = 8;
-    
-    // Card gradient background
-    const cardGradient = ctx.createLinearGradient(x, y, x, y + cardH);
+    // Premium shadow with depth
+    if (unlocked) {
+      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.4)' : 'rgba(154, 230, 222, 0.25)';
+      ctx.shadowBlur = selected ? 24 : 14;
+      ctx.shadowOffsetY = selected ? 12 : 8;
+    } else {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 6;
+    }
+
+    // Create luxurious gradient background
+    const bgGrad = ctx.createLinearGradient(x, y, x, y + cardH);
     if (unlocked) {
       if (selected) {
-        cardGradient.addColorStop(0, 'rgba(98,238,184,0.15)');
-        cardGradient.addColorStop(1, 'rgba(123,211,255,0.08)');
+        // Premium selected state - bright cyan/green glow
+        bgGrad.addColorStop(0, 'rgba(98, 238, 184, 0.22)');
+        bgGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.15)');
+        bgGrad.addColorStop(1, 'rgba(98, 238, 184, 0.08)');
       } else {
-        cardGradient.addColorStop(0, 'rgba(123,211,255,0.12)');
-        cardGradient.addColorStop(1, 'rgba(98,238,184,0.06)');
+        // Unlocked - subtle cyan
+        bgGrad.addColorStop(0, 'rgba(123, 211, 255, 0.14)');
+        bgGrad.addColorStop(0.5, 'rgba(95, 196, 255, 0.08)');
+        bgGrad.addColorStop(1, 'rgba(123, 211, 255, 0.06)');
       }
     } else {
-      cardGradient.addColorStop(0, 'rgba(85,90,112,0.08)');
-      cardGradient.addColorStop(1, 'rgba(85,90,112,0.04)');
+      // Locked - dark muted
+      bgGrad.addColorStop(0, 'rgba(85, 90, 112, 0.06)');
+      bgGrad.addColorStop(1, 'rgba(50, 55, 75, 0.04)');
     }
     
-    ctx.fillStyle = cardGradient;
-    roundRect(ctx, x, y, cardW, cardH, 16);
+    ctx.fillStyle = bgGrad;
+    roundRect(ctx, x, y, cardW, cardH, 14);
     ctx.fill();
-    
+
     ctx.shadowColor = 'transparent';
     
-    // Border styling
-    ctx.strokeStyle = unlocked ? (selected ? '#62eeb8' : '#7bd3ff') : '#555a70';
-    ctx.lineWidth = selected ? 3 : 2;
-    ctx.globalAlpha = unlocked ? (selected ? 0.8 : 0.5) : 0.3;
-    roundRect(ctx, x, y, cardW, cardH, 16);
-    ctx.stroke();
-    
+    // Luxurious border with multiple strokes for depth
+    if (selected) {
+      // Inner glow for selected
+      ctx.strokeStyle = 'rgba(98, 238, 184, 0.5)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x + 2, y + 2, cardW - 4, cardH - 4, 12);
+      ctx.stroke();
+      
+      // Outer accent
+      ctx.strokeStyle = 'rgba(123, 211, 255, 0.6)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x, y, cardW, cardH, 14);
+      ctx.stroke();
+    } else {
+      // Standard border
+      ctx.strokeStyle = unlocked ? 'rgba(123, 211, 255, 0.4)' : 'rgba(85, 90, 112, 0.3)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x, y, cardW, cardH, 14);
+      ctx.stroke();
+    }
+
+    // Decorative top accent bar
+    if (unlocked) {
+      const accentGrad = ctx.createLinearGradient(x, y, x + cardW, y);
+      if (selected) {
+        accentGrad.addColorStop(0, 'rgba(98, 238, 184, 0)');
+        accentGrad.addColorStop(0.5, 'rgba(98, 238, 184, 0.6)');
+        accentGrad.addColorStop(1, 'rgba(98, 238, 184, 0)');
+      } else {
+        accentGrad.addColorStop(0, 'rgba(123, 211, 255, 0)');
+        accentGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.4)');
+        accentGrad.addColorStop(1, 'rgba(123, 211, 255, 0)');
+      }
+      ctx.fillStyle = accentGrad;
+      ctx.fillRect(x, y, cardW, 3);
+    }
+
     ctx.restore();
 
-    // Level number
+    // Level number - large and bold
     ctx.textAlign = 'center';
-    ctx.fillStyle = unlocked ? '#ffffff' : 'rgba(255,255,255,0.4)';
-    setDisplayFont(ctx, state, 36, '900');
+    ctx.fillStyle = unlocked ? (selected ? '#62eeb8' : '#b8e0ff') : 'rgba(255,255,255,0.35)';
+    setDisplayFont(ctx, state, cardH > 150 ? 40 : 32, '900');
     ctx.fillText(`L${index + 1}`, x + cardW / 2, y + 52);
 
-    // Status text
-    ctx.fillStyle = unlocked ? '#b8e0ff' : 'rgba(255,255,255,0.3)';
-    setUiFont(ctx, state, 13, '700');
-    ctx.fillText(state.levelSelectionIndex === index && unlocked ? 'READY' : unlocked ? 'UNLOCKED' : tr(state, 'level_select_locked'), x + cardW / 2, y + 82);
+    // Status badge with styling
+    if (unlocked) {
+      const statusColor = selected ? '#62eeb8' : '#9ae6de';
+      ctx.fillStyle = statusColor;
+      setUiFont(ctx, state, 12, '800');
+      const statusText = selected ? 'READY' : 'UNLOCKED';
+      ctx.fillText(statusText, x + cardW / 2, y + 90);
+    } else {
+      ctx.fillStyle = 'rgba(200, 192, 176, 0.5)';
+      setUiFont(ctx, state, 11, '700');
+      ctx.fillText(tr(state, 'level_select_locked'), x + cardW / 2, y + 90);
+    }
 
-    // Best time
-    ctx.fillStyle = unlocked ? '#8ab9d1' : 'rgba(255,255,255,0.2)';
-    setUiFont(ctx, state, 11, '600');
-    ctx.fillText(
-      bestTime ? tr(state, 'level_select_best', { time: formatFramesAsTime(bestTime) }) : tr(state, 'level_select_none'),
-      x + cardW / 2,
-      y + 110,
-    );
+    // Best time with elegant styling
+    if (bestTime) {
+      ctx.fillStyle = unlocked ? '#8ab9d1' : 'rgba(200, 192, 176, 0.4)';
+      setUiFont(ctx, state, 10, '600');
+      const timeText = formatFramesAsTime(bestTime);
+      ctx.fillText(`TIME: ${timeText}`, x + cardW / 2, y + cardH - 16);
+    } else {
+      ctx.fillStyle = 'rgba(200, 192, 176, 0.35)';
+      setUiFont(ctx, state, 9, '500');
+      ctx.fillText('NO RECORD', x + cardW / 2, y + cardH - 16);
+    }
   }
 
-  ctx.fillStyle = UI_THEME.muted;
+  // Instruction text with elegant styling
+  ctx.save();
+  ctx.fillStyle = 'rgba(232, 223, 207, 0.6)';
   ctx.textAlign = 'center';
-  setUiFont(ctx, state, 14, '600');
+  setUiFont(ctx, state, 13, '600');
   ctx.fillText(
-    isMobile ? tr(state, 'level_select_tap_start') : tr(state, 'level_select_click_start'),
+    isMobile ? 'TAP A LEVEL TO START YOUR QUEST' : 'CLICK A LEVEL TO BEGIN YOUR ADVENTURE',
     W / 2,
-    H - 104,
+    H - 110,
   );
+  ctx.restore();
 
-  drawPrimaryButton(ctx, state, W / 2 - 100, H - 80, 200, 50, 'BACK', '#ff7688');
+  // Premium back button with elegant styling
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 6;
+  
+  const backBtnX = W / 2 - 110;
+  const backBtnY = H - 85;
+  const backBtnW = 220;
+  const backBtnH = 55;
+  
+  const backGrad = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
+  backGrad.addColorStop(0, 'rgba(255, 118, 136, 0.2)');
+  backGrad.addColorStop(1, 'rgba(255, 118, 136, 0.1)');
+  ctx.fillStyle = backGrad;
+  roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 12);
+  ctx.fill();
+  
+  ctx.strokeStyle = 'rgba(255, 118, 136, 0.5)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 12);
+  ctx.stroke();
+  
+  ctx.fillStyle = '#ff8896';
+  ctx.textAlign = 'center';
+  setDisplayFont(ctx, state, 18, '700');
+  ctx.fillText('BACK', W / 2, backBtnY + 38);
+  
+  ctx.restore();
 }
 
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
