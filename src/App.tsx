@@ -1495,8 +1495,8 @@ function App() {
       )}
       <canvas
         ref={canvasRef}
-        width={canvasWidth * dprRef.current}
-        height={CANVAS_H * dprRef.current}
+        width={canvasWidth}
+        height={CANVAS_H}
         id="game-canvas"
         aria-label="Game canvas"
         style={{

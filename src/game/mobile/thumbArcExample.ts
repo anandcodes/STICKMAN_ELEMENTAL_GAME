@@ -96,7 +96,9 @@ export function setupThumbArcExample(
     drawThumbArcUI(ctx, thumbArcLayout, state.timeElapsed);
 
     // Optional: Debug visualization
-    if (false) {
+    const DEBUG_SHOW_MOVEMENT_VECTOR = false;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (DEBUG_SHOW_MOVEMENT_VECTOR) {
       // Show movement direction vector
       drawMovementVector(ctx, thumbArcLayout, thumbArcInput.movement);
     }
