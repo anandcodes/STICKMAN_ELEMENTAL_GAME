@@ -30,6 +30,24 @@ export const UI_THEME = {
   glassBorder: 'rgba(255, 240, 214, 0.12)',
 };
 
+/** Scale factor applied to visual element sizes on mobile for clarity */
+export const MOBILE_SCALE = 1.15;
+
+/** Mutable render context shared across renderers */
+export const mobileRender = {
+  isMobile: false,
+  /** Effective device-pixel-ratio (capped at 2 for perf) */
+  dpr: 1,
+};
+
+/**
+ * Returns the mobile-aware size: original value scaled up when on mobile.
+ * Use for particle sizes, line widths, radii, etc.
+ */
+export function mobileSize(value: number): number {
+  return mobileRender.isMobile ? value * MOBILE_SCALE : value;
+}
+
 // Rugged serif fantasy fonts
 export const FONT_UI = '"Cormorant Garamond", "Georgia", serif';
 export const FONT_DISPLAY = '"Cinzel", "Cinzel Decorative", serif';

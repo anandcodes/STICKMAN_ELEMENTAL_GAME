@@ -1,5 +1,5 @@
 import type { GameState, Enemy, EnvObject } from '../types';
-import { ELEMENT_COLORS, ELEMENT_GLOW } from './renderConstants';
+import { ELEMENT_COLORS, ELEMENT_GLOW, mobileRender, mobileSize } from './renderConstants';
 import { roundRect } from './renderUtils';
 import { assetLoader } from '../services/assetLoader';
 
@@ -40,7 +40,8 @@ export function drawWorld(
     const alpha = 0.4 + 0.4 * Math.sin(star.twinkle);
     ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.beginPath();
-    ctx.arc(x, sy, star.size, 0, Math.PI * 2);
+    const starSize = mobileRender.isMobile ? Math.max(1.5, star.size * 1.2) : star.size;
+    ctx.arc(x, sy, starSize, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -82,7 +83,8 @@ export function drawWorld(
 
   // Element aura
   ctx.fillStyle = ELEMENT_GLOW[state.selectedElement];
-  ctx.beginPath(); ctx.arc(s.x + s.width / 2, s.y + s.height / 2, 35, 0, Math.PI * 2); ctx.fill();
+  const auraRadius = mobileSize(35);
+  ctx.beginPath(); ctx.arc(s.x + s.width / 2, s.y + s.height / 2, auraRadius, 0, Math.PI * 2); ctx.fill();
 
   // Aim Indicator
   if (state.isAiming && state.aimAngle !== undefined) {
@@ -450,12 +452,13 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, nowMs: number) {
     const barX = enemy.x + 1;
     const barY = enemy.y - 9;
     const barW = Math.max(18, enemy.width - 2);
+    const barH = mobileRender.isMobile ? 7 : 5;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    roundRect(ctx, barX, barY, barW, 5, 2); ctx.fill();
+    roundRect(ctx, barX, barY, barW, barH, 2); ctx.fill();
     const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
     hpGrad.addColorStop(0, '#ff7f90'); hpGrad.addColorStop(1, '#ffd27a');
     ctx.fillStyle = hpGrad;
-    roundRect(ctx, barX, barY, barW * hpRatio, 5, 2); ctx.fill();
+    roundRect(ctx, barX, barY, barW * hpRatio, barH, 2); ctx.fill();
   }
   ctx.restore();
 }
@@ -810,7 +813,8 @@ function drawParticles(ctx: CanvasRenderingContext2D, state: GameState) {
   for (const p of state.particles) {
     const alpha = p.life / p.maxLife;
     ctx.globalAlpha = alpha; ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2); ctx.fill();
+    const pSize = mobileRender.isMobile ? Math.max(1.5, p.size * alpha * 1.15) : p.size * alpha;
+    ctx.beginPath(); ctx.arc(p.x, p.y, pSize, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
@@ -924,7 +928,7 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   const walkCycle = s.walking ? Math.sin(s.animFrame * Math.PI / 2) * 0.4 : 0;
 
   // Arms
-  ctx.strokeStyle = '#bda37a'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  ctx.strokeStyle = '#bda37a'; ctx.lineWidth = mobileSize(3.5); ctx.lineCap = 'round';
   if (s.casting) {
     const worldMouseX = state.mousePos.x + state.camera.x;
     const worldMouseY = state.mousePos.y + state.camera.y;
@@ -948,7 +952,7 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
   }
 
   // Legs / boots
-  ctx.strokeStyle = '#2a2623'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.strokeStyle = '#2a2623'; ctx.lineWidth = mobileSize(4); ctx.lineCap = 'round';
   if (s.jumping) {
     ctx.beginPath(); ctx.moveTo(cx, bodyBot); ctx.lineTo(cx + 10, bodyBot + 14); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, bodyBot); ctx.lineTo(cx - 10, bodyBot + 14); ctx.stroke();

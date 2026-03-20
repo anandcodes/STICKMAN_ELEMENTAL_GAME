@@ -754,10 +754,10 @@ function drawMenuScreen(
   const startX = W / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
   const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
   const menuCards = [
-    { title: tr(state, 'menu_campaign'), subtitle: tr(state, 'menu_campaign_subtitle'), color: ELEMENT_COLORS.fire, icon: 'map', active: state.selectedMenuButton === 0 },
-    { title: tr(state, 'menu_wave'), subtitle: tr(state, 'menu_wave_subtitle'), color: ELEMENT_COLORS.wind, icon: 'swords', active: state.selectedMenuButton === 1 },
-    { title: tr(state, 'menu_shop'), subtitle: tr(state, 'shop_currency', { gems: state.gemsCurrency }), color: ELEMENT_COLORS.earth, icon: 'bag', active: false },
-    { title: 'DAILY CHALLENGES', subtitle: 'Claim rewards and track progression', color: '#9ae6de', icon: 'star', active: false },
+    { title: tr(state, 'menu_campaign'), subtitle: tr(state, 'menu_campaign_subtitle'), color: ELEMENT_COLORS.fire, icon: 'map' as const, active: state.selectedMenuButton === 0 },
+    { title: tr(state, 'menu_wave'), subtitle: tr(state, 'menu_wave_subtitle'), color: ELEMENT_COLORS.wind, icon: 'swords' as const, active: state.selectedMenuButton === 1 },
+    { title: tr(state, 'menu_shop'), subtitle: tr(state, 'shop_currency', { gems: state.gemsCurrency }), color: ELEMENT_COLORS.earth, icon: 'bag' as const, active: false },
+    { title: 'DAILY CHALLENGES', subtitle: 'Claim rewards and track progression', color: '#9ae6de', icon: 'star' as const, active: false },
   ];
 
   const drawCardAt = (card: typeof menuCards[number], index: number) => {
@@ -1007,7 +1007,7 @@ function drawLevelSelectScreen(
   drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
   
   // Subtle animated parallax layer
-  const parallaxOffset = (state.frameCount * 0.1) % 100;
+  const parallaxOffset = (Date.now() * 0.01) % 100;
   ctx.save();
   ctx.fillStyle = 'rgba(154, 230, 222, 0.02)';
   ctx.fillRect(-parallaxOffset, 0, W + parallaxOffset, H);
@@ -1033,7 +1033,7 @@ function drawLevelSelectScreen(
 
   // Grid layout - optimized for visual balance
   const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 200;
-  const cardH = compactMobileLayout ? 130 : 180;
+  const cardH = compactMobileLayout ? 145 : 180;
   const gap = compactMobileLayout ? 16 : 24;
   const cols = compactMobileLayout ? 3 : 4;
   const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
@@ -1349,7 +1349,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
   }
 }
 
-function _drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
+export function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
   drawBackdrop(ctx, state, W, H, ['#08181a', '#143642', '#091418']);
   drawScreenHeading(ctx, state, tr(state, 'victory_title'), tr(state, 'victory_subtitle'), W, 118);
 
@@ -1393,8 +1393,8 @@ function drawHUD(
     const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
     const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
 
-    drawTexturedBar(ctx, 20, 40, leftW - 24, 14, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
-    drawTexturedBar(ctx, 20, 62, leftW - 24, 12, manaRatio, 'wind', nowMs);
+    drawTexturedBar(ctx, 20, 40, leftW - 24, 16, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
+    drawTexturedBar(ctx, 20, 62, leftW - 24, 14, manaRatio, 'wind', nowMs);
 
     ctx.fillStyle = '#f3ead6';
     setDisplayFont(ctx, state, 22, '800');
@@ -1417,13 +1417,13 @@ function drawHUD(
     ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), hudX + 18, hudY + 32);
 
     const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
-    drawTexturedBar(ctx, hudX + 18, hudY + 46, hudW - 36, 18, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
+    drawTexturedBar(ctx, hudX + 18, hudY + 46, hudW - 36, 22, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
 
     const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
-    drawTexturedBar(ctx, hudX + 18, hudY + 76, hudW - 36, 14, manaRatio, 'wind', nowMs);
+    drawTexturedBar(ctx, hudX + 18, hudY + 78, hudW - 36, 18, manaRatio, 'wind', nowMs);
 
     ctx.fillStyle = '#f6ebd8';
-    setDisplayFont(ctx, state, 32, '900');
+    setDisplayFont(ctx, state, 36, '900');
     ctx.textAlign = 'right';
     ctx.fillText(String(state.score), W - 30, 58);
 
@@ -1501,8 +1501,9 @@ function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numb
 
       for (let dot = 0; dot < 5; dot++) {
         ctx.fillStyle = dot < item.level ? UI_THEME.accent : 'rgba(255,255,255,0.1)';
+        const dotSize = isMobileLayout ? 6 : 4;
         ctx.beginPath();
-        ctx.arc(ix + 20 + dot * 15, iy + (isMobileLayout ? 65 : 100), 4, 0, Math.PI * 2);
+        ctx.arc(ix + 20 + dot * (isMobileLayout ? 18 : 15), iy + (isMobileLayout ? 65 : 100), dotSize, 0, Math.PI * 2);
         ctx.fill();
       }
     });
@@ -1566,7 +1567,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   // Typewriter effect is already driven by dialogCharIndex increment in engine
 
   ctx.fillStyle = '#e9f2ff';
-  setUiFont(ctx, state, isPortraitMobile ? 14 : 18, '600');
+  setUiFont(ctx, state, isPortraitMobile ? 16 : 18, '600');
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
@@ -1616,7 +1617,8 @@ function drawPauseOverlay(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   options.forEach((option, index) => {
     const optionY = H / 2 - 50 + index * 58;
     const selected = state.pauseSelection === index;
-    drawPanel(ctx, state, W / 2 - 160, optionY - 18, 320, 42, 10, selected ? '#7bd3ff' : UI_THEME.panelBorder, selected ? 1 : 0.82);
+    const panelW = isMobile ? 360 : 320;
+    drawPanel(ctx, state, W / 2 - panelW / 2, optionY - 18, panelW, 42, 10, selected ? '#7bd3ff' : UI_THEME.panelBorder, selected ? 1 : 0.82);
     ctx.fillStyle = '#ffffff';
     setUiFont(ctx, state, 18, '700');
     ctx.fillText(option.toUpperCase(), W / 2, optionY + 9);

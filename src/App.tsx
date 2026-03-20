@@ -33,6 +33,7 @@ import {
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
 import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
+import { mobileRender } from './game/renderers/renderConstants';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -90,6 +91,7 @@ function App() {
   const isPortraitMobileRef = useRef(false);
   const compactMobileLayoutRef = useRef(isMobile);
   const loopClockRef = useRef(createLoopClock());
+  const dprRef = useRef(1);
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
@@ -149,12 +151,6 @@ function App() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [currentScreen]);
-
-  const _setMenuSelection = (index: number) => {
-    const s = stateRef.current;
-    if (s.screen !== 'menu') return;
-    s.selectedMenuButton = index;
-  };
 
   const beginCampaignTransition = useCallback(() => {
     const s = stateRef.current;
@@ -257,6 +253,13 @@ function App() {
       const vh = hostRect?.height ?? window.visualViewport?.height ?? window.innerHeight;
       let s;
       let w = 1200;
+
+      // DPI-aware rendering: cap at 2 for performance on low-end devices
+      const rawDpr = window.devicePixelRatio || 1;
+      const dpr = isMobileRef.current ? Math.min(rawDpr, 2) : 1;
+      dprRef.current = dpr;
+      mobileRender.dpr = dpr;
+      mobileRender.isMobile = isMobileRef.current;
 
       if (isMobileRef.current) {
         if (vw > vh) {
@@ -408,7 +411,7 @@ function App() {
     if (!assetsReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     const reportStartupFailure = (message: string) => {
       queueMicrotask(() => setFatalError(message));
     };
@@ -1293,6 +1296,17 @@ function App() {
         for (let i = 0; i < steps; i++) {
           update(currentState);
         }
+
+        // Apply DPI scaling for sharp rendering on high-DPI screens
+        const dpr = dprRef.current;
+        const physW = CANVAS_W * dpr;
+        const physH = CANVAS_H * dpr;
+        if (canvas.width !== physW || canvas.height !== physH) {
+          canvas.width = physW;
+          canvas.height = physH;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
         render(
           ctx,
           currentState,
@@ -1481,8 +1495,8 @@ function App() {
       )}
       <canvas
         ref={canvasRef}
-        width={canvasWidth}
-        height={CANVAS_H}
+        width={canvasWidth * dprRef.current}
+        height={CANVAS_H * dprRef.current}
         id="game-canvas"
         aria-label="Game canvas"
         style={{

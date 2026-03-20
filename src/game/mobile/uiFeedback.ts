@@ -9,7 +9,7 @@ function drawGlyph(ctx: CanvasRenderingContext2D, image: HTMLImageElement | unde
   }
 
   ctx.fillStyle = '#f4ead8';
-  ctx.font = `700 ${Math.round(size * 0.46)}px "Cormorant Garamond", serif`;
+  ctx.font = `700 ${Math.round(size * 0.52)}px "Cormorant Garamond", serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(fallback, x, y);
@@ -163,7 +163,7 @@ export function drawActionButton(
   bronze.addColorStop(0, '#7c5a2e');
   bronze.addColorStop(1, '#c59852');
   ctx.strokeStyle = disabled ? 'rgba(124, 90, 46, 0.45)' : bronze;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.beginPath(); ctx.arc(x, y, radius - 2, 0, Math.PI * 2); ctx.stroke();
 
   // Rune scratch
@@ -174,11 +174,16 @@ export function drawActionButton(
   ctx.stroke();
 
   if (active) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.beginPath(); ctx.arc(x, y, radius - 1, 0, Math.PI * 2); ctx.fill();
+  } else if (!disabled) {
+    // Subtle breathing glow for idle action buttons
+    const breath = 0.06 + 0.04 * Math.sin(performance.now() * 0.003);
+    ctx.fillStyle = `rgba(255, 230, 180, ${breath})`;
+    ctx.beginPath(); ctx.arc(x, y, radius + 2, 0, Math.PI * 2); ctx.fill();
   }
 
-  drawGlyph(ctx, iconKey ? assets[iconKey] : undefined, x, y, radius * 1.02, fallbackLabel);
+  drawGlyph(ctx, iconKey ? assets[iconKey] : undefined, x, y, radius * 1.1, fallbackLabel);
 
   if (cooldownProgress < 1) {
     ctx.fillStyle = 'rgba(5, 5, 8, 0.68)';
