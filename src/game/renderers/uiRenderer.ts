@@ -588,13 +588,22 @@ function drawScreenHeading(
   W: number,
   topY: number,
 ) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(20, 40, 80, 0.6)'; // Adds powerful contrast against bright skies
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   setDisplayFont(ctx, state, 52, '900');
   ctx.fillText(title, W / 2, topY);
-  ctx.fillStyle = '#c0c8d8';
-  setUiFont(ctx, state, 17, '600');
+  
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#f0f4f8';
+  setUiFont(ctx, state, 17, '800');
   ctx.fillText(subtitle, W / 2, topY + 38);
+  ctx.restore();
 }
 
 function drawPrimaryButton(
@@ -1061,17 +1070,20 @@ export function getLevelNodePosition(index: number, W: number, H: number, isComp
   const rangeX = W - startX * 2;
   const xStep = cols > 1 ? rangeX / (cols - 1) : 0;
   
-  const startY = isCompact ? 140 : 180;
-  const rangeY = H - startY - 180;
+  const startY = isCompact ? 120 : 150;
+  const rangeY = H - startY - 140; // Expand vertical playable area
   const rows = Math.ceil(TOTAL_LEVELS / cols);
   const yStep = rows > 1 ? rangeY / (rows - 1) : 0;
   
-  const curveY = Math.sin((effectiveCol / (cols - 1)) * Math.PI) * (isCompact ? 25 : 45);
+  // Uniform curve so all rows bend in the same direction, preserving exact vertical spacing!
+  const curveY = Math.sin((effectiveCol / (cols - 1)) * Math.PI) * (isCompact ? 20 : 35);
+  // Add a slight horizontal wave to make the grid less rigid
+  const curveX = Math.sin((row / (rows - 1)) * Math.PI) * 20;
   
   return {
-    x: startX + effectiveCol * xStep,
-    y: startY + row * yStep + (row % 2 === 0 ? curveY : -curveY),
-    radius: isCompact ? 28 : 42,
+    x: startX + effectiveCol * xStep + curveX,
+    y: startY + row * yStep + curveY,
+    radius: isCompact ? 26 : 38,
   };
 }
 
@@ -1083,8 +1095,8 @@ function drawLevelSelectScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  // Premium fantasy backdrop with subtle parallax effect
-  drawBackdrop(ctx, state, W, H, ['#0a1530', '#152c58', '#0f1e42']);
+  // Premium daytime cartoon backdrop
+  drawBackdrop(ctx, state, W, H, ['#5abdeb', '#8adcf9', '#dcf4ff']);
   
   // Subtle animated parallax layer
   const parallaxOffset = (Date.now() * 0.01) % 100;
@@ -1117,24 +1129,23 @@ function drawLevelSelectScreen(
     nodes.push(getLevelNodePosition(i, W, H, compactMobileLayout));
   }
   
-  // Dotted connecting path
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(nodes[0].x, nodes[0].y);
   for (let i = 1; i < TOTAL_LEVELS; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.strokeStyle = 'rgba(20, 60, 120, 0.25)'; // Darker dashed path for visibility on bright bg
   ctx.lineWidth = 5;
   ctx.setLineDash([15, 15]);
   ctx.stroke();
   
-  // Gold progress line
+  // Vibrant blue progress line
   if (state.furthestLevel > 0) {
     ctx.beginPath();
     ctx.moveTo(nodes[0].x, nodes[0].y);
     for (let i = 1; i <= state.furthestLevel; i++) {
       if (i < TOTAL_LEVELS) ctx.lineTo(nodes[i].x, nodes[i].y);
     }
-    ctx.strokeStyle = '#fad846';
+    ctx.strokeStyle = 'rgba(40, 100, 240, 0.85)';
     ctx.lineWidth = 7;
     ctx.setLineDash([]);
     ctx.stroke();
@@ -1156,7 +1167,7 @@ function drawLevelSelectScreen(
     ctx.translate(-x, -y);
 
     if (unlocked) {
-      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.8)' : 'rgba(154, 230, 222, 0.4)';
+      ctx.shadowColor = selected ? 'rgba(255, 60, 120, 0.6)' : 'rgba(20, 80, 140, 0.3)';
       ctx.shadowBlur = selected ? 24 : 14;
       ctx.shadowOffsetY = 6;
     } else {
@@ -1165,19 +1176,19 @@ function drawLevelSelectScreen(
 
     // Outer shiny border
     ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = unlocked ? '#ffffff' : '#b0b0b0'; 
+    ctx.fillStyle = unlocked ? '#ffffff' : '#d0d0d0'; 
     ctx.fill();
     ctx.lineWidth = 5;
-    ctx.strokeStyle = selected ? '#ffffff' : isBoss ? '#ffaa00' : unlocked ? '#82caaf' : '#777'; 
+    ctx.strokeStyle = selected ? '#ff3c78' : isBoss ? '#ffaa00' : unlocked ? '#34a0ff' : '#999'; 
     ctx.stroke();
 
     // Inner bright fill
     ctx.beginPath(); ctx.arc(x, y, radius - 6, 0, Math.PI * 2);
-    ctx.fillStyle = isBoss ? '#ffb938' : unlocked ? '#4cc9f0' : '#888888';
+    ctx.fillStyle = isBoss ? '#ffb938' : unlocked ? '#ccf0ff' : '#aaaaaa';
     ctx.fill();
 
-    // Bold Level number
-    ctx.fillStyle = '#ffffff';
+    // Bold Level number - dark for readability
+    ctx.fillStyle = '#112244';
     setDisplayFont(ctx, state, radius > 30 ? 32 : 24, '900');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1186,7 +1197,7 @@ function drawLevelSelectScreen(
     // Stars / Status
     if (index < state.furthestLevel) {
       const stars = bestTime ? 3 : 0;
-      ctx.fillStyle = '#ffcf33';
+      ctx.fillStyle = '#ffaa00'; // Darker gold to pop on light bg
       ctx.textBaseline = 'top';
       setUiFont(ctx, state, radius > 30 ? 14 : 11, 'normal');
       let starText = '';
@@ -1195,7 +1206,7 @@ function drawLevelSelectScreen(
       }
       ctx.fillText(starText, x, y + radius + 8);
     } else if (unlocked && !bestTime) {
-      ctx.fillStyle = selected ? '#62eeb8' : '#ffffff';
+      ctx.fillStyle = selected ? '#ff3c78' : '#2255aa';
       ctx.textBaseline = 'top';
       setUiFont(ctx, state, radius > 30 ? 12 : 10, '900');
       ctx.fillText('READY', x, y + radius + 10);
@@ -1210,7 +1221,7 @@ function drawLevelSelectScreen(
   const maxStars = TOTAL_LEVELS * 3;
   const currentStars = Object.values(state.bestTimes).filter(t => t !== undefined).length * 3;
   
-  ctx.fillStyle = 'rgba(232, 223, 207, 0.7)';
+  ctx.fillStyle = 'rgba(20, 50, 100, 0.8)';
   ctx.textAlign = 'center';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(
@@ -1222,7 +1233,7 @@ function drawLevelSelectScreen(
 
   // Instruction text with elegant styling
   ctx.save();
-  ctx.fillStyle = 'rgba(232, 223, 207, 0.6)';
+  ctx.fillStyle = 'rgba(20, 50, 100, 0.65)';
   ctx.textAlign = 'center';
   setUiFont(ctx, state, 13, '600');
   ctx.fillText(
