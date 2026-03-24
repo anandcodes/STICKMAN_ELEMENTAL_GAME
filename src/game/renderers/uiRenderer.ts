@@ -20,21 +20,27 @@ export function drawPanel(
 ) {
   ctx.save();
   ctx.globalAlpha = alpha;
+
+  // Panel background
   const grad = ctx.createLinearGradient(x, y, x, y + height);
   grad.addColorStop(0, UI_THEME.panelA);
   grad.addColorStop(1, UI_THEME.panelB);
   ctx.fillStyle = grad;
   roundRect(ctx, x, y, width, height, radius);
   ctx.fill();
+
+  // White border
   ctx.strokeStyle = UI_THEME.panelBorder;
   ctx.lineWidth = 1.5;
+  roundRect(ctx, x, y, width, height, radius);
   ctx.stroke();
-  ctx.strokeStyle = accentColor;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x + radius + 10, y);
-  ctx.lineTo(x + width - radius - 10, y);
-  ctx.stroke();
+
+  // Colored left accent bar
+  ctx.fillStyle = accentColor;
+  ctx.globalAlpha = alpha * 0.7;
+  roundRect(ctx, x, y, 4, height, radius);
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -76,21 +82,6 @@ export function drawBackdrop(
   grad.addColorStop(1, colors[2]);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 60) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, H);
-    ctx.stroke();
-  }
-  for (let y = 0; y < H; y += 60) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
 }
 
 function drawStoneHudPanel(
@@ -102,12 +93,12 @@ function drawStoneHudPanel(
   accentColor: string = '#9ae6de',
 ) {
   const stone = ctx.createLinearGradient(x, y, x, y + height);
-  stone.addColorStop(0, '#26252b');
-  stone.addColorStop(1, '#141419');
+  stone.addColorStop(0, '#ffffff');
+  stone.addColorStop(1, '#e6f0fa');
   ctx.fillStyle = stone;
   roundRect(ctx, x, y, width, height, 12);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(240, 226, 196, 0.2)';
+  ctx.strokeStyle = 'rgba(150, 180, 255, 0.5)';
   ctx.lineWidth = 2;
   roundRect(ctx, x, y, width, height, 12);
   ctx.stroke();
@@ -120,7 +111,7 @@ function drawStoneHudPanel(
   ctx.stroke();
 
   // Rivets
-  ctx.fillStyle = 'rgba(189, 170, 136, 0.7)';
+  ctx.fillStyle = 'rgba(120, 140, 180, 0.5)';
   const rivets = [
     [x + 12, y + 12], [x + width - 12, y + 12],
     [x + 12, y + height - 12], [x + width - 12, y + height - 12],
@@ -187,7 +178,7 @@ export function drawTexturedBar(
 
     const swirl = ctx.createLinearGradient(x, y, x, y + height);
     swirl.addColorStop(0, '#9de6ff');
-    swirl.addColorStop(1, '#e8f6ff');
+    swirl.addColorStop(1, '#ffffff');
     ctx.fillStyle = swirl;
     ctx.fillRect(x, y, width * len, height * 0.85);
 
@@ -246,8 +237,8 @@ function drawMenuCard(
   ctx.shadowOffsetY = 6;
 
   const base = ctx.createLinearGradient(x, y, x, y + h);
-  base.addColorStop(0, 'rgba(34,32,36,0.9)');
-  base.addColorStop(1, 'rgba(16,14,18,0.85)');
+  base.addColorStop(0, 'rgba(255, 255, 255, 0.94)');
+  base.addColorStop(1, 'rgba(230, 240, 255, 0.88)');
   ctx.fillStyle = base;
   roundRect(ctx, x, y, w, h, 18);
   ctx.fill();
@@ -303,10 +294,10 @@ function drawMenuCard(
   ctx.textAlign = 'left';
   const titleY = y + h / 2 - 6;
   const subtitleY = y + h / 2 + 16;
-  ctx.fillStyle = '#f3ead6';
+  ctx.fillStyle = '#111522';
   setUiFont(ctx, state, 17, '800');
   ctx.fillText(title, x + 70, titleY);
-  ctx.fillStyle = '#d6c49e';
+  ctx.fillStyle = 'rgba(20, 30, 50, 0.7)';
   setUiFont(ctx, state, 12, '600');
   ctx.fillText(subtitle, x + 70, subtitleY);
 
@@ -314,11 +305,11 @@ function drawMenuCard(
 }
 
 function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
-  ctx.fillStyle = '#1a1610';
+  ctx.fillStyle = '#82caaf';
   ctx.fillRect(0, 0, W, H);
   const parchment = ctx.createLinearGradient(0, 0, W, H);
-  parchment.addColorStop(0, '#3a3329');
-  parchment.addColorStop(1, '#2a241c');
+  parchment.addColorStop(0, '#ffffff');
+  parchment.addColorStop(1, '#e0f2f1');
   ctx.fillStyle = parchment;
   const inset = 30;
   roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 18);
@@ -341,7 +332,7 @@ function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
     ctx.fillStyle = isBoss ? '#ffd06a' : unlocked ? '#9ae6de' : '#555';
     ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
     setUiFont(ctx, state, 12, '700');
-    ctx.fillStyle = '#f3ead6';
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(String(i + 1), x, y + 4);
     ctx.restore();
@@ -362,16 +353,16 @@ function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
 }
 
 function drawSkillTreeScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
-  ctx.fillStyle = '#0f0e12';
+  ctx.fillStyle = '#0c1830';
   ctx.fillRect(0, 0, W, H);
   drawStoneHudPanel(ctx, 20, 20, W - 40, H - 40, '#9ae6de');
 
   const centerX = W / 2;
   const centerY = H / 2;
   const pulse = 0.9 + 0.1 * Math.sin(nowMs * 0.003);
-  ctx.fillStyle = '#1c191f';
+  ctx.fillStyle = '#1a2a50';
   ctx.beginPath(); ctx.arc(centerX, centerY, 48 * pulse, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#d8c6a3';
+  ctx.strokeStyle = '#c0c8d8';
   ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(centerX, centerY, 50, 0, Math.PI * 2); ctx.stroke();
 
@@ -391,35 +382,35 @@ function drawSkillTreeScreen(ctx: CanvasRenderingContext2D, state: GameState, W:
     ctx.fillStyle = b.color;
     ctx.beginPath(); ctx.arc(endX, endY, 24, 0, Math.PI * 2); ctx.fill();
     setUiFont(ctx, state, 14, '800');
-    ctx.fillStyle = '#f3ead6';
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(b.label, endX, endY + 38);
   });
 
   setUiFont(ctx, state, 18, '800');
-  ctx.fillStyle = '#f3ead6';
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.fillText(`CRYSTAL SHARDS: ${state.gemsCurrency}`, centerX, 60);
   ctx.fillText('Tap nodes to unlock sub-abilities (visual only placeholder)', centerX, 90);
 }
 
 function drawEndingScroll(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
-  ctx.fillStyle = '#0c0a0f';
+  ctx.fillStyle = '#82caaf';
   ctx.fillRect(0, 0, W, H);
   const parchment = ctx.createLinearGradient(0, 0, W, H);
-  parchment.addColorStop(0, '#3b3126');
-  parchment.addColorStop(1, '#2a241c');
+  parchment.addColorStop(0, '#ffffff');
+  parchment.addColorStop(1, '#e6f0fa');
   const inset = 50;
   ctx.fillStyle = parchment;
   roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 24);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(214,184,126,0.6)';
+  ctx.strokeStyle = 'rgba(100, 160, 220, 0.5)';
   ctx.lineWidth = 4;
   roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 24);
   ctx.stroke();
 
   setDisplayFont(ctx, state, 42, '900');
-  ctx.fillStyle = '#f3ead6';
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.fillText('ENDING SCROLL', W / 2, inset + 80);
 
@@ -550,36 +541,51 @@ function drawScreenHeading(
 ) {
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
-  setDisplayFont(ctx, state, 48, '800');
+  setDisplayFont(ctx, state, 52, '900');
   ctx.fillText(title, W / 2, topY);
-  ctx.fillStyle = UI_THEME.muted;
-  setUiFont(ctx, state, 16, '600');
-  ctx.fillText(subtitle, W / 2, topY + 34);
+  ctx.fillStyle = '#c0c8d8';
+  setUiFont(ctx, state, 17, '600');
+  ctx.fillText(subtitle, W / 2, topY + 38);
 }
 
 function drawPrimaryButton(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
+  _state: GameState,
   x: number,
   y: number,
   w: number,
   h: number,
   label: string,
   accent: string,
-  selected = false,
+  _selected = false,
 ) {
-  drawPanel(ctx, state, x, y, w, h, 12, accent, selected ? 1 : 0.86);
+  ctx.save();
+  // Vibrant colored pill
+  ctx.fillStyle = accent;
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.fill();
+  // Highlight sheen
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  roundRect(ctx, x + 4, y + 2, w - 8, h / 2 - 2, h / 4);
+  ctx.fill();
+  // Border
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.stroke();
+  // Label
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
-  setUiFont(ctx, state, Math.max(14, Math.min(22, h * 0.28)), '800');
-  ctx.fillText(label, x + w / 2, y + h / 2 + 7);
+  ctx.font = `bold ${Math.max(14, Math.min(22, h * 0.35))}px Arial, sans-serif`;
+  ctx.fillText(label, x + w / 2, y + h / 2 + 6);
+  ctx.restore();
 }
 
 function drawTopRightSettingsHotspot(ctx: CanvasRenderingContext2D, state: GameState, W: number) {
   const x = W - 62;
   const y = 18;
   drawPanel(ctx, state, x, y, 44, 44, 10, '#86d5ff', 0.92);
-  ctx.strokeStyle = '#e8f6ff';
+  ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(x + 22, y + 22, 8, 0, Math.PI * 2);
@@ -614,17 +620,17 @@ function drawMenuScreen(
   ctx.save();
   ctx.translate(bgOffsetX, bgOffsetY);
   const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#0a0b12');
-  sky.addColorStop(0.5, '#0f1220');
-  sky.addColorStop(1, '#0c0d16');
+  sky.addColorStop(0, '#4aaeff');
+  sky.addColorStop(0.5, '#73c5ff');
+  sky.addColorStop(1, '#a6ddff');
   ctx.fillStyle = sky;
   ctx.fillRect(-60, -60, W + 120, H + 120);
 
   const eclipseX = W * 0.5;
   const eclipseY = 120;
-  const corona = ctx.createRadialGradient(eclipseX, eclipseY, 20, eclipseX, eclipseY, 180);
-  corona.addColorStop(0, 'rgba(255, 160, 80, 0.22)');
-  corona.addColorStop(1, 'rgba(0,0,0,0)');
+  const corona = ctx.createRadialGradient(eclipseX, eclipseY, 30, eclipseX, eclipseY, 400);
+  corona.addColorStop(0, 'rgba(255, 255, 200, 0.6)');
+  corona.addColorStop(1, 'rgba(255, 255, 255, 0)');
   ctx.fillStyle = corona;
   ctx.fillRect(-60, -60, W + 120, H + 120);
 
@@ -655,7 +661,7 @@ function drawMenuScreen(
   const statsX = W / 2 - statsW / 2;
   drawStoneHudPanel(ctx, statsX, statsY, statsW, statsH, '#ffd06a');
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#f3ead6';
+  ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 14, '800');
   const statsCol = statsW / 3;
   const baseY = statsY + 34;
@@ -739,7 +745,7 @@ function drawMenuScreen(
   ctx.stroke();
   ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(toggleX + 20, toggleY + toggleH / 2, 7, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#9ae6de'; ctx.beginPath(); ctx.arc(toggleX + toggleW - 20, toggleY + toggleH / 2, 7, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f3ead6';
+  ctx.fillStyle = '#ffffff';
   setUiFont(ctx, state, 16, '800');
   ctx.textAlign = 'center';
   ctx.fillText(`DIFFICULTY: ${diffConfig.label.toUpperCase()}`, toggleX + toggleW / 2, toggleY + 33);
@@ -779,7 +785,7 @@ function drawMenuScreen(
   menuCards.forEach((card, index) => { if (card.active) drawCardAt(card, index); });
 
   drawPanel(ctx, state, 24, H - 92, W - 48, 56, 14, '#7bd3ff', 0.78);
-  ctx.fillStyle = '#dff4ff';
+  ctx.fillStyle = '#e0e8f0';
   ctx.textAlign = 'center';
   setUiFont(ctx, state, isMobile ? 11 : 13, '700');
   ctx.fillText(
@@ -809,7 +815,7 @@ function drawMenuScreen(
       ctx.fillText(tr(state, 'menu_leaderboard_empty'), sidebarX + 18, sidebarY + 56);
     } else {
       leaderboard.forEach((entry, index) => {
-        ctx.fillStyle = '#dff4ff';
+        ctx.fillStyle = '#e0e8f0';
         setUiFont(ctx, state, 13, '700');
         ctx.fillText(
           tr(state, 'menu_leaderboard_row', {
@@ -872,7 +878,7 @@ function drawSurvivalDifficultyScreen(
   isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  drawBackdrop(ctx, state, W, H, ['#080d1f', '#102545', '#140f2c']);
+  drawBackdrop(ctx, state, W, H, ['#0c1a3a', '#1a3568', '#0f1e45']);
   drawScreenHeading(ctx, state, 'SURVIVAL MODE', 'Choose the challenge level for endless waves', W, 92);
  
   const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
@@ -939,7 +945,7 @@ function drawChallengesScreen(
   _isMobile: boolean,
   compactMobileLayout: boolean,
 ) {
-  drawBackdrop(ctx, state, W, H, ['#0a1020', '#14294d', '#0e1430']);
+  drawBackdrop(ctx, state, W, H, ['#0e1838', '#1c3b6e', '#121e48']);
   drawScreenHeading(ctx, state, 'DAILY CHALLENGES', 'Complete missions and claim reward gems', W, 88);
 
   const snapshot = getProgressionSnapshot(state);
@@ -1004,7 +1010,7 @@ function drawLevelSelectScreen(
   compactMobileLayout: boolean,
 ) {
   // Premium fantasy backdrop with subtle parallax effect
-  drawBackdrop(ctx, state, W, H, ['#050914', '#0d1833', '#091120']);
+  drawBackdrop(ctx, state, W, H, ['#0a1530', '#152c58', '#0f1e42']);
   
   // Subtle animated parallax layer
   const parallaxOffset = (Date.now() * 0.01) % 100;
@@ -1263,7 +1269,7 @@ function drawLevelSelectScreen(
 }
 
 function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
-  drawBackdrop(ctx, state, W, H, ['#07131c', '#123542', '#0b1824']);
+  drawBackdrop(ctx, state, W, H, ['#0c2230', '#1a4a60', '#0e2838']);
   drawScreenHeading(ctx, state, tr(state, 'level_complete_title'), state.levelSubtitle || state.levelName, W, 120);
 
   drawPanel(ctx, state, W / 2 - 250, 190, 500, 240, 18, '#62eeb8', 0.92);
@@ -1294,7 +1300,7 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
     ctx.fillText(tr(state, 'level_complete_all_gems_bonus'), W / 2, 394);
   }
 
-  ctx.fillStyle = '#dff4ff';
+  ctx.fillStyle = '#e0e8f0';
   setUiFont(ctx, state, 16, '700');
   ctx.fillText(
     state.currentLevel + 1 >= TOTAL_LEVELS
@@ -1306,7 +1312,7 @@ function drawLevelCompleteScreen(ctx: CanvasRenderingContext2D, state: GameState
 }
 
 function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
-  drawBackdrop(ctx, state, W, H, ['#13040a', '#2f0d18', '#11060b']);
+  drawBackdrop(ctx, state, W, H, ['#2a0815', '#4a1428', '#1e0810']);
   const endless = state.endlessWave !== undefined;
   drawScreenHeading(
     ctx,
@@ -1350,7 +1356,7 @@ function drawGameOverScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
 }
 
 export function drawVictoryScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
-  drawBackdrop(ctx, state, W, H, ['#08181a', '#143642', '#091418']);
+  drawBackdrop(ctx, state, W, H, ['#0c2a2e', '#1a5058', '#0e2e32']);
   drawScreenHeading(ctx, state, tr(state, 'victory_title'), tr(state, 'victory_subtitle'), W, 118);
 
   drawPanel(ctx, state, W / 2 - 240, 194, 480, 188, 18, '#62eeb8', 0.92);
@@ -1381,152 +1387,194 @@ function drawHUD(
   const elementColor = ELEMENT_COLORS[state.selectedElement];
   const charName = ELEMENT_CHARACTER_NAMES[state.selectedElement];
 
-  // ─── CHARACTER PANEL (top-left) ───
-  const panelX = 12;
+  // ═══════════════════════════════════════════
+  // CHARACTER PANEL (top-left)
+  // ═══════════════════════════════════════════
+  const panelX = 14;
   const panelY = 10;
-  const avatarR = 28;
+  const avatarR = 38;
+  const avatarCX = panelX + avatarR + 6;
+  const avatarCY = panelY + avatarR + 6;
 
-  // Avatar circle with element glow
+  // Avatar outer ring with element glow
   ctx.save();
   ctx.shadowColor = elementColor;
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = elementColor;
+  ctx.shadowBlur = 18;
+  ctx.strokeStyle = elementColor;
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.arc(panelX + avatarR + 4, panelY + avatarR + 4, avatarR, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(avatarCX, avatarCY, avatarR + 3, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Stickman silhouette in avatar
+  // Avatar background fill
+  ctx.fillStyle = elementColor;
+  ctx.beginPath();
+  ctx.arc(avatarCX, avatarCY, avatarR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // White inner border
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(avatarCX, avatarCY, avatarR - 3, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Stickman silhouette — bigger
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.arc(panelX + avatarR + 4, panelY + avatarR - 6, 8, 0, Math.PI * 2);
+  ctx.arc(avatarCX, avatarCY - 14, 10, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 2);
-  ctx.lineTo(panelX + avatarR + 4, panelY + avatarR + 20);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(panelX + avatarR - 6, panelY + avatarR + 10);
-  ctx.lineTo(panelX + avatarR + 14, panelY + avatarR + 10);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 20);
-  ctx.lineTo(panelX + avatarR - 4, panelY + avatarR + 30);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 20);
-  ctx.lineTo(panelX + avatarR + 12, panelY + avatarR + 30);
-  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  // Body
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY - 3); ctx.lineTo(avatarCX, avatarCY + 16); ctx.stroke();
+  // Arms
+  ctx.beginPath(); ctx.moveTo(avatarCX - 12, avatarCY + 6); ctx.lineTo(avatarCX + 12, avatarCY + 6); ctx.stroke();
+  // Left leg
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16); ctx.lineTo(avatarCX - 10, avatarCY + 30); ctx.stroke();
+  // Right leg
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16); ctx.lineTo(avatarCX + 10, avatarCY + 30); ctx.stroke();
   ctx.restore();
 
-  // Bars area
-  const barX = panelX + avatarR * 2 + 16;
-  const barW = 160;
-  const barH = 14;
+  // ─── HP / MP BARS ───
+  const barX = panelX + (avatarR + 6) * 2 + 14;
+  const barW = 220;
+  const barH = 18;
+  const barGap = 6;
 
-  // HP bar
+  // HP bar background
   const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  roundRect(ctx, barX, panelY + 6, barW, barH, 7);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRect(ctx, barX, panelY + 8, barW, barH, 9);
   ctx.fill();
-  const hpGrad = ctx.createLinearGradient(barX, panelY + 6, barX, panelY + 6 + barH);
-  hpGrad.addColorStop(0, HUD_COLORS.hpGreen);
-  hpGrad.addColorStop(1, HUD_COLORS.hpGreenDark);
+  // HP bar fill
+  const hpGrad = ctx.createLinearGradient(barX, panelY + 8, barX + barW, panelY + 8);
+  hpGrad.addColorStop(0, '#5fe63a');
+  hpGrad.addColorStop(1, '#2daa14');
   ctx.fillStyle = hpGrad;
   if (healthRatio > 0) {
-    roundRect(ctx, barX, panelY + 6, barW * healthRatio, barH, 7);
+    roundRect(ctx, barX, panelY + 8, barW * healthRatio, barH, 9);
     ctx.fill();
   }
+  // HP bar border
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, barX, panelY + 8, barW, barH, 9);
+  ctx.stroke();
+  // HP text
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px Arial, sans-serif';
+  ctx.font = 'bold 12px Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${Math.ceil(s.health)}/${Math.ceil(s.maxHealth)}`, barX + barW / 2, panelY + 6 + barH - 3);
+  ctx.fillText(`${Math.ceil(s.health)}/${Math.ceil(s.maxHealth)}`, barX + barW / 2, panelY + 8 + barH - 4);
 
-  // MP bar
+  // MP bar background
   const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  roundRect(ctx, barX, panelY + 26, barW, barH, 7);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRect(ctx, barX, panelY + 8 + barH + barGap, barW, barH, 9);
   ctx.fill();
-  const mpGrad = ctx.createLinearGradient(barX, panelY + 26, barX, panelY + 26 + barH);
-  mpGrad.addColorStop(0, HUD_COLORS.mpBlue);
-  mpGrad.addColorStop(1, HUD_COLORS.mpBlueDark);
+  // MP bar fill
+  const mpGrad = ctx.createLinearGradient(barX, panelY + 8 + barH + barGap, barX + barW, panelY + 8 + barH + barGap);
+  mpGrad.addColorStop(0, '#4a9eff');
+  mpGrad.addColorStop(1, '#1a6ad4');
   ctx.fillStyle = mpGrad;
   if (manaRatio > 0) {
-    roundRect(ctx, barX, panelY + 26, barW * manaRatio, barH, 7);
+    roundRect(ctx, barX, panelY + 8 + barH + barGap, barW * manaRatio, barH, 9);
     ctx.fill();
   }
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, barX, panelY + 8 + barH + barGap, barW, barH, 9);
+  ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px Arial, sans-serif';
-  ctx.fillText(`${Math.ceil(s.mana)}/${Math.ceil(s.maxMana)}`, barX + barW / 2, panelY + 26 + barH - 3);
+  ctx.font = 'bold 12px Arial, sans-serif';
+  ctx.fillText(`${Math.ceil(s.mana)}/${Math.ceil(s.maxMana)}`, barX + barW / 2, panelY + 8 + barH + barGap + barH - 4);
 
-  // Character name + level
+  // ─── Character name + level label ───
   ctx.textAlign = 'left';
   ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px Arial, sans-serif';
+  ctx.fillText(charName, barX, panelY + 8 + barH * 2 + barGap + 20);
+  ctx.fillStyle = '#bbb';
   ctx.font = 'bold 13px Arial, sans-serif';
-  ctx.fillText(charName, barX, panelY + 56);
-  ctx.fillStyle = '#ccc';
-  ctx.font = '11px Arial, sans-serif';
-  ctx.fillText(`Level ${state.currentLevel + 1}`, barX + ctx.measureText(charName).width + 10, panelY + 56);
+  ctx.fillText(`Level ${state.currentLevel + 1}`, barX + ctx.measureText(charName).width + 12, panelY + 8 + barH * 2 + barGap + 20);
 
-  // ─── SCORE & COINS ───
+  // ═══════════════════════════════════════════
+  // SCORE & COINS (below character info)
+  // ═══════════════════════════════════════════
+  const scoreY = panelY + 8 + barH * 2 + barGap + 42;
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px Arial, sans-serif';
+  ctx.font = 'bold 18px Arial, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`Score: ${state.score.toLocaleString()}`, panelX + 4, panelY + 82);
+  ctx.fillText(`Score: ${state.score.toLocaleString()}`, panelX + 4, scoreY);
   ctx.fillStyle = HUD_COLORS.coinsText;
-  ctx.fillText(`Coins: ${state.gemsCurrency.toLocaleString()}`, panelX + 4, panelY + 100);
+  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.fillText(`Coins: ${state.gemsCurrency.toLocaleString()}`, panelX + 4, scoreY + 24);
 
-  // ─── ELEMENT SWITCHER (left side, below score) ───
+  // ═══════════════════════════════════════════
+  // ELEMENT SWITCHER (left side, below score)
+  // ═══════════════════════════════════════════
   const elements: Array<import('../types').Element> = ['fire', 'water', 'earth', 'wind'];
-  const elemStartY = panelY + 116;
-  const elemSlotH = 50;
-  const elemIconR = 16;
-
+  const elemStartY = scoreY + 40;
+  const elemSlotH = 58;
+  const elemIconR = 24;
+  const cooldownValues: Record<string, string> = { fire: '', water: '0.5s', earth: '1.2s', wind: '0.6s' };
   const elLabels: Record<string, string> = { fire: 'FIRE', water: 'WATER', earth: 'EARTH', wind: 'AIR' };
 
   elements.forEach((elem, i) => {
     const ey = elemStartY + i * elemSlotH;
     const isActive = elem === state.selectedElement;
     const isUnlocked = state.unlockedElements.includes(elem);
+    const eColor = ELEMENT_COLORS[elem];
 
     ctx.save();
-    ctx.globalAlpha = isUnlocked ? (isActive ? 1 : 0.6) : 0.25;
+    ctx.globalAlpha = isUnlocked ? (isActive ? 1 : 0.7) : 0.2;
 
-    // Element icon circle
-    const eColor = ELEMENT_COLORS[elem];
-    ctx.fillStyle = isActive ? eColor : 'rgba(80,80,80,0.6)';
+    // Element icon circle — large and vivid
+    ctx.fillStyle = isActive ? eColor : 'rgba(60,60,60,0.7)';
     ctx.beginPath();
-    ctx.arc(panelX + elemIconR + 4, ey + elemIconR + 2, elemIconR, 0, Math.PI * 2);
+    ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
     ctx.fill();
-    if (isActive) {
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
 
-    // Element icon emoji
-    ctx.font = '14px Arial';
+    // Border ring
+    ctx.strokeStyle = isActive ? '#fff' : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = isActive ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Element icon emoji — bigger
+    ctx.font = '20px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(ELEMENT_ICONS[elem], panelX + elemIconR + 4, ey + elemIconR + 7);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ELEMENT_ICONS[elem], panelX + elemIconR + 6, ey + elemIconR + 5);
+    ctx.textBaseline = 'alphabetic';
 
-    // Element label
-    ctx.fillStyle = isActive ? '#fff' : '#aaa';
-    ctx.font = isActive ? 'bold 12px Arial, sans-serif' : '11px Arial, sans-serif';
+    // Element label — bigger, bold
+    const labelX = panelX + elemIconR * 2 + 20;
+    ctx.fillStyle = isActive ? '#fff' : '#bbb';
+    ctx.font = isActive ? 'bold 15px Arial, sans-serif' : 'bold 13px Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(elLabels[elem], panelX + elemIconR * 2 + 14, ey + 12);
+    ctx.fillText(elLabels[elem], labelX, ey + 16);
 
-    // Cooldown / tap hint
-    if (isUnlocked && !isActive) {
-      ctx.fillStyle = '#999';
-      ctx.font = '10px Arial, sans-serif';
-      ctx.fillText('Tap to switch', panelX + elemIconR * 2 + 14, ey + 28);
-    }
+    // Active element: show percentage
     if (isActive) {
       ctx.fillStyle = eColor;
-      ctx.font = 'bold 11px Arial, sans-serif';
-      ctx.fillText('100%', panelX + elemIconR * 2 + 14, ey + 28);
+      ctx.font = 'bold 13px Arial, sans-serif';
+      ctx.fillText('100%', labelX, ey + 36);
+    }
+
+    // Unlocked non-active: show cooldown + tap hint
+    if (isUnlocked && !isActive) {
+      ctx.fillStyle = '#aaa';
+      ctx.font = 'bold 12px Arial, sans-serif';
+      const cd = cooldownValues[elem];
+      if (cd) ctx.fillText(cd, labelX, ey + 34);
+
+      ctx.fillStyle = '#888';
+      ctx.font = '11px Arial, sans-serif';
+      ctx.fillText('Tap to switch', labelX + (cd ? 36 : 0), ey + 34);
     }
 
     ctx.restore();
@@ -1537,69 +1585,83 @@ function drawHUD(
     element: elem,
     x: panelX,
     y: elemStartY + i * elemSlotH,
-    w: elemIconR * 2 + 120,
+    w: elemIconR * 2 + 140,
     h: elemSlotH,
   }));
 
-  // ─── LEVEL NAME (top-right) ───
+  // ═══════════════════════════════════════════
+  // LEVEL NAME (top-right)
+  // ═══════════════════════════════════════════
   ctx.save();
-  ctx.fillStyle = HUD_COLORS.levelNameBg;
   const levelText = (state.levelName || '').toUpperCase();
-  ctx.font = 'bold 16px Arial, sans-serif';
+  ctx.font = 'bold 20px Arial, sans-serif';
   ctx.textAlign = 'right';
   const lvlTextW = ctx.measureText(levelText).width;
-  roundRect(ctx, W - lvlTextW - 90, panelY + 2, lvlTextW + 20, 26, 6);
+  // Background pill
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRect(ctx, W - lvlTextW - 100, panelY + 2, lvlTextW + 24, 32, 8);
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.fillText(levelText, W - 78, panelY + 20);
+  ctx.fillText(levelText, W - 84, panelY + 26);
   ctx.restore();
 
-  // ─── PAUSE & SETTINGS (top-right corner) ───
-  const btnSize = 22;
-  const btnY = panelY + 6;
+  // ═══════════════════════════════════════════
+  // PAUSE & SETTINGS (top-right corner)
+  // ═══════════════════════════════════════════
+  const btnR = 20;
+  const pauseX = W - 56;
+  const settX = W - 18;
+  const btnCY = panelY + 18;
 
-  // Pause button
+  // Pause
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.beginPath();
-  ctx.arc(W - 52, btnY + btnSize / 2, btnSize, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.arc(pauseX, btnCY, btnR, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(pauseX, btnCY, btnR, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.font = 'bold 20px Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('❚❚', W - 52, btnY + btnSize / 2 + 6);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('❚❚', pauseX, btnCY);
   ctx.restore();
 
-  // Settings button
+  // Settings
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.beginPath();
-  ctx.arc(W - 18, btnY + btnSize / 2, btnSize, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.arc(settX, btnCY, btnR, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(settX, btnCY, btnR, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.font = '16px Arial, sans-serif';
+  ctx.font = '18px Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('⚙', W - 18, btnY + btnSize / 2 + 5);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⚙', settX, btnCY);
   ctx.restore();
 
-  // ─── ABILITY NAME DISPLAY (bottom-right, above action buttons) ───
+  // ═══════════════════════════════════════════
+  // ABILITY NAME (bottom-right, above action btn area)
+  // ═══════════════════════════════════════════
   const abilityName = ELEMENT_ABILITY_NAMES[state.selectedElement];
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.font = 'bold 11px Arial, sans-serif';
+  ctx.font = 'bold 14px Arial, sans-serif';
   ctx.textAlign = 'right';
-  const abilW = ctx.measureText(`B  ${abilityName}`).width;
-  roundRect(ctx, W - abilW - 30, 340, abilW + 20, 22, 6);
+  const abilTotalW = ctx.measureText(`B  ${abilityName}`).width;
+  // Background pill
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRect(ctx, W - abilTotalW - 36, 320, abilTotalW + 28, 28, 8);
   ctx.fill();
   ctx.fillStyle = elementColor;
-  ctx.fillText(`B`, W - abilW - 4, 355);
-  ctx.fillStyle = '#ddd';
-  ctx.fillText(abilityName, W - 16, 355);
+  ctx.fillText('B', W - abilTotalW - 8, 339);
+  ctx.fillStyle = '#e0e0e0';
+  ctx.fillText(abilityName, W - 16, 339);
   ctx.restore();
 }
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, compactMobileLayout: boolean) {
-  drawBackdrop(ctx, state, W, H, ['#080d1f', '#102545', '#0f1631']);
+  drawBackdrop(ctx, state, W, H, ['#0c1a3a', '#1a3568', '#121e48']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 48, '800');
   ctx.textAlign = 'center';
@@ -1730,7 +1792,7 @@ function drawDialogSystem(ctx: CanvasRenderingContext2D, state: GameState, W: nu
   const textToDraw = dialog.text.substring(0, Math.floor(state.dialogCharIndex));
   // Typewriter effect is already driven by dialogCharIndex increment in engine
 
-  ctx.fillStyle = '#e9f2ff';
+  ctx.fillStyle = '#e0e8f0';
   setUiFont(ctx, state, isPortraitMobile ? 16 : 18, '600');
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -1804,7 +1866,7 @@ function drawPauseOverlay(ctx: CanvasRenderingContext2D, state: GameState, W: nu
 }
 
 function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, isMobile: boolean) {
-  drawBackdrop(ctx, state, W, H, ['#051020', '#102040', '#0a1020']);
+  drawBackdrop(ctx, state, W, H, ['#0a1838', '#182e58', '#101e38']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 48, '900');
   ctx.textAlign = 'center';
@@ -1839,14 +1901,14 @@ function drawRelicSelectionScreen(ctx: CanvasRenderingContext2D, state: GameStat
     setUiFont(ctx, state, 12, '800');
     ctx.fillText(relic.rarity.toUpperCase(), rx + 110, ry + 20);
 
-    ctx.fillStyle = '#dff4ff';
+    ctx.fillStyle = '#e0e8f0';
     setUiFont(ctx, state, 12, '700');
     ctx.fillText(isMobile ? tr(state, 'relic_tap_select') : tr(state, 'relic_press_select', { key: i + 1 }), rx + 110, ry + 286);
   });
 }
 
 function drawSettingsScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
-  drawBackdrop(ctx, state, W, H, ['#0a1020', '#152540', '#0a1020']);
+  drawBackdrop(ctx, state, W, H, ['#0e1838', '#1e3858', '#121e38']);
   ctx.fillStyle = '#ffffff';
   setDisplayFont(ctx, state, 42, '800');
   ctx.textAlign = 'center';

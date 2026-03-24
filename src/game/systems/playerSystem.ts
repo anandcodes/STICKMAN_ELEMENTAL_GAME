@@ -130,4 +130,5 @@ export function updatePlayer(state: GameState, _dt = 1) {
 
   // Invincibility
   if (s.invincibleTimer > 0) s.invincibleTimer--;
+  if (s.hurtTimer > 0) s.hurtTimer--;
 }

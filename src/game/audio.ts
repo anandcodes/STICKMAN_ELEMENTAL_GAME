@@ -95,56 +95,105 @@ function playNoise(duration: number, volume = 0.1, highpass = 1000): void {
 // ===== SFX FUNCTIONS =====
 
 export function playJump(): void {
-    playTone(280, 0.15, 'sine', 0.2);
-    playTone(400, 0.12, 'sine', 0.15, 0, 0.04);
-    playTone(520, 0.08, 'sine', 0.1, 0, 0.08);
+    // Classic cartoon boing! Quick upward pitch slide
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(700, t + 0.15);
+    
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.15);
 }
 
 export function playLand(): void {
-    playTone(120, 0.08, 'triangle', 0.15);
-    playNoise(0.06, 0.05, 2000);
+    playTone(150, 0.08, 'triangle', 0.15);
+    playTone(100, 0.08, 'sine', 0.1, 0, 0.02);
 }
 
 export function playCastFire(): void {
-    playNoise(0.3, 0.15, 800);
-    playTone(200, 0.2, 'sawtooth', 0.1);
-    playTone(300, 0.15, 'sawtooth', 0.08, 0, 0.05);
+    // Cute fire 'pew'
+    playTone(700, 0.15, 'triangle', 0.15);
+    playTone(300, 0.1, 'sine', 0.1, 0, 0.05);
 }
 
 export function playCastWater(): void {
-    playTone(600, 0.2, 'sine', 0.15, 0);
-    playTone(400, 0.25, 'sine', 0.1, 0, 0.05);
-    playNoise(0.15, 0.05, 3000);
+    // Bubbly splash
+    playTone(500, 0.1, 'sine', 0.15);
+    playTone(700, 0.15, 'sine', 0.15, 0, 0.05);
+    playTone(900, 0.1, 'sine', 0.1, 0, 0.1);
 }
 
 export function playCastEarth(): void {
-    playTone(80, 0.3, 'square', 0.12);
-    playTone(60, 0.35, 'square', 0.1, 0, 0.05);
-    playNoise(0.1, 0.08, 500);
+    // Chunky blunt sound
+    playTone(150, 0.15, 'square', 0.1);
+    playTone(100, 0.15, 'triangle', 0.12, 0, 0.05);
 }
 
 export function playCastWind(): void {
-    playNoise(0.4, 0.1, 2000);
-    playTone(800, 0.3, 'sine', 0.05, 20);
-    playTone(1200, 0.2, 'sine', 0.03, -20, 0.1);
+    // Whimsical swoosh
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, t);
+    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.2);
+    gain.gain.setValueAtTime(0.01, t);
+    gain.gain.linearRampToValueAtTime(0.15, t + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.2);
 }
 
 export function playHit(): void {
-    playTone(200, 0.1, 'square', 0.2);
-    playTone(100, 0.15, 'square', 0.15, 0, 0.03);
-    playNoise(0.08, 0.1, 1500);
+    // Cartoon player hit (ouch!)
+    playTone(300, 0.15, 'sawtooth', 0.2);
+    playTone(150, 0.15, 'triangle', 0.15, 0, 0.05);
 }
 
 export function playEnemyHit(): void {
-    playTone(300, 0.08, 'sawtooth', 0.15);
-    playTone(250, 0.1, 'sawtooth', 0.1, 0, 0.03);
+    // Satisfying cartoon 'pop'
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(200, t + 0.1);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.1);
 }
 
 export function playEnemyDeath(): void {
-    playTone(400, 0.1, 'square', 0.15);
-    playTone(300, 0.12, 'square', 0.12, 0, 0.05);
-    playTone(200, 0.15, 'square', 0.1, 0, 0.1);
-    playTone(100, 0.2, 'square', 0.08, 0, 0.15);
+    // Dropping whistle (descending pitch)
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(100, t + 0.3);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.3);
 }
 
 export function playSuperEffective(): void {
@@ -193,14 +242,25 @@ export function playDeath(): void {
 }
 
 export function playMenuSelect(): void {
-    playTone(440, 0.06, 'sine', 0.15);
-    playTone(660, 0.08, 'sine', 0.12, 0, 0.05);
+    // Cheerful UI blip
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.05);
 }
 
 export function playDash(): void {
-    playNoise(0.15, 0.1, 1500);
-    playTone(400, 0.15, 'sawtooth', 0.1);
-    playTone(800, 0.1, 'sawtooth', 0.05, 0, 0.05);
+    // Quick zip!
+    playTone(600, 0.1, 'sine', 0.1);
+    playTone(1000, 0.15, 'sine', 0.1, 0, 0.05);
 }
 
 export function playCrateBreak(): void {

@@ -93,6 +93,7 @@ export interface Stickman {
   health: number; maxHealth: number;
   mana: number; maxMana: number;
   invincibleTimer: number;
+  hurtTimer: number;
   dashCooldown: number;
   dashTimer: number;
   isDashing: boolean;

@@ -142,7 +142,7 @@ export function updateProjectiles(state: GameState) {
                 let damage = Math.floor(20 * ds.enemyDamageMult);
                 if (state.selectedElement === 'fire' && p.element === 'fire') damage *= 0.5;
                 if (state.selectedElement === 'fire' && p.element === 'water') damage *= 2;
-                s.health -= damage; s.invincibleTimer = 60;
+                s.health -= damage; s.invincibleTimer = 60; s.hurtTimer = 15;
                 if (state.selectedElement === 'earth') {
                     s.vy = -3; s.vx = 0;
                 } else {

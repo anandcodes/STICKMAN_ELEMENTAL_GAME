@@ -79,6 +79,7 @@ export function createInitialState(
     mana: ds.playerMana + upg.manaLevel * 25,
     maxMana: ds.playerMana + upg.manaLevel * 25,
     invincibleTimer: 0,
+    hurtTimer: 0,
     dashCooldown: 0,
     dashTimer: 0,
     isDashing: false,
@@ -281,22 +282,56 @@ function triggerElementalBurst(state: GameState) {
   const burstElement = state.selectedElement;
   const cx = s.x + s.width / 2;
   const cy = s.y + s.height / 2;
-  spawnParticles(state, cx, cy, burstElement, 40);
-  state.shockwaves.push({ x: cx, y: cy, radius: 40, life: 18, color: '#ffe0b3' });
+  
+  // Massive Elemental Particle Explosion (360 degrees)
+  const numParticles = 80;
+  const colors: Record<Element, string[]> = {
+    fire: ['#ff4500', '#ff8c00', '#ffd700', '#ffffff'],
+    water: ['#00bfff', '#1e90ff', '#87cefa', '#ffffff'],
+    earth: ['#8b4513', '#a0522d', '#cd853f', '#32cd32'],
+    wind: ['#e0ffff', '#afeeee', '#f0ffff', '#ffffff']
+  };
+  
+  for (let i = 0; i < numParticles; i++) {
+    const angle = (Math.PI * 2 * i) / numParticles;
+    const speed = 10 + Math.random() * 15; // fast explosion
+    const p = particlePool.get();
+    p.x = cx; p.y = cy;
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed;
+    p.life = 40 + Math.random() * 20;
+    p.maxLife = p.life;
+    p.element = burstElement;
+    p.size = 6 + Math.random() * 8; // huge particles
+    p.color = colors[burstElement][Math.floor(Math.random() * colors[burstElement].length)];
+    state.particles.push(p);
+  }
+
+  // Multi-layered Shockwaves
+  const swColor = colors[burstElement][0];
+  state.shockwaves.push({ x: cx, y: cy, radius: 10, life: 30, color: swColor });
+  state.shockwaves.push({ x: cx, y: cy, radius: 40, life: 25, color: '#ffffff' });
+  state.shockwaves.push({ x: cx, y: cy, radius: 80, life: 20, color: swColor });
+
   for (const enemy of state.enemies) {
     if (enemy.state !== 'dead') {
-      enemy.health = 0;
+      enemy.health = 0; // Insta-kill
       enemy.state = 'dead';
       enemy.hurtTimer = 30;
-      spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y, 'BURST!', '#ffd06a', 14);
+      spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y, 'BURST!', '#ffffff', 20);
     }
   }
-  state.screenShake = Math.max(state.screenShake, 28);
+  
+  // Extreme Screen Shake
+  state.screenShake = Math.max(state.screenShake, 45);
+  
   s.mana = 0;
   state.ultimateTrigger = false;
   state.ultimateReady = false;
-  state.slowmoTimer = 30;
-  state.slowmoFactor = 0.1;
+  
+  // Dramatic Slow-motion effect
+  state.slowmoTimer = 45;
+  state.slowmoFactor = 0.05;
   const hasGuardian = state.enemies.some((e) => e.type === 'guardian_aether');
   const isFinalLevel = state.currentLevel >= TOTAL_LEVELS - 1;
   if (state.enemies.every((e) => e.state === 'dead') && (hasGuardian || isFinalLevel)) {

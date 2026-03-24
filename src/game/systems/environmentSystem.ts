@@ -78,6 +78,7 @@ export function updateEnvironment(state: GameState) {
         if (dist < 100) {
           s.health -= 25;
           s.mana = Math.max(0, s.mana - 30);
+          s.hurtTimer = 15;
           s.vy = -6;
           s.vx = (s.x < cx ? -6 : 6);
           s.invincibleTimer = 40;

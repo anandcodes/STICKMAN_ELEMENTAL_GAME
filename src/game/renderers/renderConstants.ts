@@ -16,18 +16,18 @@ export const ELEMENT_GLOW: Record<Element, string> = {
 };
 
 export const UI_THEME = {
-  paper: '#e8dfcf',
-  muted: '#c8c0b0',
-  accent: '#9ae6de',
-  accentStrong: '#b2f5ff',
-  success: '#f39f4a',
-  warning: '#ffd36a',
-  danger: '#ff7c5c',
-  panelA: 'rgba(18, 16, 24, 0.94)',
-  panelB: 'rgba(26, 28, 36, 0.9)',
-  panelBorder: 'rgba(154, 192, 201, 0.4)',
-  glassBg: 'rgba(255, 240, 214, 0.03)',
-  glassBorder: 'rgba(255, 240, 214, 0.12)',
+  paper: '#2b3a4a', // Dark blue-grey for text on bright backgrounds
+  muted: '#7a8b9c', // Darker muted tone
+  accent: '#4cd964',
+  accentStrong: '#30e86c',
+  success: '#4cd964',
+  warning: '#ffc107',
+  danger: '#ff4757',
+  panelA: 'rgba(255, 255, 255, 0.95)',
+  panelB: 'rgba(240, 248, 255, 0.90)',
+  panelBorder: 'rgba(150, 180, 255, 0.4)',
+  glassBg: 'rgba(255, 255, 255, 0.70)',
+  glassBorder: 'rgba(150, 180, 255, 0.3)',
 };
 
 /** Scale factor applied to visual element sizes on mobile for clarity */
@@ -54,11 +54,11 @@ export const HUD_COLORS = {
   hpGreenDark: '#2a8c18',
   mpBlue: '#3a9bff',
   mpBlueDark: '#1e5ca0',
-  panelBg: 'rgba(0, 0, 0, 0.55)',
-  panelBorder: 'rgba(255, 255, 255, 0.18)',
-  scoreText: '#ffffff',
-  coinsText: '#ffd700',
-  levelNameBg: 'rgba(0, 0, 0, 0.5)',
+  panelBg: 'rgba(255, 255, 255, 0.85)',
+  panelBorder: 'rgba(150, 180, 255, 0.4)',
+  scoreText: '#1a1a1a',
+  coinsText: '#df9c00', // darker gold for white bg
+  levelNameBg: 'rgba(255, 255, 255, 0.8)',
 } as const;
 
 export const DPAD_COLORS = {
@@ -96,6 +96,6 @@ export const ELEMENT_ICONS: Record<Element, string> = {
   wind: '🌪️',
 };
 
-// Rugged serif fantasy fonts
-export const FONT_UI = '"Cormorant Garamond", "Georgia", serif';
-export const FONT_DISPLAY = '"Cinzel", "Cinzel Decorative", serif';
+// Bold sans-serif fonts (cartoon style)
+export const FONT_UI = 'Arial, "Helvetica Neue", sans-serif';
+export const FONT_DISPLAY = 'Arial, "Helvetica Neue", sans-serif';
