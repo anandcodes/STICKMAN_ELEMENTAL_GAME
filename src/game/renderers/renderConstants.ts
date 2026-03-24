@@ -48,6 +48,54 @@ export function mobileSize(value: number): number {
   return mobileRender.isMobile ? value * MOBILE_SCALE : value;
 }
 
+// ── Cartoon HUD palette (matches reference image) ──
+export const HUD_COLORS = {
+  hpGreen: '#4cdb30',
+  hpGreenDark: '#2a8c18',
+  mpBlue: '#3a9bff',
+  mpBlueDark: '#1e5ca0',
+  panelBg: 'rgba(0, 0, 0, 0.55)',
+  panelBorder: 'rgba(255, 255, 255, 0.18)',
+  scoreText: '#ffffff',
+  coinsText: '#ffd700',
+  levelNameBg: 'rgba(0, 0, 0, 0.5)',
+} as const;
+
+export const DPAD_COLORS = {
+  base: '#5C3A1E',
+  baseLight: '#7B5230',
+  baseDark: '#3D2510',
+  arrow: '#ffffff',
+  arrowActive: '#e0e0e0',
+} as const;
+
+export const ACTION_BTN = {
+  jump: { bg: '#30c43c', label: 'A', labelColor: '#fff' },
+  cancel: { bg: '#666', label: 'X', labelColor: '#fff' },
+  ability: { bg: '#e63b2e', label: 'B', labelColor: '#fff' },
+} as const;
+
+export const ELEMENT_CHARACTER_NAMES: Record<Element, string> = {
+  fire: 'Pyros',
+  water: 'Aqualis',
+  earth: 'Terran',
+  wind: 'Zephyr',
+};
+
+export const ELEMENT_ABILITY_NAMES: Record<Element, string> = {
+  fire: 'Meteor Strike',
+  water: 'Tidal Wave',
+  earth: 'Quake Slam',
+  wind: 'Cyclone Burst',
+};
+
+export const ELEMENT_ICONS: Record<Element, string> = {
+  fire: '🔥',
+  water: '💧',
+  earth: '🪨',
+  wind: '🌪️',
+};
+
 // Rugged serif fantasy fonts
 export const FONT_UI = '"Cormorant Garamond", "Georgia", serif';
 export const FONT_DISPLAY = '"Cinzel", "Cinzel Decorative", serif';

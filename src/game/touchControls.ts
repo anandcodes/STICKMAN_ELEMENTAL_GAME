@@ -211,6 +211,22 @@ export function handleTouchStart(
   for (const touch of touches) {
     const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
+    // Element switcher tap-to-switch (direct element selection)
+    if (state._elementSwitcherBounds && state.screen === 'playing' && !state.paused) {
+      let switched = false;
+      for (const bound of state._elementSwitcherBounds) {
+        if (tx >= bound.x && tx <= bound.x + bound.w && ty >= bound.y && ty <= bound.y + bound.h) {
+          if (state.unlockedElements.includes(bound.element) && bound.element !== state.selectedElement) {
+            state.selectedElement = bound.element;
+            Audio.playElementSwitch();
+            switched = true;
+          }
+          break;
+        }
+      }
+      if (switched) continue;
+    }
+
     if (hitActionButton(controls.pauseButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop)) {
       controls.pauseButton.active = true;
       state.paused = !state.paused;

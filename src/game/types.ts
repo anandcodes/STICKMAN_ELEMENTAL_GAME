@@ -347,6 +347,7 @@ export interface GameState {
   favoriteElement?: Element;
   elementUsage?: Record<Element, number>;
   continueButton?: { x: number; y: number; w: number; h: number };
+  _elementSwitcherBounds?: Array<{ element: Element; x: number; y: number; w: number; h: number }>;
   menuParallax?: Vec2;
   screenTransition?: {
     active: boolean;

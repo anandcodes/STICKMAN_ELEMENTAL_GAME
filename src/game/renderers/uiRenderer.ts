@@ -3,7 +3,7 @@ import { TOTAL_LEVELS } from '../levels';
 import { DIFFICULTY_SETTINGS } from '../constants';
 import { getLeaderboard, getLeaderboardStatus } from '../services/leaderboard';
 import { getProgressionSnapshot } from '../services/progression';
-import { UI_THEME, ELEMENT_COLORS } from './renderConstants';
+import { UI_THEME, ELEMENT_COLORS, HUD_COLORS, ELEMENT_CHARACTER_NAMES, ELEMENT_ABILITY_NAMES, ELEMENT_ICONS } from './renderConstants';
 import { assetLoader } from '../services/assetLoader';
 import { formatFramesAsTime, roundRect, setUiFont, setDisplayFont, tr } from './renderUtils';
 
@@ -128,7 +128,7 @@ function drawStoneHudPanel(
   rivets.forEach(([rx, ry]) => { ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI * 2); ctx.fill(); });
 }
 
-function drawTexturedBar(
+export function drawTexturedBar(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -1374,64 +1374,228 @@ function drawHUD(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   W: number,
-  nowMs: number,
-  isPortraitMobile: boolean,
+  _nowMs: number,
+  _isPortraitMobile: boolean,
 ) {
   const s = state.stickman;
+  const elementColor = ELEMENT_COLORS[state.selectedElement];
+  const charName = ELEMENT_CHARACTER_NAMES[state.selectedElement];
 
-  if (isPortraitMobile) {
-    const leftW = 236;
-    const rightW = 190;
-    drawStoneHudPanel(ctx, 10, 10, leftW, 104);
-    drawStoneHudPanel(ctx, W - rightW - 10, 10, rightW, 104);
+  // ─── CHARACTER PANEL (top-left) ───
+  const panelX = 12;
+  const panelY = 10;
+  const avatarR = 28;
 
-    ctx.fillStyle = '#e8dfcf';
-    setUiFont(ctx, state, 12, '800');
-    ctx.textAlign = 'left';
-    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), 20, 30);
+  // Avatar circle with element glow
+  ctx.save();
+  ctx.shadowColor = elementColor;
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = elementColor;
+  ctx.beginPath();
+  ctx.arc(panelX + avatarR + 4, panelY + avatarR + 4, avatarR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
-    const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
-    const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
+  // Stickman silhouette in avatar
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.arc(panelX + avatarR + 4, panelY + avatarR - 6, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 2);
+  ctx.lineTo(panelX + avatarR + 4, panelY + avatarR + 20);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(panelX + avatarR - 6, panelY + avatarR + 10);
+  ctx.lineTo(panelX + avatarR + 14, panelY + avatarR + 10);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 20);
+  ctx.lineTo(panelX + avatarR - 4, panelY + avatarR + 30);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(panelX + avatarR + 4, panelY + avatarR + 20);
+  ctx.lineTo(panelX + avatarR + 12, panelY + avatarR + 30);
+  ctx.stroke();
+  ctx.restore();
 
-    drawTexturedBar(ctx, 20, 40, leftW - 24, 16, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
-    drawTexturedBar(ctx, 20, 62, leftW - 24, 14, manaRatio, 'wind', nowMs);
+  // Bars area
+  const barX = panelX + avatarR * 2 + 16;
+  const barW = 160;
+  const barH = 14;
 
-    ctx.fillStyle = '#f3ead6';
-    setDisplayFont(ctx, state, 22, '800');
-    ctx.textAlign = 'right';
-    ctx.fillText(String(state.score), W - 20, 42);
-
-    drawGemIcon(ctx, state, W - 165, 78, 8, nowMs);
-    setUiFont(ctx, state, 16, '700');
-    ctx.textAlign = 'left';
-    ctx.fillText(String(state.gemsCurrency), W - 150, 83);
-  } else {
-    const hudW = 320;
-    const hudX = 20;
-    const hudY = 20;
-    drawStoneHudPanel(ctx, hudX, hudY, hudW, 112, ELEMENT_COLORS[state.selectedElement]);
-
-    ctx.fillStyle = '#e8dfcf';
-    setUiFont(ctx, state, 14, '800');
-    ctx.textAlign = 'left';
-    ctx.fillText(tr(state, 'hud_level', { level: state.currentLevel + 1, name: (state.levelName || '').toUpperCase() }), hudX + 18, hudY + 32);
-
-    const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
-    drawTexturedBar(ctx, hudX + 18, hudY + 46, hudW - 36, 22, healthRatio, 'fire', nowMs, { lowHealth: healthRatio < 0.25 });
-
-    const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
-    drawTexturedBar(ctx, hudX + 18, hudY + 78, hudW - 36, 18, manaRatio, 'wind', nowMs);
-
-    ctx.fillStyle = '#f6ebd8';
-    setDisplayFont(ctx, state, 36, '900');
-    ctx.textAlign = 'right';
-    ctx.fillText(String(state.score), W - 30, 58);
-
-    drawGemIcon(ctx, state, W - 120, 98, 10, nowMs);
-    setUiFont(ctx, state, 20, '800');
-    ctx.textAlign = 'left';
-    ctx.fillText(String(state.gemsCurrency), W - 100, 104);
+  // HP bar
+  const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  roundRect(ctx, barX, panelY + 6, barW, barH, 7);
+  ctx.fill();
+  const hpGrad = ctx.createLinearGradient(barX, panelY + 6, barX, panelY + 6 + barH);
+  hpGrad.addColorStop(0, HUD_COLORS.hpGreen);
+  hpGrad.addColorStop(1, HUD_COLORS.hpGreenDark);
+  ctx.fillStyle = hpGrad;
+  if (healthRatio > 0) {
+    roundRect(ctx, barX, panelY + 6, barW * healthRatio, barH, 7);
+    ctx.fill();
   }
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${Math.ceil(s.health)}/${Math.ceil(s.maxHealth)}`, barX + barW / 2, panelY + 6 + barH - 3);
+
+  // MP bar
+  const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  roundRect(ctx, barX, panelY + 26, barW, barH, 7);
+  ctx.fill();
+  const mpGrad = ctx.createLinearGradient(barX, panelY + 26, barX, panelY + 26 + barH);
+  mpGrad.addColorStop(0, HUD_COLORS.mpBlue);
+  mpGrad.addColorStop(1, HUD_COLORS.mpBlueDark);
+  ctx.fillStyle = mpGrad;
+  if (manaRatio > 0) {
+    roundRect(ctx, barX, panelY + 26, barW * manaRatio, barH, 7);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px Arial, sans-serif';
+  ctx.fillText(`${Math.ceil(s.mana)}/${Math.ceil(s.maxMana)}`, barX + barW / 2, panelY + 26 + barH - 3);
+
+  // Character name + level
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px Arial, sans-serif';
+  ctx.fillText(charName, barX, panelY + 56);
+  ctx.fillStyle = '#ccc';
+  ctx.font = '11px Arial, sans-serif';
+  ctx.fillText(`Level ${state.currentLevel + 1}`, barX + ctx.measureText(charName).width + 10, panelY + 56);
+
+  // ─── SCORE & COINS ───
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Score: ${state.score.toLocaleString()}`, panelX + 4, panelY + 82);
+  ctx.fillStyle = HUD_COLORS.coinsText;
+  ctx.fillText(`Coins: ${state.gemsCurrency.toLocaleString()}`, panelX + 4, panelY + 100);
+
+  // ─── ELEMENT SWITCHER (left side, below score) ───
+  const elements: Array<import('../types').Element> = ['fire', 'water', 'earth', 'wind'];
+  const elemStartY = panelY + 116;
+  const elemSlotH = 50;
+  const elemIconR = 16;
+
+  const elLabels: Record<string, string> = { fire: 'FIRE', water: 'WATER', earth: 'EARTH', wind: 'AIR' };
+
+  elements.forEach((elem, i) => {
+    const ey = elemStartY + i * elemSlotH;
+    const isActive = elem === state.selectedElement;
+    const isUnlocked = state.unlockedElements.includes(elem);
+
+    ctx.save();
+    ctx.globalAlpha = isUnlocked ? (isActive ? 1 : 0.6) : 0.25;
+
+    // Element icon circle
+    const eColor = ELEMENT_COLORS[elem];
+    ctx.fillStyle = isActive ? eColor : 'rgba(80,80,80,0.6)';
+    ctx.beginPath();
+    ctx.arc(panelX + elemIconR + 4, ey + elemIconR + 2, elemIconR, 0, Math.PI * 2);
+    ctx.fill();
+    if (isActive) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Element icon emoji
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(ELEMENT_ICONS[elem], panelX + elemIconR + 4, ey + elemIconR + 7);
+
+    // Element label
+    ctx.fillStyle = isActive ? '#fff' : '#aaa';
+    ctx.font = isActive ? 'bold 12px Arial, sans-serif' : '11px Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(elLabels[elem], panelX + elemIconR * 2 + 14, ey + 12);
+
+    // Cooldown / tap hint
+    if (isUnlocked && !isActive) {
+      ctx.fillStyle = '#999';
+      ctx.font = '10px Arial, sans-serif';
+      ctx.fillText('Tap to switch', panelX + elemIconR * 2 + 14, ey + 28);
+    }
+    if (isActive) {
+      ctx.fillStyle = eColor;
+      ctx.font = 'bold 11px Arial, sans-serif';
+      ctx.fillText('100%', panelX + elemIconR * 2 + 14, ey + 28);
+    }
+
+    ctx.restore();
+  });
+
+  // Store element switcher bounds for touch hit testing
+  state._elementSwitcherBounds = elements.map((elem, i) => ({
+    element: elem,
+    x: panelX,
+    y: elemStartY + i * elemSlotH,
+    w: elemIconR * 2 + 120,
+    h: elemSlotH,
+  }));
+
+  // ─── LEVEL NAME (top-right) ───
+  ctx.save();
+  ctx.fillStyle = HUD_COLORS.levelNameBg;
+  const levelText = (state.levelName || '').toUpperCase();
+  ctx.font = 'bold 16px Arial, sans-serif';
+  ctx.textAlign = 'right';
+  const lvlTextW = ctx.measureText(levelText).width;
+  roundRect(ctx, W - lvlTextW - 90, panelY + 2, lvlTextW + 20, 26, 6);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillText(levelText, W - 78, panelY + 20);
+  ctx.restore();
+
+  // ─── PAUSE & SETTINGS (top-right corner) ───
+  const btnSize = 22;
+  const btnY = panelY + 6;
+
+  // Pause button
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.arc(W - 52, btnY + btnSize / 2, btnSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('❚❚', W - 52, btnY + btnSize / 2 + 6);
+  ctx.restore();
+
+  // Settings button
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.arc(W - 18, btnY + btnSize / 2, btnSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⚙', W - 18, btnY + btnSize / 2 + 5);
+  ctx.restore();
+
+  // ─── ABILITY NAME DISPLAY (bottom-right, above action buttons) ───
+  const abilityName = ELEMENT_ABILITY_NAMES[state.selectedElement];
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.font = 'bold 11px Arial, sans-serif';
+  ctx.textAlign = 'right';
+  const abilW = ctx.measureText(`B  ${abilityName}`).width;
+  roundRect(ctx, W - abilW - 30, 340, abilW + 20, 22, 6);
+  ctx.fill();
+  ctx.fillStyle = elementColor;
+  ctx.fillText(`B`, W - abilW - 4, 355);
+  ctx.fillStyle = '#ddd';
+  ctx.fillText(abilityName, W - 16, 355);
+  ctx.restore();
 }
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, compactMobileLayout: boolean) {
