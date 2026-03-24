@@ -42,6 +42,18 @@ export class AssetLoader {
     });
   }
 
+  public hasAsset(key: string): boolean {
+    return this.assets.has(key);
+  }
+
+  public getLoadedAsset(key: string): HTMLImageElement | undefined {
+    const asset = this.assets.get(key);
+    if (!asset || !asset.complete || asset.naturalWidth <= 0) {
+      return undefined;
+    }
+    return asset;
+  }
+
   public getAsset(key: string): HTMLImageElement {
     const asset = this.assets.get(key);
     if (!asset) {

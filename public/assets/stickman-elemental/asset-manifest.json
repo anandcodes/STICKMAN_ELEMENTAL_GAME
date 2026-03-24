@@ -1,0 +1,215 @@
+﻿{
+    "pack":  "stickman-elemental-v1",
+    "format":  "svg",
+    "generatedAt":  "2026-03-23",
+    "assets":  [
+                   {
+                       "element":  "neutral",
+                       "path":  "assets/images/characters/hero_base.svg",
+                       "key":  "heroBase",
+                       "height":  128,
+                       "category":  "character",
+                       "width":  128
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/characters/hero_fire.svg",
+                       "key":  "heroFire",
+                       "height":  128,
+                       "category":  "character",
+                       "width":  128
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/characters/hero_water.svg",
+                       "key":  "heroWater",
+                       "height":  128,
+                       "category":  "character",
+                       "width":  128
+                   },
+                   {
+                       "element":  "earth",
+                       "path":  "assets/images/characters/hero_earth.svg",
+                       "key":  "heroEarth",
+                       "height":  128,
+                       "category":  "character",
+                       "width":  128
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/characters/hero_air.svg",
+                       "key":  "heroAir",
+                       "height":  128,
+                       "category":  "character",
+                       "width":  128
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/monsters/monster_fire_imp.svg",
+                       "key":  "monsterFireImp",
+                       "height":  128,
+                       "category":  "monster",
+                       "width":  128
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/monsters/monster_water_slime.svg",
+                       "key":  "monsterWaterSlime",
+                       "height":  128,
+                       "category":  "monster",
+                       "width":  128
+                   },
+                   {
+                       "element":  "earth",
+                       "path":  "assets/images/monsters/monster_earth_brute.svg",
+                       "key":  "monsterEarthBrute",
+                       "height":  128,
+                       "category":  "monster",
+                       "width":  128
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/monsters/monster_air_wisp.svg",
+                       "key":  "monsterAirWisp",
+                       "height":  128,
+                       "category":  "monster",
+                       "width":  128
+                   },
+                   {
+                       "element":  "void",
+                       "path":  "assets/images/monsters/monster_void_hunter.svg",
+                       "key":  "monsterVoidHunter",
+                       "height":  128,
+                       "category":  "monster",
+                       "width":  128
+                   },
+                   {
+                       "element":  "neutral",
+                       "path":  "assets/images/environment/platform_stone.svg",
+                       "key":  "platformStone",
+                       "height":  96,
+                       "category":  "environment",
+                       "width":  256
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/environment/platform_lava.svg",
+                       "key":  "platformLava",
+                       "height":  96,
+                       "category":  "environment",
+                       "width":  256
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/environment/platform_water.svg",
+                       "key":  "platformWater",
+                       "height":  96,
+                       "category":  "environment",
+                       "width":  256
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/environment/platform_cloud.svg",
+                       "key":  "platformCloud",
+                       "height":  96,
+                       "category":  "environment",
+                       "width":  256
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/environment/totem_fire.svg",
+                       "key":  "totemFire",
+                       "height":  160,
+                       "category":  "environment",
+                       "width":  96
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/environment/totem_water.svg",
+                       "key":  "totemWater",
+                       "height":  160,
+                       "category":  "environment",
+                       "width":  96
+                   },
+                   {
+                       "element":  "earth",
+                       "path":  "assets/images/environment/totem_earth.svg",
+                       "key":  "totemEarth",
+                       "height":  160,
+                       "category":  "environment",
+                       "width":  96
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/environment/totem_air.svg",
+                       "key":  "totemAir",
+                       "height":  160,
+                       "category":  "environment",
+                       "width":  96
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/ui/icon_fire_power.svg",
+                       "key":  "iconFire",
+                       "height":  64,
+                       "category":  "ui",
+                       "width":  64
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/ui/icon_water_power.svg",
+                       "key":  "iconWater",
+                       "height":  64,
+                       "category":  "ui",
+                       "width":  64
+                   },
+                   {
+                       "element":  "earth",
+                       "path":  "assets/images/ui/icon_earth_power.svg",
+                       "key":  "iconEarth",
+                       "height":  64,
+                       "category":  "ui",
+                       "width":  64
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/ui/icon_air_power.svg",
+                       "key":  "iconAir",
+                       "height":  64,
+                       "category":  "ui",
+                       "width":  64
+                   },
+                   {
+                       "element":  "fire",
+                       "path":  "assets/images/effects/projectile_fire.svg",
+                       "key":  "projectileFire",
+                       "height":  64,
+                       "category":  "effect",
+                       "width":  64
+                   },
+                   {
+                       "element":  "water",
+                       "path":  "assets/images/effects/projectile_water.svg",
+                       "key":  "projectileWater",
+                       "height":  64,
+                       "category":  "effect",
+                       "width":  64
+                   },
+                   {
+                       "element":  "earth",
+                       "path":  "assets/images/effects/projectile_earth.svg",
+                       "key":  "projectileEarth",
+                       "height":  64,
+                       "category":  "effect",
+                       "width":  64
+                   },
+                   {
+                       "element":  "air",
+                       "path":  "assets/images/effects/projectile_air.svg",
+                       "key":  "projectileAir",
+                       "height":  64,
+                       "category":  "effect",
+                       "width":  64
+                   }
+               ]
+}

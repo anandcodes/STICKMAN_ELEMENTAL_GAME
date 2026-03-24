@@ -1,0 +1,256 @@
+{
+  "pack": "stickman-elemental-vfx-v1",
+  "generatedAt": "2026-03-23",
+  "frameSize": {
+    "w": 128,
+    "h": 128
+  },
+  "animations": {
+    "trail": 8,
+    "impact": 8,
+    "charge": 8,
+    "explode": 8
+  },
+  "assets": [
+    {
+      "key": "fire_trail",
+      "kind": "spritesheet",
+      "element": "fire",
+      "animation": "trail",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/fire_trail.png",
+      "webp": "spritesheets/png/fire_trail.webp"
+    },
+    {
+      "key": "fire_impact",
+      "kind": "spritesheet",
+      "element": "fire",
+      "animation": "impact",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/fire_impact.png",
+      "webp": "spritesheets/png/fire_impact.webp"
+    },
+    {
+      "key": "fire_charge",
+      "kind": "spritesheet",
+      "element": "fire",
+      "animation": "charge",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/fire_charge.png",
+      "webp": "spritesheets/png/fire_charge.webp"
+    },
+    {
+      "key": "fire_explode",
+      "kind": "spritesheet",
+      "element": "fire",
+      "animation": "explode",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/fire_explode.png",
+      "webp": "spritesheets/png/fire_explode.webp"
+    },
+    {
+      "key": "fire_vfx_atlas",
+      "kind": "atlas",
+      "element": "fire",
+      "animations": [
+        "trail",
+        "impact",
+        "charge",
+        "explode"
+      ],
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "png": "atlases/png/fire_vfx_atlas.png",
+      "webp": "atlases/png/fire_vfx_atlas.webp",
+      "json": "atlases/json/fire_vfx_atlas.json"
+    },
+    {
+      "key": "water_trail",
+      "kind": "spritesheet",
+      "element": "water",
+      "animation": "trail",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/water_trail.png",
+      "webp": "spritesheets/png/water_trail.webp"
+    },
+    {
+      "key": "water_impact",
+      "kind": "spritesheet",
+      "element": "water",
+      "animation": "impact",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/water_impact.png",
+      "webp": "spritesheets/png/water_impact.webp"
+    },
+    {
+      "key": "water_charge",
+      "kind": "spritesheet",
+      "element": "water",
+      "animation": "charge",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/water_charge.png",
+      "webp": "spritesheets/png/water_charge.webp"
+    },
+    {
+      "key": "water_explode",
+      "kind": "spritesheet",
+      "element": "water",
+      "animation": "explode",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/water_explode.png",
+      "webp": "spritesheets/png/water_explode.webp"
+    },
+    {
+      "key": "water_vfx_atlas",
+      "kind": "atlas",
+      "element": "water",
+      "animations": [
+        "trail",
+        "impact",
+        "charge",
+        "explode"
+      ],
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "png": "atlases/png/water_vfx_atlas.png",
+      "webp": "atlases/png/water_vfx_atlas.webp",
+      "json": "atlases/json/water_vfx_atlas.json"
+    },
+    {
+      "key": "earth_trail",
+      "kind": "spritesheet",
+      "element": "earth",
+      "animation": "trail",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/earth_trail.png",
+      "webp": "spritesheets/png/earth_trail.webp"
+    },
+    {
+      "key": "earth_impact",
+      "kind": "spritesheet",
+      "element": "earth",
+      "animation": "impact",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/earth_impact.png",
+      "webp": "spritesheets/png/earth_impact.webp"
+    },
+    {
+      "key": "earth_charge",
+      "kind": "spritesheet",
+      "element": "earth",
+      "animation": "charge",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/earth_charge.png",
+      "webp": "spritesheets/png/earth_charge.webp"
+    },
+    {
+      "key": "earth_explode",
+      "kind": "spritesheet",
+      "element": "earth",
+      "animation": "explode",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/earth_explode.png",
+      "webp": "spritesheets/png/earth_explode.webp"
+    },
+    {
+      "key": "earth_vfx_atlas",
+      "kind": "atlas",
+      "element": "earth",
+      "animations": [
+        "trail",
+        "impact",
+        "charge",
+        "explode"
+      ],
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "png": "atlases/png/earth_vfx_atlas.png",
+      "webp": "atlases/png/earth_vfx_atlas.webp",
+      "json": "atlases/json/earth_vfx_atlas.json"
+    },
+    {
+      "key": "air_trail",
+      "kind": "spritesheet",
+      "element": "air",
+      "animation": "trail",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/air_trail.png",
+      "webp": "spritesheets/png/air_trail.webp"
+    },
+    {
+      "key": "air_impact",
+      "kind": "spritesheet",
+      "element": "air",
+      "animation": "impact",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/air_impact.png",
+      "webp": "spritesheets/png/air_impact.webp"
+    },
+    {
+      "key": "air_charge",
+      "kind": "spritesheet",
+      "element": "air",
+      "animation": "charge",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/air_charge.png",
+      "webp": "spritesheets/png/air_charge.webp"
+    },
+    {
+      "key": "air_explode",
+      "kind": "spritesheet",
+      "element": "air",
+      "animation": "explode",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 8,
+      "png": "spritesheets/png/air_explode.png",
+      "webp": "spritesheets/png/air_explode.webp"
+    },
+    {
+      "key": "air_vfx_atlas",
+      "kind": "atlas",
+      "element": "air",
+      "animations": [
+        "trail",
+        "impact",
+        "charge",
+        "explode"
+      ],
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "png": "atlases/png/air_vfx_atlas.png",
+      "webp": "atlases/png/air_vfx_atlas.webp",
+      "json": "atlases/json/air_vfx_atlas.json"
+    }
+  ]
+}

@@ -29,6 +29,7 @@ import {
   type TouchControlsState,
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
+import { elementalAssetMap } from './game/services/elementalAssetMap';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -102,7 +103,8 @@ function App() {
     assetLoader.loadAssets({
       boss1: '/bosses/boss1.png',
       boss2: '/bosses/boss2.png',
-      controls: '/assets/controls.png'
+      controls: '/assets/controls.png',
+      ...elementalAssetMap,
     }).then(() => {
       setAssetsReady(true);
       // Set the controls icon sheet after it's loaded

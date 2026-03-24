@@ -2,6 +2,13 @@ import type { GameState, Enemy, EnvObject } from '../types';
 import { ELEMENT_COLORS, ELEMENT_GLOW } from './renderConstants';
 import { roundRect } from './renderUtils';
 import { assetLoader } from '../services/assetLoader';
+import {
+  getEnemyAssetKey,
+  getEnvObjectAssetKey,
+  getHeroAnimationAssetKey,
+  getPlatformAssetKey,
+  getProjectileAssetKey,
+} from '../services/elementalAssetMap';
 
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
@@ -63,7 +70,7 @@ export function drawWorld(
 
   const s = state.stickman;
   if (s.invincibleTimer <= 0 || Math.floor(s.invincibleTimer / 4) % 2 === 0) {
-    drawStickman(ctx, state);
+    drawStickman(ctx, state, nowMs);
   }
 
   // Element aura
@@ -136,6 +143,18 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
     if (p.x + p.width < camX - 50 || p.x > camX + W + 50) continue;
     if (p.melting) ctx.globalAlpha = (p.meltTimer || 0) / 120;
 
+    const platformSprite = getLoadedAsset(getPlatformAssetKey(p.type));
+    if (platformSprite) {
+      ctx.drawImage(platformSprite, p.x, p.y, p.width, p.height);
+      if (p.type !== 'ice') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(p.x, p.y, p.width, p.height);
+      }
+      ctx.globalAlpha = 1;
+      continue;
+    }
+
     if (p.type === 'ground') {
       const gGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
       gGrad.addColorStop(0, '#4a6a30'); gGrad.addColorStop(0.08, '#3a5520');
@@ -182,6 +201,23 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, nowMs: number) {
     ctx.translate(-cx, -cy);
   } else if (enemy.state === 'hurt') {
     ctx.globalAlpha = 0.6 + Math.sin(nowMs * 0.02) * 0.4;
+  }
+
+  if (drawEnemySprite(ctx, enemy, nowMs)) {
+    if (enemy.state !== 'dead') {
+      const hpRatio = Math.max(0, enemy.health / Math.max(1, enemy.maxHealth));
+      const barX = enemy.x + 1;
+      const barY = enemy.y - 9;
+      const barW = Math.max(18, enemy.width - 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      roundRect(ctx, barX, barY, barW, 5, 2); ctx.fill();
+      const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      hpGrad.addColorStop(0, '#ff7f90'); hpGrad.addColorStop(1, '#ffd27a');
+      ctx.fillStyle = hpGrad;
+      roundRect(ctx, barX, barY, barW * hpRatio, 5, 2); ctx.fill();
+    }
+    ctx.restore();
+    return;
   }
 
   switch (enemy.type) {
@@ -404,6 +440,17 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: EnvObject, state: Gam
   const t = nowMs * 0.005;
   const cx = obj.x + obj.width / 2;
   const cy = obj.y + obj.height / 2;
+  const envSprite = getLoadedAsset(getEnvObjectAssetKey(obj.type));
+
+  if (envSprite) {
+    const pulse = 1 + Math.sin(nowMs * 0.006 + obj.x * 0.02) * 0.03;
+    const drawW = obj.width * pulse;
+    const drawH = obj.height * pulse;
+    const drawX = cx - drawW / 2;
+    const drawY = cy - drawH / 2;
+    ctx.drawImage(envSprite, drawX, drawY, drawW, drawH);
+    return;
+  }
 
   switch (obj.type) {
     case 'lore_tome': {
@@ -484,6 +531,17 @@ function drawEnvObject(ctx: CanvasRenderingContext2D, obj: EnvObject, state: Gam
 function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, nowMs: number) {
   for (const p of state.projectiles) {
     ctx.save();
+    const projectileSprite = getLoadedAsset(getProjectileAssetKey(p.element));
+    if (projectileSprite) {
+      const angle = Math.atan2(p.vy, p.vx);
+      const spriteSize = Math.max(18, p.size * 3.2);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(angle);
+      ctx.drawImage(projectileSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      ctx.restore();
+      continue;
+    }
+
     const color = ELEMENT_COLORS[p.element];
     const t = nowMs * 0.01;
     ctx.shadowColor = color; ctx.shadowBlur = 15 + Math.sin(t * 2) * 5;
@@ -527,8 +585,13 @@ function drawShockwaves(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.globalAlpha = 1;
 }
 
-function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
+function drawStickman(ctx: CanvasRenderingContext2D, state: GameState, nowMs: number) {
   if (state.deathAnimTimer > 0 && state.deathType !== 'fall') return;
+
+  if (drawStickmanSprite(ctx, state, nowMs)) {
+    return;
+  }
+
   const s = state.stickman;
   const cx = s.x + s.width / 2;
   const headY = s.y + 8;
@@ -613,6 +676,92 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.beginPath(); ctx.moveTo(cx, bodyBot); ctx.lineTo(cx - 6, bodyBot + 16); ctx.stroke();
   }
   ctx.restore();
+}
+
+function getLoadedAsset(key?: string): HTMLImageElement | undefined {
+  if (!key || !assetLoader.hasAsset(key)) {
+    return undefined;
+  }
+  return assetLoader.getLoadedAsset(key);
+}
+
+function drawEnemySprite(ctx: CanvasRenderingContext2D, enemy: Enemy, nowMs: number): boolean {
+  const spriteKey = getEnemyAssetKey(enemy.type);
+  const sprite = getLoadedAsset(spriteKey);
+  if (!sprite) {
+    return false;
+  }
+
+  const bob = Math.sin(nowMs * 0.01 + enemy.id * 0.3) * (
+    enemy.type === 'bat' || enemy.type === 'thunder_hawk' || enemy.type === 'fire_spirit' || enemy.type === 'ice_spirit' ? 2 : 0.8
+  );
+  const padX = enemy.width * 0.08;
+  const padY = enemy.height * 0.08;
+  ctx.drawImage(
+    sprite,
+    enemy.x - padX,
+    enemy.y - padY + bob,
+    enemy.width + padX * 2,
+    enemy.height + padY * 2,
+  );
+  return true;
+}
+
+function drawStickmanSprite(ctx: CanvasRenderingContext2D, state: GameState, nowMs: number): boolean {
+  const s = state.stickman;
+  const animation =
+    state.deathAnimTimer > 0
+      ? 'death'
+      : s.casting
+        ? 'attack'
+        : s.walking
+          ? 'run'
+          : 'idle';
+
+  const spriteKey = getHeroAnimationAssetKey(state.selectedElement, animation);
+  const sprite = getLoadedAsset(spriteKey);
+  if (!sprite) {
+    return false;
+  }
+
+  const frameCount = 8;
+  const frameRate =
+    animation === 'run'
+      ? 12
+      : animation === 'attack'
+        ? 14
+        : animation === 'death'
+          ? 10
+          : 8;
+  const frameIndex = Math.floor((nowMs / (1000 / frameRate)) % frameCount);
+  const frameWidth = sprite.naturalWidth / frameCount;
+  const frameHeight = sprite.naturalHeight;
+
+  const spriteSize = Math.max(84, s.height * 1.9);
+  const drawX = s.x + s.width / 2 - spriteSize / 2;
+  const drawY = s.y + s.height - spriteSize + 5;
+  const facingLeft = s.facing < 0;
+
+  ctx.save();
+  if (facingLeft) {
+    const centerX = s.x + s.width / 2;
+    ctx.translate(centerX * 2, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(
+    sprite,
+    frameIndex * frameWidth,
+    0,
+    frameWidth,
+    frameHeight,
+    drawX,
+    drawY,
+    spriteSize,
+    spriteSize,
+  );
+  ctx.restore();
+
+  return true;
 }
 
 function drawLights(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number) {
