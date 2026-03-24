@@ -315,39 +315,88 @@ function drawMapScreen(ctx: CanvasRenderingContext2D, state: GameState, W: numbe
   roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, 18);
   ctx.fill();
 
-  // Rune nodes
+  // Calculate winding path positions
   const nodeCount = state.totalLevels;
+  const nodes: {x: number, y: number}[] = [];
   for (let i = 0; i < nodeCount; i++) {
-    const x = inset + 80 + (i % 6) * ((W - inset * 2 - 120) / 5);
-    const y = inset + 120 + Math.floor(i / 6) * 90;
+    const row = Math.floor(i / 5);
+    const col = i % 5;
+    // Zigzag: even rows go Left->Right, odd rows go Right->Left
+    const effectiveCol = row % 2 === 0 ? col : 4 - col;
+    const xOffset = (W - inset * 2 - 160) / 4;
+    const yOffset = (H - inset * 2 - 140) / 3;
+    const curveOffset = Math.sin(effectiveCol * Math.PI * 0.5) * 25;
+    
+    nodes.push({
+      x: inset + 80 + effectiveCol * xOffset,
+      y: inset + 70 + row * yOffset + curveOffset
+    });
+  }
+
+  // Draw connecting path (dotted line)
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(nodes[0].x, nodes[0].y);
+  for (let i = 1; i < nodeCount; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([12, 12]);
+  ctx.stroke();
+  
+  // Highlight unlocked path
+  if (state.furthestLevel > 0) {
+    ctx.beginPath();
+    ctx.moveTo(nodes[0].x, nodes[0].y);
+    for (let i = 1; i <= state.furthestLevel; i++) {
+      if (i < nodeCount) ctx.lineTo(nodes[i].x, nodes[i].y);
+    }
+    ctx.strokeStyle = '#ffd700'; // Gold progress line
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Draw Rune nodes
+  for (let i = 0; i < nodeCount; i++) {
+    const { x, y } = nodes[i];
     const unlocked = i <= state.furthestLevel;
     const isBoss = i === nodeCount - 1 && state.bossDefeated;
+    
     ctx.save();
-    ctx.globalAlpha = unlocked ? 1 : 0.3;
-    const glow = ctx.createRadialGradient(x, y, 4, x, y, 28);
-    glow.addColorStop(0, isBoss ? '#ffd06a' : unlocked ? '#cbe7ff' : '#111');
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(x, y, 28, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = isBoss ? '#ffd06a' : unlocked ? '#9ae6de' : '#555';
-    ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
-    setUiFont(ctx, state, 12, '700');
+    ctx.globalAlpha = unlocked ? 1 : 0.4;
+    
+    // Outer white badge border
+    ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); 
+    ctx.fillStyle = unlocked ? '#ffffff' : '#aaaaaa'; ctx.fill();
+    ctx.lineWidth = 4; 
+    ctx.strokeStyle = isBoss ? '#ffaa00' : unlocked ? '#82caaf' : '#666666'; 
+    ctx.stroke();
+    
+    // Inner vibrant fill
+    ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); 
+    ctx.fillStyle = isBoss ? '#ffd06a' : unlocked ? '#4cc9f0' : '#888888'; 
+    ctx.fill();
+
+    setUiFont(ctx, state, 16, '900');
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText(String(i + 1), x, y + 4);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), x, y + 2);
     ctx.restore();
   }
 
-  // Fog of war
+  // Cloudy Fog of War
   ctx.save();
-  ctx.globalAlpha = 0.6;
-  ctx.fillStyle = 'rgba(8,8,12,0.7)';
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = 'rgba(240, 248, 255, 0.85)'; // White cloudy fog
   ctx.beginPath(); ctx.rect(inset, inset, W - inset * 2, H - inset * 2); ctx.fill();
+  
   ctx.globalCompositeOperation = 'destination-out';
   for (let i = 0; i <= state.furthestLevel; i++) {
-    const x = inset + 80 + (i % 6) * ((W - inset * 2 - 120) / 5);
-    const y = inset + 120 + Math.floor(i / 6) * 90;
-    ctx.beginPath(); ctx.arc(x, y, 34 + Math.sin(nowMs * 0.002 + i) * 2, 0, Math.PI * 2); ctx.fill();
+    if (i < nodeCount) {
+      const { x, y } = nodes[i];
+      ctx.beginPath(); ctx.arc(x, y, 45 + Math.sin(nowMs * 0.002 + i) * 5, 0, Math.PI * 2); ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -1001,6 +1050,31 @@ function drawChallengesScreen(
   drawPrimaryButton(ctx, state, W / 2 - 100, H - 80, 200, 50, 'BACK', '#ff7688');
 }
 
+export function getLevelNodePosition(index: number, W: number, H: number, isCompact: boolean) {
+  const TOTAL_LEVELS = 20;
+  const cols = isCompact ? 4 : 5;
+  const row = Math.floor(index / cols);
+  const col = index % cols;
+  const effectiveCol = row % 2 === 0 ? col : (cols - 1) - col;
+  
+  const startX = isCompact ? 60 : W * 0.15;
+  const rangeX = W - startX * 2;
+  const xStep = cols > 1 ? rangeX / (cols - 1) : 0;
+  
+  const startY = isCompact ? 140 : 180;
+  const rangeY = H - startY - 180;
+  const rows = Math.ceil(TOTAL_LEVELS / cols);
+  const yStep = rows > 1 ? rangeY / (rows - 1) : 0;
+  
+  const curveY = Math.sin((effectiveCol / (cols - 1)) * Math.PI) * (isCompact ? 25 : 45);
+  
+  return {
+    x: startX + effectiveCol * xStep,
+    y: startY + row * yStep + (row % 2 === 0 ? curveY : -curveY),
+    radius: isCompact ? 28 : 42,
+  };
+}
+
 function drawLevelSelectScreen(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -1037,167 +1111,97 @@ function drawLevelSelectScreen(
   // Main title with fantasy styling
   drawScreenHeading(ctx, state, tr(state, 'level_select_title'), 'Select your next challenge', W, 86);
 
-  // Grid layout - optimized for visual balance
-  const cardW = compactMobileLayout ? Math.floor((W - 72) / 3) : 200;
-  const cardH = compactMobileLayout ? 145 : 180;
-  const gap = compactMobileLayout ? 16 : 24;
-  const cols = compactMobileLayout ? 3 : 4;
-  const startX = W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-  const startY = compactMobileLayout ? 130 : 160;
+  // Winding Cartoon Path Layout
+  const nodes = [];
+  for (let i = 0; i < TOTAL_LEVELS; i++) {
+    nodes.push(getLevelNodePosition(i, W, H, compactMobileLayout));
+  }
+  
+  // Dotted connecting path
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(nodes[0].x, nodes[0].y);
+  for (let i = 1; i < TOTAL_LEVELS; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 5;
+  ctx.setLineDash([15, 15]);
+  ctx.stroke();
+  
+  // Gold progress line
+  if (state.furthestLevel > 0) {
+    ctx.beginPath();
+    ctx.moveTo(nodes[0].x, nodes[0].y);
+    for (let i = 1; i <= state.furthestLevel; i++) {
+      if (i < TOTAL_LEVELS) ctx.lineTo(nodes[i].x, nodes[i].y);
+    }
+    ctx.strokeStyle = '#fad846';
+    ctx.lineWidth = 7;
+    ctx.setLineDash([]);
+    ctx.stroke();
+  }
+  ctx.restore();
 
-  // Draw level cards with premium styling and micro-interactions
+  // Draw node badges
   for (let index = 0; index < TOTAL_LEVELS; index++) {
-    const col = index % cols;
-    const row = Math.floor(index / cols);
-    const x = startX + col * (cardW + gap);
-    const y = startY + row * (cardH + gap);
+    const { x, y, radius } = nodes[index];
     const unlocked = index <= state.furthestLevel;
     const selected = index === state.levelSelectionIndex;
     const bestTime = state.bestTimes[index];
+    const isBoss = index % 5 === 4; // every 5th level is a boss
 
     ctx.save();
-    
-    // Apply hover/selection scale effect for micro-interaction
-    const scaleAmount = selected ? 1.08 : 1.0;
-    const cardCenterX = x + cardW / 2;
-    const cardCenterY = y + cardH / 2;
-    ctx.translate(cardCenterX, cardCenterY);
+    const scaleAmount = selected ? 1.2 : 1.0;
+    ctx.translate(x, y);
     ctx.scale(scaleAmount, scaleAmount);
-    ctx.translate(-cardCenterX, -cardCenterY);
-    
-    // Premium shadow with depth
+    ctx.translate(-x, -y);
+
     if (unlocked) {
-      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.5)' : 'rgba(154, 230, 222, 0.25)';
-      ctx.shadowBlur = selected ? 28 : 14;
-      ctx.shadowOffsetY = selected ? 14 : 8;
-    } else {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      ctx.shadowBlur = 12;
+      ctx.shadowColor = selected ? 'rgba(98, 238, 184, 0.8)' : 'rgba(154, 230, 222, 0.4)';
+      ctx.shadowBlur = selected ? 24 : 14;
       ctx.shadowOffsetY = 6;
+    } else {
+      ctx.globalAlpha = 0.55;
     }
 
-    // Create luxurious gradient background
-    const bgGrad = ctx.createLinearGradient(x, y, x, y + cardH);
-    if (unlocked) {
-      if (selected) {
-        // Premium selected state - bright cyan/green glow
-        bgGrad.addColorStop(0, 'rgba(98, 238, 184, 0.25)');
-        bgGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.18)');
-        bgGrad.addColorStop(1, 'rgba(98, 238, 184, 0.12)');
-      } else {
-        // Unlocked - subtle cyan
-        bgGrad.addColorStop(0, 'rgba(123, 211, 255, 0.14)');
-        bgGrad.addColorStop(0.5, 'rgba(95, 196, 255, 0.08)');
-        bgGrad.addColorStop(1, 'rgba(123, 211, 255, 0.06)');
-      }
-    } else {
-      // Locked - dark muted
-      bgGrad.addColorStop(0, 'rgba(85, 90, 112, 0.06)');
-      bgGrad.addColorStop(1, 'rgba(50, 55, 75, 0.04)');
-    }
-    
-    ctx.fillStyle = bgGrad;
-    roundRect(ctx, x, y, cardW, cardH, 14);
+    // Outer shiny border
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = unlocked ? '#ffffff' : '#b0b0b0'; 
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = selected ? '#ffffff' : isBoss ? '#ffaa00' : unlocked ? '#82caaf' : '#777'; 
+    ctx.stroke();
+
+    // Inner bright fill
+    ctx.beginPath(); ctx.arc(x, y, radius - 6, 0, Math.PI * 2);
+    ctx.fillStyle = isBoss ? '#ffb938' : unlocked ? '#4cc9f0' : '#888888';
     ctx.fill();
 
-    ctx.shadowColor = 'transparent';
-    
-    // Luxurious border with multiple strokes for depth
-    if (selected) {
-      // Inner glow for selected
-      ctx.strokeStyle = 'rgba(98, 238, 184, 0.5)';
-      ctx.lineWidth = 2;
-      roundRect(ctx, x + 2, y + 2, cardW - 4, cardH - 4, 12);
-      ctx.stroke();
-      
-      // Outer accent
-      ctx.strokeStyle = 'rgba(123, 211, 255, 0.6)';
-      ctx.lineWidth = 2;
-      roundRect(ctx, x, y, cardW, cardH, 14);
-      ctx.stroke();
-    } else {
-      // Standard border
-      ctx.strokeStyle = unlocked ? 'rgba(123, 211, 255, 0.4)' : 'rgba(85, 90, 112, 0.3)';
-      ctx.lineWidth = 2;
-      roundRect(ctx, x, y, cardW, cardH, 14);
-      ctx.stroke();
-    }
-
-    // Decorative top accent bar
-    if (unlocked) {
-      const accentGrad = ctx.createLinearGradient(x, y, x + cardW, y);
-      if (selected) {
-        accentGrad.addColorStop(0, 'rgba(98, 238, 184, 0)');
-        accentGrad.addColorStop(0.5, 'rgba(98, 238, 184, 0.6)');
-        accentGrad.addColorStop(1, 'rgba(98, 238, 184, 0)');
-      } else {
-        accentGrad.addColorStop(0, 'rgba(123, 211, 255, 0)');
-        accentGrad.addColorStop(0.5, 'rgba(123, 211, 255, 0.4)');
-        accentGrad.addColorStop(1, 'rgba(123, 211, 255, 0)');
-      }
-      ctx.fillStyle = accentGrad;
-      ctx.fillRect(x, y, cardW, 3);
-    }
-
-    ctx.restore();
-
-    // Element icon/symbol (cycling animation)
-    const elementSymbols = ['🔥', '💧', '🌍', '🌪️'];
-    const elementIndex = index % 4;
-    const elementSymbol = elementSymbols[elementIndex];
-    ctx.save();
-    ctx.fillStyle = unlocked ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)';
-    ctx.font = `${cardH > 150 ? 20 : 16}px Arial`;
+    // Bold Level number
+    ctx.fillStyle = '#ffffff';
+    setDisplayFont(ctx, state, radius > 30 ? 32 : 24, '900');
     ctx.textAlign = 'center';
-    ctx.fillText(elementSymbol, x + cardW / 2, y + 28);
-    ctx.restore();
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${index + 1}`, x, y + 2);
 
-    // Level number - large and bold (aggressive gaming font)
-    ctx.textAlign = 'center';
-    ctx.fillStyle = unlocked ? (selected ? '#62eeb8' : '#b8e0ff') : 'rgba(255,255,255,0.35)';
-    setDisplayFont(ctx, state, cardH > 150 ? 44 : 36, '900');
-    ctx.fillText(`${index + 1}`, x + cardW / 2, y + 65);
-
-    // Status badge with styling
-    if (unlocked) {
-      const statusColor = selected ? '#62eeb8' : '#9ae6de';
-      ctx.fillStyle = statusColor;
-      setUiFont(ctx, state, 12, '800');
-      const statusText = selected ? 'READY' : 'UNLOCKED';
-      ctx.fillText(statusText, x + cardW / 2, y + 95);
-    } else {
-      ctx.fillStyle = 'rgba(200, 192, 176, 0.5)';
-      setUiFont(ctx, state, 11, '700');
-      ctx.fillText(tr(state, 'level_select_locked'), x + cardW / 2, y + 95);
-    }
-
-    // Star rating for completed levels
+    // Stars / Status
     if (index < state.furthestLevel) {
-      // Show stars if level is completed
-      const stars = (state.bestTimes[index] ? 3 : 0); // Placeholder: full completion = 3 stars
-      ctx.save();
-      ctx.fillStyle = '#ffd36a';
-      ctx.textAlign = 'center';
-      ctx.font = `bold 10px Arial`;
+      const stars = bestTime ? 3 : 0;
+      ctx.fillStyle = '#ffcf33';
+      ctx.textBaseline = 'top';
+      setUiFont(ctx, state, radius > 30 ? 14 : 11, 'normal');
       let starText = '';
       for (let s = 0; s < 3; s++) {
         starText += s < stars ? '★' : '☆';
       }
-      ctx.fillText(starText, x + cardW / 2, y + cardH - 22);
-      ctx.restore();
+      ctx.fillText(starText, x, y + radius + 8);
+    } else if (unlocked && !bestTime) {
+      ctx.fillStyle = selected ? '#62eeb8' : '#ffffff';
+      ctx.textBaseline = 'top';
+      setUiFont(ctx, state, radius > 30 ? 12 : 10, '900');
+      ctx.fillText('READY', x, y + radius + 10);
     }
-
-    // Best time with elegant styling
-    if (bestTime) {
-      ctx.fillStyle = unlocked ? '#8ab9d1' : 'rgba(200, 192, 176, 0.4)';
-      setUiFont(ctx, state, 10, '600');
-      const timeText = formatFramesAsTime(bestTime);
-      ctx.fillText(`TIME: ${timeText}`, x + cardW / 2, y + cardH - 8);
-    } else {
-      ctx.fillStyle = 'rgba(200, 192, 176, 0.35)';
-      setUiFont(ctx, state, 9, '500');
-      ctx.fillText('NO RECORD', x + cardW / 2, y + cardH - 8);
-    }
+    
+    ctx.restore();
   }
 
   // Progress stats bar - total completion indicator

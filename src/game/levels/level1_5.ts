@@ -51,7 +51,7 @@ export function level1(): LevelDef {
         name: 'Ch 1 - Forest Awakening',
         subtitle: 'Learn the basics of primal magic',
         worldWidth: 2500, worldHeight: 700,
-        bgColors: ['#0a1a2e', '#0a2a1e', '#1a3a1e', '#0a1a1e'],
+        bgColors: ['#66ccff', '#88eeaa', '#aaff77', '#44cc55'], // Bright daytime forest
         platforms, envObjects, enemies,
         playerStart: { x: 80, y: 480 },
         gemsRequired: 5, totalGems: 8,
@@ -117,7 +117,7 @@ export function level2(): LevelDef {
         name: 'Ch 1 - The Glacial Pass',
         subtitle: 'Melt the ice, freeze the puddles',
         worldWidth: 2800, worldHeight: 700,
-        bgColors: ['#0a2e3e', '#1a3e5e', '#2d5b6e', '#1a4a4e'], // More turquoise/glacial
+        bgColors: ['#aaddff', '#ccf5ff', '#eeffff', '#88ccff'], // Bright frosted daytime
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 7, totalGems: 10,
@@ -189,7 +189,7 @@ export function level3(): LevelDef {
         name: 'Ch 1 - Deep Caverns',
         subtitle: 'Extinguish the subterranean flames',
         worldWidth: 3000, worldHeight: 700,
-        bgColors: ['#2a1a0a', '#3a2a0a', '#4a2a0a', '#2a1a0a'], // Deep earth tones
+        bgColors: ['#ff5522', '#ffaa33', '#ffcc44', '#cc4411'], // Vivid explosive sunset
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 12,
@@ -254,7 +254,7 @@ export function level4(): LevelDef {
         name: 'Ch 1 - River\'s Edge',
         subtitle: 'Navigate the currents to proceed',
         worldWidth: 3200, worldHeight: 700,
-        bgColors: ['#0a1a4e', '#1a2a4e', '#3a4a5e', '#2a3a4e'], // Watery blue-greens
+        bgColors: ['#2288ff', '#55aaff', '#99ccff', '#ddf0ff'], // Bright open sky
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 10, totalGems: 14,
@@ -335,7 +335,7 @@ export function level5(): LevelDef {
         name: 'Ch 1 - The Overgrowth (Boss)',
         subtitle: 'Defeat the Earth Guardian to escape the forest',
         worldWidth: 3500, worldHeight: 700,
-        bgColors: ['#0a2e1e', '#1a4e2e', '#2a5e3e', '#1a3e1e'], // Deep forest greens
+        bgColors: ['#33aa44', '#55cc66', '#aaff88', '#228833'], // Deep but vivid enchanted green
         platforms, envObjects, enemies,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 12, totalGems: 16,

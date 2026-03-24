@@ -30,7 +30,7 @@ export function level11(): LevelDef {
     return {
         name: 'Ch 3 - The Shattered Rift', subtitle: 'Void crystals drain your mana!',
         worldWidth: 2200, worldHeight: 700,
-        bgColors: ['#100020', '#200040', '#400060', '#100020'],
+        bgColors: ['#ff66cc', '#ff99dd', '#ffccff', '#ff99dd'], // Candy pink sky
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
         gemsRequired: 5, totalGems: 6, elementHint: 'Watch out for Corrupted Crystals!', timeLimit: 0,
     };
@@ -60,7 +60,7 @@ export function level12(): LevelDef {
     return {
         name: 'Ch 3 - Corrupted Citadel', subtitle: 'Teleporting wraiths roam the void',
         worldWidth: 2500, worldHeight: 700,
-        bgColors: ['#150025', '#250045', '#450065', '#150025'],
+        bgColors: ['#99ff99', '#ccffcc', '#eeffff', '#99ff99'], // Vivid mint
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
         gemsRequired: 4, totalGems: 5, elementHint: 'Stay mobile to dodge the Wraiths.', timeLimit: 0,
     };
@@ -86,7 +86,7 @@ export function level13(): LevelDef {
     return {
         name: 'Ch 3 - The Lava Caldera', subtitle: 'Magma pools and Void Brutes abound',
         worldWidth: 2600, worldHeight: 700,
-        bgColors: ['#200000', '#400010', '#600020', '#200000'],
+        bgColors: ['#ffcc00', '#ffee66', '#ffffaa', '#ffee66'], // Golden noon
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
         gemsRequired: 3, totalGems: 4, elementHint: 'Dodge the charging Brutes!', timeLimit: 0,
     };
@@ -118,7 +118,7 @@ export function level14(): LevelDef {
     return {
         name: 'Ch 3 - The Convergence Zone', subtitle: 'All elements collide in the void',
         worldWidth: 2500, worldHeight: 700,
-        bgColors: ['#201040', '#401060', '#601080', '#201040'],
+        bgColors: ['#55ccff', '#88ddff', '#bbffff', '#55ccff'], // Crystalline blue
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
         gemsRequired: 4, totalGems: 5, elementHint: 'Use elemental synergies to survive.', timeLimit: 0,
     };
@@ -145,7 +145,7 @@ export function level15(): LevelDef {
     return {
         name: 'Ch 3 - The Void Titan (Final Boss)', subtitle: 'The end of the campaign',
         worldWidth: 3000, worldHeight: 700,
-        bgColors: ['#050010', '#150020', '#250040', '#050010'],
+        bgColors: ['#ff5588', '#ff88aa', '#ffbbcc', '#ff5588'], // Bubblegum neon
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
         gemsRequired: 3, totalGems: 3, elementHint: 'Match your magic to the Titan\'s glowing orb weakness!', timeLimit: 0,
     };

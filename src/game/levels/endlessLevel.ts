@@ -21,7 +21,7 @@ export function endlessLevel(): LevelDef {
         name: 'Endless Survival Arena',
         subtitle: 'Survive as many waves as possible!',
         worldWidth: 1200, worldHeight: 700,
-        bgColors: ['#300000', '#200020', '#101030', '#0a0a0a'],
+        bgColors: ['#ff44ee', '#cc44ff', '#8866ff', '#44aaff'],
         platforms, envObjects, enemies: [], // Enemies spawned by wave director
         playerStart: { x: 550, y: 480 },
         gemsRequired: 9999, totalGems: 0, // No exit portal

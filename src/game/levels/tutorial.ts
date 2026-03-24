@@ -46,7 +46,7 @@ export function getTutorialLevel(): LevelDef {
     subtitle: 'Master the Elements',
     worldWidth: 2500,
     worldHeight: 700,
-    bgColors: ['#0f172a', '#1e293b', '#334155', '#475569'], // Neutral grey/blue training bg
+    bgColors: ['#33bbff', '#55ddff', '#99ffff', '#ccffff'], // Bright cheerful training bg
     platforms,
     envObjects,
     enemies,

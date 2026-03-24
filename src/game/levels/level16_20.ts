@@ -2,7 +2,7 @@ import type { LevelDef, Platform } from '../types';
 import { makeEnemy, makeGem, makePortal, makeSpike, makeVine, makeMovingPlatform } from './utils';
 
 // Forest Ruins bg colors
-const forestBg: [string, string, string, string] = ['#0a1f0a', '#1a3a14', '#2a5520', '#3a702b'];
+const forestBg: [string, string, string, string] = ['#33cc33', '#55ee55', '#aaff77', '#ccff99'];
 
 export function level16(): LevelDef {
   const platforms: Platform[] = [

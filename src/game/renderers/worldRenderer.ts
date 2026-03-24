@@ -224,14 +224,17 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
     if (p.type === 'ground') {
       // Grass-topped dirt block
       const dirt = ctx.createLinearGradient(p.x, p.y + 10, p.x, p.y + p.height);
-      dirt.addColorStop(0, '#8a5c32');
-      dirt.addColorStop(1, '#5c3a1e');
+      dirt.addColorStop(0, '#e5a567');
+      dirt.addColorStop(1, '#9e6231');
       ctx.fillStyle = dirt;
       roundRect(ctx, p.x, p.y, p.width, p.height, 8);
       ctx.fill();
 
       // Grass top
-      ctx.fillStyle = '#4cdb30';
+      const grassGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + 16);
+      grassGrad.addColorStop(0, '#aaff55');
+      grassGrad.addColorStop(1, '#4ddb22');
+      ctx.fillStyle = grassGrad;
       ctx.beginPath();
       ctx.moveTo(p.x + 8, p.y);
       ctx.lineTo(p.x + p.width - 8, p.y);
@@ -252,10 +255,11 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
     } else if (p.type === 'earth') {
       const eGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
-      eGrad.addColorStop(0, '#9c7a4d'); eGrad.addColorStop(1, '#694d2d');
+      eGrad.addColorStop(0, '#e8b87d');
+      eGrad.addColorStop(1, '#b0834a');
       ctx.fillStyle = eGrad;
       roundRect(ctx, p.x, p.y, p.width, p.height, 8); ctx.fill();
-      ctx.strokeStyle = '#c49e6f'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffe4b5'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(p.x + 10, p.y + 6); ctx.lineTo(p.x + 28, p.y + 14); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(p.x + 18, p.y + p.height * 0.45); ctx.lineTo(p.x + 24, p.y + p.height * 0.62); ctx.stroke();
     } else {

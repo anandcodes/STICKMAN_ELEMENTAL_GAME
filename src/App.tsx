@@ -34,6 +34,7 @@ import {
 import { assetLoader } from './game/services/assetLoader';
 import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
 import { mobileRender } from './game/renderers/renderConstants';
+import { getLevelNodePosition } from './game/renderers/uiRenderer';
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -756,12 +757,6 @@ function App() {
       if (s.screen === 'levelSelect') {
         if (tx === undefined || ty === undefined) return;
         const isMobileLayout = isCompactMobileLayout();
-        const cardW = isMobileLayout ? Math.floor((CANVAS_W - 72) / 3) : 194;
-        const cardH = isMobileLayout ? 110 : 130;
-        const gap = isMobileLayout ? 12 : 16;
-        const cols = isMobileLayout ? 3 : 5;
-        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = isMobileLayout ? 118 : 140;
 
         if (ty > CANVAS_H - 88) {
           s.screen = 'menu';
@@ -769,17 +764,13 @@ function App() {
           return;
         }
 
-        // Precise hit test - only count clicks within card bounds, not in gaps
-        const relX = tx - startX;
-        const relY = ty - startY;
-        const col = Math.floor(relX / (cardW + gap));
-        const row = Math.floor(relY / (cardH + gap));
-        // Make sure click is inside the card tile, not the gap
-        const localX = relX - col * (cardW + gap);
-        const localY = relY - row * (cardH + gap);
-        if (col >= 0 && col < cols && row >= 0 && localX >= 0 && localX <= cardW && localY >= 0 && localY <= cardH) {
-          const index = row * cols + col;
-          if (index >= 0 && index < s.totalLevels) {
+        // Precise radial hit test for winding path nodes
+        for (let index = 0; index < s.totalLevels; index++) {
+          const node = getLevelNodePosition(index, CANVAS_W, CANVAS_H, isMobileLayout);
+          const dx = tx - node.x;
+          const dy = ty - node.y;
+          // Generous hit box around the visual radius
+          if (dx * dx + dy * dy <= (node.radius + 15) * (node.radius + 15)) {
             if (index <= s.furthestLevel) {
               const saved = loadSave();
               const nextState = buildPlayingState(index, saved.highScore, s.difficulty);
@@ -796,9 +787,9 @@ function App() {
             // Locked level — show selection highlight only
             s.levelSelectionIndex = index;
             Audio.playMenuSelect();
+            return;
           }
         }
-        return;
       }
 
       if (s.screen === 'relicSelection') {
