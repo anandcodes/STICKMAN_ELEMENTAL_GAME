@@ -32,12 +32,8 @@ import {
   type TouchControlsState,
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
-<<<<<<< HEAD
-import { elementalAssetMap } from './game/services/elementalAssetMap';
-=======
 import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
 import { mobileRender } from './game/renderers/renderConstants';
->>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -118,15 +114,6 @@ function App() {
   const enterMobileImmersive = () => {
     if (!isMobileRef.current) return;
 
-<<<<<<< HEAD
-    // Load all game assets
-    assetLoader.loadAssets({
-      boss1: '/bosses/boss1.png',
-      boss2: '/bosses/boss2.png',
-      controls: '/assets/controls.png',
-      ...elementalAssetMap,
-    }).then(() => {
-=======
     const host = containerRef.current;
     if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
       void host.requestFullscreen().catch(() => { });
@@ -222,7 +209,6 @@ function App() {
       }),
       loadFonts(),
     ]).then(() => {
->>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
       setAssetsReady(true);
       setControlsAssets(Object.fromEntries(
         Object.keys(MOBILE_CONTROL_ASSET_PATHS).map((key) => [key, assetLoader.getAsset(key)]),
@@ -423,10 +409,7 @@ function App() {
 
   useEffect(() => {
     if (!assetsReady) return;
-<<<<<<< HEAD
 
-=======
->>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -1366,11 +1349,7 @@ function App() {
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
-<<<<<<< HEAD
-  }, [assetsReady]);
-=======
   }, [assetsReady, beginCampaignTransition]);
->>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
 
   if (fatalError) {
     return (
