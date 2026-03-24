@@ -22,7 +22,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, DifficultySettings> = {
 };
 
 export function getDifficultyForLevel(level: number): Difficulty {
-  if (level < 5) return 'easy';
-  if (level < 10) return 'normal';
+  if (level < 7) return 'easy';
+  if (level < 13) return 'normal';
   return 'hard';
 }

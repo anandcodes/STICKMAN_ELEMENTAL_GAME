@@ -232,6 +232,12 @@ export function playVictory(): void {
     });
 }
 
+export function playUltimateReady(): void {
+    playTone(880, 0.12, 'sine', 0.2);
+    playTone(1320, 0.15, 'triangle', 0.15, 0, 0.05);
+    playTone(1760, 0.18, 'sine', 0.12, 0, 0.08);
+}
+
 export function playPause(): void {
     playTone(330, 0.1, 'sine', 0.1);
     playTone(220, 0.15, 'sine', 0.08, 0, 0.05);
@@ -242,6 +248,25 @@ export function playUnpause(): void {
     playTone(330, 0.15, 'sine', 0.08, 0, 0.05);
 }
 
+export function duckMusicForUltimate(): void {
+    ensureContext();
+    if (musicGain) {
+        const now = audioCtx!.currentTime;
+        musicGain.gain.cancelScheduledValues(now);
+        musicGain.gain.setTargetAtTime(musicVolume * 0.7, now, 0.05);
+        musicGain.gain.setTargetAtTime(musicVolume, now + 1.5, 0.4);
+    }
+}
+
+export function fadeMusicTo(multiplier: number, duration = 0.4): void {
+    ensureContext();
+    if (!musicGain) return;
+    const now = audioCtx!.currentTime;
+    const target = Math.max(0, Math.min(1, multiplier)) * musicVolume;
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setTargetAtTime(target, now, Math.max(0.01, duration / 3));
+}
+
 export function playSpikeHit(): void {
     playTone(180, 0.12, 'sawtooth', 0.18);
     playNoise(0.08, 0.1, 1200);
@@ -250,6 +275,18 @@ export function playSpikeHit(): void {
 export function playElementSwitch(): void {
     playTone(600, 0.05, 'sine', 0.1);
     playTone(800, 0.06, 'sine', 0.08, 0, 0.03);
+}
+
+export function playStoneOpen(): void {
+    playNoise(0.15, 0.25, 400);
+    playTone(140, 0.08, 'sawtooth', 0.12);
+    playTone(80, 0.12, 'square', 0.08, 0, 0.05);
+}
+
+export function playMetalClick(): void {
+    playTone(520, 0.05, 'square', 0.16);
+    playTone(840, 0.04, 'sine', 0.12, 0, 0.02);
+    playNoise(0.03, 0.04, 3800);
 }
 
 // ===== BACKGROUND MUSIC =====

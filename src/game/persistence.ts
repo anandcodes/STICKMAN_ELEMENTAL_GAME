@@ -11,7 +11,7 @@ const DEFAULT_SAVE: SaveData = {
   version: SAVE_SCHEMA_VERSION,
   integrity: '',
   highScore: 0,
-  furthestLevel: 19, // Unlocked for testing
+  furthestLevel: 0,
   totalGemsEver: 0,
   totalEnemiesDefeated: 0,
   difficulty: 'normal',
@@ -127,7 +127,7 @@ function normalizeSaveData(raw: unknown): SaveData {
     version: SAVE_SCHEMA_VERSION,
     integrity: typeof data.integrity === 'string' ? data.integrity : '',
     highScore: clamp(coerceNonNegativeInt(data.highScore, DEFAULT_SAVE.highScore), 0, MAX_HIGH_SCORE),
-    furthestLevel: TOTAL_LEVELS - 1,
+    furthestLevel: clamp(coerceNonNegativeInt(data.furthestLevel, DEFAULT_SAVE.furthestLevel), 0, TOTAL_LEVELS - 1),
     totalGemsEver: clamp(coerceNonNegativeInt(data.totalGemsEver, DEFAULT_SAVE.totalGemsEver), 0, MAX_COUNTER),
     gemsCurrency: clamp(coerceNonNegativeInt(data.gemsCurrency, DEFAULT_SAVE.gemsCurrency), 0, MAX_COUNTER),
     totalEnemiesDefeated: clamp(coerceNonNegativeInt(data.totalEnemiesDefeated, DEFAULT_SAVE.totalEnemiesDefeated), 0, MAX_COUNTER),
@@ -170,7 +170,7 @@ export function loadSave(): SaveData {
     // localStorage unavailable or corrupted
   }
 
-  return { ...DEFAULT_SAVE, furthestLevel: TOTAL_LEVELS - 1 };
+  return { ...DEFAULT_SAVE };
 }
 
 export function saveProgress(state: GameState): void {
@@ -194,7 +194,29 @@ export function saveProgress(state: GameState): void {
       integrity: '',
     };
     data.integrity = computeIntegrity(toIntegrityPayload(data));
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (err) {
+      // Handle quota exceeded error
+      if (err instanceof DOMException && err.code === 22) {
+        // localStorage quota exceeded - try to clear old data
+        try {
+          const keys = Object.keys(localStorage);
+          for (const key of keys) {
+            if (!key.startsWith('elemental_stickman')) {
+              localStorage.removeItem(key);
+            }
+          }
+          // Retry save after cleanup
+          localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+        } catch {
+          // Still failed - give up but don't break the game
+        }
+      }
+      // Silently fail for other errors
+    }
+    
     void syncCloudSave(data).catch(() => {
       // network sync is best-effort
     });

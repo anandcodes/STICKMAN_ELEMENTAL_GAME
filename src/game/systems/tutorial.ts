@@ -174,13 +174,13 @@ export function updateTutorial(state: GameState): void {
 
   switch (step.action) {
     case 'move_right':
-      if (state.keys.has('d') || state.keys.has('arrowright')) {
+      if (state.keys.has('d') || state.keys.has('arrowright') || state.moveInputX > 0.1) {
         step.completed = true;
       }
       break;
 
     case 'move_left':
-      if (state.keys.has('a') || state.keys.has('arrowleft')) {
+      if (state.keys.has('a') || state.keys.has('arrowleft') || state.moveInputX < -0.1) {
         step.completed = true;
       }
       break;

@@ -1,6 +1,10 @@
-import type { GameState } from './types';
+import type { GameState, Element } from './types';
 import * as Audio from './audio';
-import { DASH_BASE_COOLDOWN } from './constants';
+import { MOBILE_INPUT_CONFIG, type MobileControlAssetKey } from './mobile/config';
+import { setAimFromVector } from './mobile/aimSystem';
+import { hitActionButton, getDashCooldownProgress } from './mobile/actionButtons';
+import { drawActionButton, drawAimPad, drawAbilitySlot, drawFloatingJoystick, type ControlAssetMap } from './mobile/uiFeedback';
+import { beginFloatingJoystick, beginShootInput, endShootInput, holdShootInput, releaseFloatingJoystick, stepMobileInput, updateFloatingJoystick } from './mobile/inputManager';
 
 export interface TouchControl {
   id: string;
@@ -8,8 +12,8 @@ export interface TouchControl {
   y: number;
   radius: number;
   label: string;
-  icon?: string;
   color: string;
+  iconKey?: MobileControlAssetKey;
   active: boolean;
 }
 
@@ -19,75 +23,86 @@ export interface TouchControlsState {
   dpadRadius: number;
   dpadTouchId: number | null;
   dpadDirection: { x: number; y: number };
+  dpadTargetDirection: { x: number; y: number };
   jumpActive: boolean;
   jumpTouchId: number | null;
   castActive: boolean;
   castTouchId: number | null;
   castPosition: { x: number; y: number };
-  elementButtons: TouchControl[];
   jumpButton: TouchControl;
   castButton: TouchControl;
+  shootButton: TouchControl;
   dashButton: TouchControl;
   cycleButton: TouchControl;
   pauseButton: TouchControl;
+  abilitySlots: TouchControl[];
   dashActive: boolean;
   dashTouchId: number | null;
+  shootTouchId: number | null;
+  shootHeldFrames: number;
   castDragActive: boolean;
   castDragPos: { x: number; y: number };
+  lastElement: Element | null;
+  elementFlashTimer: number;
 }
 
-const DPAD_RADIUS = 55;
-let controlsIconSheet: HTMLImageElement | null = null;
+const controlAssets: ControlAssetMap = {};
 
-export function setControlsIconSheet(img: HTMLImageElement) {
-  controlsIconSheet = img;
+function modulateHex(hex: string, factor: number): string {
+  const h = hex.replace('#', '');
+  const r = Math.min(255, Math.round(parseInt(h.slice(0, 2), 16) * factor));
+  const g = Math.min(255, Math.round(parseInt(h.slice(2, 4), 16) * factor));
+  const b = Math.min(255, Math.round(parseInt(h.slice(4, 6), 16) * factor));
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function dist(x1: number, y1: number, x2: number, y2: number): number {
-  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+function defaultButton(id: string, label: string, color: string, iconKey?: MobileControlAssetKey): TouchControl {
+  return { id, label, color, iconKey, x: 0, y: 0, radius: 24, active: false };
+}
+
+export function setControlAsset(key: MobileControlAssetKey, img: HTMLImageElement): void {
+  controlAssets[key] = img;
+}
+
+export function setControlsAssets(assets: Partial<Record<MobileControlAssetKey, HTMLImageElement>>): void {
+  Object.assign(controlAssets, assets);
 }
 
 export function createTouchControlsState(canvasW: number, canvasH: number): TouchControlsState {
   return {
     visible: false,
     dpadCenter: { x: 120, y: canvasH - 120 },
-    dpadRadius: DPAD_RADIUS,
+    dpadRadius: 64,
     dpadTouchId: null,
     dpadDirection: { x: 0, y: 0 },
+    dpadTargetDirection: { x: 0, y: 0 },
     jumpActive: false,
     jumpTouchId: null,
     castActive: false,
     castTouchId: null,
-    castPosition: { x: canvasW / 2, y: canvasH / 2 },
-    elementButtons: [], // Deprecated in favor of cycleButton for better layout
-    jumpButton: {
-      id: 'jump', x: canvasW - 90, y: canvasH - 100,
-      radius: 40, label: 'JUMP', icon: '⬆️', color: '#ffffff', active: false,
-    },
-    castButton: {
-      id: 'cast', x: canvasW - 90, y: canvasH - 200,
-      radius: 46, label: 'CAST', icon: '🎯', color: '#ffcc00', active: false,
-    },
-    dashButton: {
-      id: 'dash', x: canvasW - 90, y: canvasH - 300,
-      radius: 30, label: 'DASH', icon: '💨', color: '#44ffaa', active: false,
-    },
-    cycleButton: {
-      id: 'cycle', x: canvasW - 200, y: canvasH - 200,
-      radius: 32, label: 'SWAP', icon: '🔄', color: '#55aaff', active: false,
-    },
-    pauseButton: {
-      id: 'pause', x: canvasW - 50, y: 50,
-      radius: 25, label: '||', icon: '⏸️', color: '#ffffff', active: false,
-    },
+    castPosition: { x: canvasW * 0.75, y: canvasH * 0.7 },
+    jumpButton: defaultButton('jump', 'JUMP', '#7fe8ff', 'jump'),
+    castButton: defaultButton('aim', 'AIM', '#58c0ff', 'crosshair'),
+    shootButton: defaultButton('shoot', 'FIRE', '#ff8f52', 'shoot'),
+    dashButton: defaultButton('dash', 'DASH', '#75ffd4', 'dash'),
+    cycleButton: defaultButton('cycle', 'SWAP', '#7aa6ff', 'cycle'),
+    pauseButton: defaultButton('pause', 'PAUSE', '#ffffff', 'pause'),
+    abilitySlots: [
+      defaultButton('ability-1', 'A1', '#9cb6d1', 'abilitySlot'),
+      defaultButton('ability-2', 'A2', '#9cb6d1', 'abilitySlot'),
+    ],
     dashActive: false,
     dashTouchId: null,
+    shootTouchId: null,
+    shootHeldFrames: 0,
     castDragActive: false,
-    castDragPos: { x: 0, y: 0 },
+    castDragPos: { x: canvasW * 0.75, y: canvasH * 0.7 },
+    lastElement: null,
+    elementFlashTimer: 0,
   };
 }
 
@@ -99,65 +114,75 @@ export function updateTouchControlsLayout(
   viewW: number,
   viewH: number,
 ): void {
-  const safeViewW = Math.max(1, viewW);
-  const safeViewH = Math.max(1, viewH);
-  const portrait = safeViewH > safeViewW;
-
-  // Base everything on logical canvas size so that controls
-  // stay in consistent places regardless of device DPI.
+  const portrait = viewH > viewW;
   const base = Math.min(canvasW, canvasH);
   const scale = state.controlsScale || 1;
-  const margin = clamp(base * (portrait ? 0.035 : 0.025), 10, 40);
-
-  const dpadRadius = clamp(base * (portrait ? 0.11 : 0.09) * scale, 30, portrait ? 150 : 130);
-  controls.dpadRadius = dpadRadius;
+  const margin = clamp(base * MOBILE_INPUT_CONFIG.safeMarginFactor, 16, 46) * scale;
+  const joystickRadius = clamp(base * MOBILE_INPUT_CONFIG.joystickBaseRadiusFactor * scale, 42, portrait ? 148 : 134);
+  controls.dpadRadius = joystickRadius;
 
   if (controls.dpadTouchId === null) {
     controls.dpadCenter = {
-      x: margin + dpadRadius * 1.05,
-      y: canvasH - margin - dpadRadius * (portrait ? 0.9 : 0.7),
+      x: margin + joystickRadius * 1.02,
+      y: canvasH - margin - joystickRadius * 0.95,
     };
   }
 
-  // Right Side Action Cluster – relative to canvas, not viewport pixels.
-  const actionRadius = clamp(base * (portrait ? 0.085 : 0.075) * scale, 25, portrait ? 140 : 120);
-  const clusterX = canvasW - margin - actionRadius * 2.1;
-  const clusterY = canvasH - margin - actionRadius * (portrait ? 2.1 : 1.9);
+  const actionRadius = clamp(base * MOBILE_INPUT_CONFIG.rightClusterRadiusFactor * scale, 34, portrait ? 92 : 104);
+  const clusterX = canvasW - margin - actionRadius * 1.9;
+  const clusterY = canvasH - margin - actionRadius * (portrait ? 1.9 : 1.55);
 
-  // Main Cast Button (Center of cluster)
-  controls.castButton.radius = actionRadius * 1.15;
-  controls.castButton.x = clusterX;
-  controls.castButton.y = clusterY;
-
-  // Jump Button (Bottom Right of Cast)
-  controls.jumpButton.radius = actionRadius * 0.85;
-  controls.jumpButton.x = clusterX + actionRadius * 1.5;
-  controls.jumpButton.y = clusterY + actionRadius * 0.75;
-
-  // Dash Button (Top Right of Cast)
-  controls.dashButton.radius = actionRadius * 0.7;
-  controls.dashButton.x = clusterX + actionRadius * 1.1;
-  controls.dashButton.y = clusterY - actionRadius * 1.25;
-
-  // Cycle Button (Left of Cast)
-  controls.cycleButton.radius = actionRadius * 0.7;
-  controls.cycleButton.x = clusterX - actionRadius * 1.5;
-  controls.cycleButton.y = clusterY - actionRadius * 0.1;
-
-  // Adjustment for portrait
-  if (portrait) {
-    controls.jumpButton.x = clusterX + actionRadius * 1.35;
-    controls.jumpButton.y = clusterY + actionRadius * 1.15;
-    controls.dashButton.x = clusterX + actionRadius * 1.15;
-    controls.dashButton.y = clusterY - actionRadius * 1.05;
-    controls.cycleButton.x = clusterX - actionRadius * 1.25;
-    controls.cycleButton.y = clusterY + actionRadius * 0.1;
+  controls.castButton.radius = actionRadius * 1.05;
+  if (controls.castTouchId === null) {
+    controls.castButton.x = clusterX;
+    controls.castButton.y = clusterY;
+    controls.castDragPos = { x: clusterX, y: clusterY };
+    controls.castPosition = { x: clusterX, y: clusterY };
   }
 
-  // Pause Button (Top Right corner)
-  controls.pauseButton.radius = clamp(base * 0.03 * scale, 15, 60);
+  controls.shootButton.radius = actionRadius * 0.98;
+  controls.shootButton.x = clusterX + actionRadius * 1.42;
+  controls.shootButton.y = clusterY + actionRadius * 0.72;
+
+  controls.jumpButton.radius = actionRadius * 0.82;
+  controls.jumpButton.x = clusterX + actionRadius * 0.92;
+  controls.jumpButton.y = clusterY - actionRadius * 1.16;
+
+  controls.dashButton.radius = actionRadius * 0.74;
+  controls.dashButton.x = clusterX - actionRadius * 1.18;
+  controls.dashButton.y = clusterY - actionRadius * 0.12;
+
+  controls.cycleButton.radius = actionRadius * 0.68;
+  controls.cycleButton.x = clusterX - actionRadius * 1.28;
+  controls.cycleButton.y = clusterY + actionRadius * 1.02;
+
+  controls.abilitySlots[0].radius = actionRadius * 0.58;
+  controls.abilitySlots[0].x = clusterX - actionRadius * 0.2;
+  controls.abilitySlots[0].y = clusterY - actionRadius * 1.98;
+  controls.abilitySlots[1].radius = actionRadius * 0.58;
+  controls.abilitySlots[1].x = clusterX + actionRadius * 0.98;
+  controls.abilitySlots[1].y = clusterY - actionRadius * 2.12;
+
+  controls.pauseButton.radius = clamp(base * 0.03 * scale, 18, 34);
   controls.pauseButton.x = canvasW - margin - controls.pauseButton.radius;
   controls.pauseButton.y = margin + controls.pauseButton.radius;
+}
+
+export function updateTouchControlsInput(controls: TouchControlsState, state: GameState): void {
+  stepMobileInput(controls, state);
+
+  if (controls.shootTouchId !== null) {
+    holdShootInput(controls, state);
+  } else if (!state.shootQueued) {
+    state.buttonFireActive = false;
+  }
+
+  if (!controls.castActive && !state.buttonFireActive) {
+    state.touchAimActive = false;
+    if (!state.mouseDown) {
+      state.isAiming = false;
+    }
+  }
 }
 
 export function isMobileDevice(): boolean {
@@ -186,68 +211,78 @@ export function handleTouchStart(
   for (const touch of touches) {
     const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
-    if (dist(tx, ty, controls.pauseButton.x, controls.pauseButton.y) < controls.pauseButton.radius * 2.5) {
-      if (state.screen === 'playing') {
-        state.paused = !state.paused;
-        if (state.paused) Audio.playPause(); else Audio.playUnpause();
-      }
+    if (hitActionButton(controls.pauseButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop)) {
+      controls.pauseButton.active = true;
+      state.paused = !state.paused;
+      if (state.paused) Audio.playPause(); else Audio.playUnpause();
       return;
     }
 
-    if (dist(tx, ty, controls.cycleButton.x, controls.cycleButton.y) < controls.cycleButton.radius * 2.2) {
+    if (hitActionButton(controls.castButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop) && state.ultimateReady && !controls.castActive) {
+      controls.castButton.active = true;
+      state.ultimateTrigger = true;
+      continue;
+    }
+
+    if (state.screen === 'victory' && state.continueButton) {
+      const b = state.continueButton;
+      const inside = tx >= b.x && tx <= b.x + b.w && ty >= b.y && ty <= b.y + b.h;
+      if (inside) {
+        state.screen = 'map';
+        state.screenTimer = 0;
+        state.bossDefeated = false;
+        state.endingShown = false;
+        state.continueButton = undefined;
+        continue;
+      }
+    }
+
+    if (hitActionButton(controls.cycleButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop) && state.unlockedElements.length > 1) {
       const idx = state.unlockedElements.indexOf(state.selectedElement);
-      const nextIdx = (idx + 1) % state.unlockedElements.length;
-      state.selectedElement = state.unlockedElements[nextIdx];
+      state.selectedElement = state.unlockedElements[(idx + 1) % state.unlockedElements.length];
       controls.cycleButton.active = true;
       Audio.playElementSwitch();
-      return;
+      continue;
     }
 
-    if (dist(tx, ty, controls.jumpButton.x, controls.jumpButton.y) < controls.jumpButton.radius * 2.2 && controls.jumpTouchId === null) {
-      controls.jumpActive = true;
+    if (hitActionButton(controls.jumpButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop) && controls.jumpTouchId === null) {
       controls.jumpTouchId = touch.identifier;
       controls.jumpButton.active = true;
       state.keys.add(' ');
       continue;
     }
 
-    if (dist(tx, ty, controls.dashButton.x, controls.dashButton.y) < controls.dashButton.radius * 2.2 && controls.dashTouchId === null) {
-      controls.dashActive = true;
+    if (hitActionButton(controls.dashButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop) && controls.dashTouchId === null) {
       controls.dashTouchId = touch.identifier;
       controls.dashButton.active = true;
-      state.keys.add('shift');
+      controls.dashActive = true;
+      state.dashBufferFrames = Math.max(state.dashBufferFrames, state.balanceCurve.dashBufferFrames);
       continue;
     }
 
-    if (tx < canvasW * 0.48 && controls.dpadTouchId === null) {
+    if (hitActionButton(controls.shootButton, tx, ty, MOBILE_INPUT_CONFIG.buttonHitSlop) && controls.shootTouchId === null) {
+      controls.shootTouchId = touch.identifier;
+      controls.shootButton.active = true;
+      beginShootInput(controls, state);
+      continue;
+    }
+
+    if (tx <= canvasW * MOBILE_INPUT_CONFIG.movementSideRatio && controls.dpadTouchId === null) {
       controls.dpadTouchId = touch.identifier;
-      // Fixed joystick or floating? Let's keep it fixed for now but allow small offset
-      if (dist(tx, ty, controls.dpadCenter.x, controls.dpadCenter.y) > controls.dpadRadius * 1.5) {
-        controls.dpadCenter = { x: tx, y: ty };
-      }
-      controls.dpadDirection = { x: 0, y: 0 };
+      beginFloatingJoystick(controls, tx, ty);
       continue;
     }
 
-    if (dist(tx, ty, controls.castButton.x, controls.castButton.y) < controls.castButton.radius * 2.5) {
+    if (tx > canvasW * MOBILE_INPUT_CONFIG.movementSideRatio && controls.castTouchId === null) {
+      controls.castTouchId = touch.identifier;
       controls.castActive = true;
+      controls.castDragActive = true;
       controls.castButton.active = true;
-      controls.castTouchId = touch.identifier;
-      controls.castDragActive = false;
       controls.castDragPos = { x: tx, y: ty };
-
-      if (!state.aimToShoot) {
-        state.mouseDown = true;
-      }
-      continue;
-    }
-
-    // Canvas tap for direct aiming/casting
-    if (state.screen === 'playing' && !state.showLevelIntro && controls.castTouchId === null) {
-      controls.castTouchId = touch.identifier;
-      controls.castActive = true;
-      state.mousePos = { x: tx, y: ty };
-      state.mouseDown = true;
+      controls.castPosition = { x: tx, y: ty };
+      controls.castButton.x = tx;
+      controls.castButton.y = ty;
+      setAimFromVector(state, state.stickman.facing, 0);
     }
   }
 }
@@ -272,42 +307,15 @@ export function handleTouchMove(
     const { x: tx, y: ty } = toCanvas(touch.clientX, touch.clientY, rect);
 
     if (touch.identifier === controls.dpadTouchId) {
-      const dx = tx - controls.dpadCenter.x;
-      const dy = ty - controls.dpadCenter.y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const clampedD = Math.min(d, controls.dpadRadius);
-      controls.dpadDirection = {
-        x: (dx / d) * (clampedD / controls.dpadRadius),
-        y: (dy / d) * (clampedD / controls.dpadRadius),
-      };
-      updateDpadKeys(controls, state);
+      updateFloatingJoystick(controls, tx, ty);
+      continue;
     }
 
     if (touch.identifier === controls.castTouchId && controls.castActive) {
-      const dx = tx - controls.castDragPos.x;
-      const dy = ty - controls.castDragPos.y;
-      const mag = Math.sqrt(dx * dx + dy * dy);
-
-      if (mag > 15) {
-        controls.castDragActive = true;
-
-        // If aimToShoot is on, we don't rapid fire while dragging
-        if (state.aimToShoot) {
-          state.mouseDown = false;
-        } else {
-          state.mouseDown = true;
-        }
-
-        const s = state.stickman;
-        const range = 280;
-        state.mousePos = {
-          x: s.x + s.width / 2 + (dx / mag) * range - state.camera.x,
-          y: s.y + s.height / 2 + (dy / mag) * range - state.camera.y,
-        };
-      } else if (!state.aimToShoot) {
-        controls.castDragActive = false;
-        state.mouseDown = true;
-      }
+      controls.castDragActive = true;
+      controls.castPosition = { x: tx, y: ty };
+      setAimFromVector(state, tx - controls.castDragPos.x, ty - controls.castDragPos.y);
+      continue;
     }
   }
 }
@@ -320,67 +328,43 @@ export function handleTouchEnd(
   for (const touch of touches) {
     if (touch.identifier === controls.dpadTouchId) {
       controls.dpadTouchId = null;
-      controls.dpadDirection = { x: 0, y: 0 };
-      state.keys.delete('a');
-      state.keys.delete('d');
-      state.keys.delete('arrowleft');
-      state.keys.delete('arrowright');
+      releaseFloatingJoystick(controls);
     }
 
     if (touch.identifier === controls.castTouchId) {
-      if (state.aimToShoot && controls.castDragActive) {
-        // Shoot on release
-        state.mouseDown = true;
-        setTimeout(() => {
-          state.mouseDown = false;
-        }, 30);
-      } else {
-        state.mouseDown = false;
-      }
       controls.castTouchId = null;
       controls.castActive = false;
-      controls.castButton.active = false;
       controls.castDragActive = false;
+      controls.castButton.active = false;
+      state.touchAimActive = false;
+      state.aimAssistTargetId = undefined;
+      state.aimAssistWeight = 0;
+      // Note: We don't set state.isAiming = false here.
+      // This allows the game loop to see state.isAiming === true AND state.touchAimActive === false
+      // on the next frame, which triggers the projectile spawn in the 'aimToShoot' logic.
+    }
+
+    if (touch.identifier === controls.shootTouchId) {
+      controls.shootTouchId = null;
+      controls.shootButton.active = false;
+      endShootInput(state);
     }
 
     if (touch.identifier === controls.jumpTouchId) {
       controls.jumpTouchId = null;
-      controls.jumpActive = false;
       controls.jumpButton.active = false;
       state.keys.delete(' ');
     }
 
     if (touch.identifier === controls.dashTouchId) {
       controls.dashTouchId = null;
-      controls.dashActive = false;
       controls.dashButton.active = false;
-      state.keys.delete('shift');
+      controls.dashActive = false;
     }
-
-    controls.cycleButton.active = false;
-    controls.pauseButton.active = false;
-  }
-}
-
-function updateDpadKeys(controls: TouchControlsState, state: GameState): void {
-  const { x, y } = controls.dpadDirection;
-  const threshold = 0.3;
-
-  state.keys.delete('a');
-  state.keys.delete('d');
-  state.keys.delete('arrowleft');
-  state.keys.delete('arrowright');
-
-  if (x < -threshold) {
-    state.keys.add('a');
-  } else if (x > threshold) {
-    state.keys.add('d');
   }
 
-  if (y < -threshold * 1.5) {
-    state.keys.add(' ');
-    setTimeout(() => state.keys.delete(' '), 100);
-  }
+  controls.cycleButton.active = false;
+  controls.pauseButton.active = false;
 }
 
 export function renderTouchControls(
@@ -390,191 +374,192 @@ export function renderTouchControls(
 ): void {
   if (!controls.visible) return;
 
-  ctx.save();
-
-  // Helper for drawing premium buttons
-  const drawPremiumButton = (
-    x: number,
-    y: number,
-    radius: number,
-    color: string,
-    label: string,
-    active: boolean,
-    icon?: string,
-    alpha = 0.3,
-  ) => {
-    ctx.save();
-
-    const isLow = state.graphicsQuality === 'low';
-
-    // Outer Glow - DISABLED ON LOW
-    if (active && !isLow) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 15;
-    }
-
-    // Main Circle
-    const grad = ctx.createRadialGradient(x, y - radius * 0.2, 0, x, y, radius);
-    grad.addColorStop(0, active ? color : 'rgba(255, 255, 255, 0.4)');
-    grad.addColorStop(1, active ? color : 'rgba(255, 255, 255, 0.15)');
-
-    ctx.globalAlpha = active ? 0.8 : alpha;
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Border
-    ctx.strokeStyle = active ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Text/Icon
-    ctx.globalAlpha = active ? 1.0 : 0.8;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (controlsIconSheet && icon) {
-      // Map icon labels to sprite regions
-      type IconKey = 'jump' | 'shoot' | 'dash' | 'swap' | 'pause';
-      const regions: Record<IconKey, [number, number, number, number]> = {
-        jump: [40, 40, 430, 430],
-        shoot: [550, 40, 430, 430],
-        dash: [300, 300, 424, 424],
-        swap: [40, 550, 430, 430],
-        pause: [550, 550, 430, 430]
-      };
-      const keyMap: Record<string, IconKey> = {
-        '⬆️': 'jump', '🎯': 'shoot', '💨': 'dash', '🔄': 'swap', '⏸️': 'pause',
-        '🔥': 'swap', '💧': 'swap', '🪨': 'swap', '🌪️': 'swap'
-      };
-      const region = regions[keyMap[icon as string] || 'shoot'];
-      if (region) {
-        const iconSize = radius * 1.3;
-        ctx.drawImage(controlsIconSheet, region[0], region[1], region[2], region[3], x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
-      }
-    } else if (icon) {
-      ctx.font = `700 ${Math.round(radius * 0.9)}px sans-serif`;
-      ctx.fillText(icon, x, y);
-    } else {
-      ctx.font = `800 ${Math.round(radius * 0.4)}px sans-serif`;
-      ctx.fillText(label, x, y);
-    }
-
-    ctx.restore();
+  const runeColors: Record<Element, string> = {
+    fire: '#ff6b2d',
+    water: '#5fc4ff',
+    earth: '#9c7a4d',
+    wind: '#d8f1ff',
   };
 
-  // 1. Render Joystick (DPAD)
-  const dpc = controls.dpadCenter;
-  const isMoving = controls.dpadTouchId !== null;
+  if (controls.lastElement !== state.selectedElement) {
+    controls.lastElement = state.selectedElement;
+    controls.elementFlashTimer = 280;
+  }
+  controls.elementFlashTimer = Math.max(0, controls.elementFlashTimer - 16);
 
-  // Outer Ring
-  ctx.save();
-  ctx.globalAlpha = isMoving ? 0.3 : 0.15;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(dpc.x, dpc.y, controls.dpadRadius, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Inner base
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-  ctx.fill();
-  ctx.restore();
-
-  // Cardinal Arrows
-  const arrowDist = controls.dpadRadius * 0.7;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.font = '700 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('▲', dpc.x, dpc.y - arrowDist);
-  ctx.fillText('▼', dpc.x, dpc.y + arrowDist);
-  ctx.fillText('◀', dpc.x - arrowDist, dpc.y);
-  ctx.fillText('▶', dpc.x + arrowDist, dpc.y);
-
-  // Thumb
-  const thumbX = dpc.x + controls.dpadDirection.x * controls.dpadRadius * 0.8;
-  const thumbY = dpc.y + controls.dpadDirection.y * controls.dpadRadius * 0.8;
-  const thumbR = controls.dpadRadius * 0.4;
-
-  const thumbGrad = ctx.createRadialGradient(thumbX, thumbY, 0, thumbX, thumbY, thumbR);
-  thumbGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-  thumbGrad.addColorStop(1, 'rgba(200, 200, 200, 0.4)');
+  const aimActive = controls.castActive || controls.castDragActive;
+  const shootGlow = state.buttonFireActive ? 0.55 : state.aimAssistWeight * 0.7;
+  const dashProgress = getDashCooldownProgress(state);
+  const aimCurrent = controls.castActive ? controls.castPosition : controls.castDragPos;
 
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-  ctx.shadowBlur = 10;
-  ctx.fillStyle = thumbGrad;
-  ctx.beginPath();
-  ctx.arc(thumbX, thumbY, thumbR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
+  const inputDir = controls.dpadDirection;
+  const mag = Math.hypot(inputDir.x, inputDir.y);
+  let renderDir = inputDir;
+  if (mag > 0.35) {
+    const cardinals = [
+      { x: 0, y: -1 }, // up - wind
+      { x: 1, y: 0 },  // fire
+      { x: 0, y: 1 },  // earth
+      { x: -1, y: 0 }, // water
+    ];
+    let best = { x: 0, y: 0 };
+    let bestDot = -Infinity;
+    for (const cand of cardinals) {
+      const dot = (inputDir.x * cand.x + inputDir.y * cand.y) / Math.max(0.001, mag);
+      if (dot > bestDot) {
+        best = cand;
+        bestDot = dot;
+      }
+    }
+    const snapStrength = Math.min(1, (mag - 0.35) / 0.5) * 0.7;
+    renderDir = {
+      x: inputDir.x * (1 - snapStrength) + best.x * snapStrength,
+      y: inputDir.y * (1 - snapStrength) + best.y * snapStrength,
+    };
+  }
+  drawFloatingJoystick(ctx, controlAssets, controls.dpadCenter, renderDir, controls.dpadRadius, controls.dpadTouchId !== null);
 
-  // 2. Render Action Cluster
-  const elemColor = {
-    fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
-  }[state.selectedElement];
+  // Runic ability wheel behind the aim pad
+  const wheelR = controls.castButton.radius * 1.08;
+  const petals: Array<{ angle: number; color: string; element: Element; icon: () => void }> = [
+    { angle: -Math.PI / 2, color: runeColors.wind, element: 'wind', icon: () => { ctx.beginPath(); ctx.moveTo(controls.castButton.x, controls.castButton.y - wheelR * 0.55); ctx.quadraticCurveTo(controls.castButton.x + 8, controls.castButton.y - wheelR * 0.85, controls.castButton.x, controls.castButton.y - wheelR * 0.2); ctx.fill(); } },
+    { angle: 0, color: runeColors.fire, element: 'fire', icon: () => { ctx.beginPath(); ctx.ellipse(controls.castButton.x + wheelR * 0.55, controls.castButton.y, wheelR * 0.16, wheelR * 0.26, 0, 0, Math.PI * 2); ctx.fill(); } },
+    { angle: Math.PI / 2, color: runeColors.earth, element: 'earth', icon: () => { ctx.beginPath(); ctx.moveTo(controls.castButton.x, controls.castButton.y + wheelR * 0.56); ctx.lineTo(controls.castButton.x - wheelR * 0.12, controls.castButton.y + wheelR * 0.2); ctx.lineTo(controls.castButton.x + wheelR * 0.12, controls.castButton.y + wheelR * 0.2); ctx.closePath(); ctx.fill(); } },
+    { angle: Math.PI, color: runeColors.water, element: 'water', icon: () => { ctx.beginPath(); ctx.arc(controls.castButton.x - wheelR * 0.55, controls.castButton.y, wheelR * 0.16, Math.PI * 0.2, Math.PI * 1.8); ctx.stroke(); } },
+  ];
 
-  const cb = controls.castButton;
-  const isAiming = controls.castActive || controls.castDragActive;
-  const castBaseAlpha = isAiming ? 0.75 : 0.4;
+  ctx.globalAlpha = aimActive ? 0.95 : 0.75;
+  const stone = ctx.createLinearGradient(controls.castButton.x - wheelR, controls.castButton.y - wheelR, controls.castButton.x + wheelR, controls.castButton.y + wheelR);
+  stone.addColorStop(0, '#2b2822'); stone.addColorStop(1, '#171511');
+  ctx.fillStyle = stone;
+  ctx.beginPath(); ctx.arc(controls.castButton.x, controls.castButton.y, wheelR, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(190, 213, 206, 0.35)';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(controls.castButton.x, controls.castButton.y, wheelR - 4, 0, Math.PI * 2); ctx.stroke();
 
-  drawPremiumButton(
-    cb.x,
-    cb.y,
-    cb.radius,
-    elemColor,
-    cb.label.toUpperCase(),
-    cb.active || controls.castDragActive,
-    cb.icon,
-    castBaseAlpha,
-  );
-
-  if (isAiming) {
+  petals.forEach((p) => {
     ctx.save();
-    ctx.globalAlpha = 0.65;
-    ctx.strokeStyle = elemColor;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 6]);
-    ctx.beginPath();
-    ctx.arc(cb.x, cb.y, cb.radius * 1.4, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    const isSelected = p.element === state.selectedElement;
+    const color = isSelected ? modulateHex(p.color, 1.5) : p.color;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.translate(controls.castButton.x, controls.castButton.y);
+    ctx.rotate(p.angle);
+    ctx.translate(-controls.castButton.x, -controls.castButton.y);
+    p.icon();
+    ctx.restore();
+  });
+
+  if (controls.elementFlashTimer > 0) {
+    const alpha = Math.min(1, controls.elementFlashTimer / 280);
+    ctx.save();
+    ctx.globalAlpha = 0.5 * alpha;
+    const color = runeColors[state.selectedElement];
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2 + performance.now() * 0.002;
+      const dist = wheelR + 6 + (i % 2) * 6;
+      const px = controls.castButton.x + Math.cos(angle) * dist;
+      const py = controls.castButton.y + Math.sin(angle) * dist;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 
-  const jb = controls.jumpButton;
-  drawPremiumButton(jb.x, jb.y, jb.radius, '#ffffff', jb.label.toUpperCase(), jb.active, jb.icon);
-
-  const db = controls.dashButton;
-  const dashReady = state.stickman.dashCooldown <= 0;
-  drawPremiumButton(db.x, db.y, db.radius, dashReady ? '#44ffaa' : '#555555', db.label.toUpperCase(), db.active, db.icon, dashReady ? 0.3 : 0.1);
-
-  if (!dashReady) {
-    const pct = 1 - (state.stickman.dashCooldown / DASH_BASE_COOLDOWN);
-    const isLow = state.graphicsQuality === 'low';
-    ctx.strokeStyle = '#44ffaa';
-    ctx.lineWidth = isLow ? 2 : 3;
-    ctx.beginPath();
-    ctx.arc(db.x, db.y, db.radius + 3, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
-    ctx.stroke();
+  if (state.ultimateReady) {
+    ctx.save();
+    const glow = ctx.createRadialGradient(controls.castButton.x, controls.castButton.y, wheelR * 0.4, controls.castButton.x, controls.castButton.y, wheelR * 1.2);
+    glow.addColorStop(0, 'rgba(255, 240, 200, 0.3)');
+    glow.addColorStop(1, 'rgba(255, 180, 90, 0)');
+    ctx.fillStyle = glow;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.arc(controls.castButton.x, controls.castButton.y, wheelR * 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 240, 200, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(controls.castButton.x, controls.castButton.y, wheelR * 1.3, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
 
-  const cyb = controls.cycleButton;
-  const showCycle = state.unlockedElements.length > 1;
-  if (showCycle) {
-    const elemIcon = { fire: '🔥', water: '💧', earth: '🪨', wind: '🌪️' }[state.selectedElement];
-    drawPremiumButton(cyb.x, cyb.y, cyb.radius, elemColor, 'SWAP', cyb.active, elemIcon);
+  // Center stone with carved stickman
+  drawActionButton(ctx, controlAssets, {
+    x: controls.castButton.x,
+    y: controls.castButton.y,
+    radius: controls.castButton.radius * 0.78,
+    color: '#c5b38d',
+    iconKey: 'crosshair',
+    fallbackLabel: '⚔',
+    active: aimActive,
+  });
+
+  drawAimPad(
+    ctx,
+    controlAssets,
+    controls.castDragPos,
+    aimCurrent,
+    controls.castButton.radius * 1.1,
+    state.aimAssistWeight > 0 ? '#8dffdf' : controls.castButton.color,
+    aimActive,
+    state.aimAssistWeight,
+  );
+
+  drawActionButton(ctx, controlAssets, {
+    x: controls.shootButton.x,
+    y: controls.shootButton.y,
+    radius: controls.shootButton.radius,
+    color: state.aimAssistWeight > 0 ? '#8dffdf' : controls.shootButton.color,
+    iconKey: controls.shootButton.iconKey,
+    fallbackLabel: controls.shootButton.label,
+    active: controls.shootButton.active || state.buttonFireActive,
+    glow: shootGlow,
+  });
+
+  drawActionButton(ctx, controlAssets, {
+    x: controls.jumpButton.x,
+    y: controls.jumpButton.y,
+    radius: controls.jumpButton.radius,
+    color: controls.jumpButton.color,
+    iconKey: controls.jumpButton.iconKey,
+    fallbackLabel: controls.jumpButton.label,
+    active: controls.jumpButton.active,
+  });
+
+  drawActionButton(ctx, controlAssets, {
+    x: controls.dashButton.x,
+    y: controls.dashButton.y,
+    radius: controls.dashButton.radius,
+    color: controls.dashButton.color,
+    iconKey: controls.dashButton.iconKey,
+    fallbackLabel: controls.dashButton.label,
+    active: controls.dashButton.active,
+    disabled: dashProgress < 1,
+    cooldownProgress: dashProgress,
+  });
+
+  if (state.unlockedElements.length > 1) {
+    drawActionButton(ctx, controlAssets, {
+      x: controls.cycleButton.x,
+      y: controls.cycleButton.y,
+      radius: controls.cycleButton.radius,
+      color: controls.cycleButton.color,
+      iconKey: controls.cycleButton.iconKey,
+      fallbackLabel: controls.cycleButton.label,
+      active: controls.cycleButton.active,
+    });
   }
 
-  // 3. Pause Button
-  const pb = controls.pauseButton;
-  drawPremiumButton(pb.x, pb.y, pb.radius, '#ffffff', pb.label, pb.active, pb.icon);
+  drawActionButton(ctx, controlAssets, {
+    x: controls.pauseButton.x,
+    y: controls.pauseButton.y,
+    radius: controls.pauseButton.radius,
+    color: controls.pauseButton.color,
+    iconKey: controls.pauseButton.iconKey,
+    fallbackLabel: 'II',
+    active: controls.pauseButton.active,
+  });
 
+  controls.abilitySlots.forEach((slot) => {
+    drawAbilitySlot(ctx, controlAssets, slot.x, slot.y, slot.radius);
+  });
   ctx.restore();
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { update, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
-import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality } from './game/types';
+import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality, Upgrades } from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
@@ -18,18 +18,26 @@ import {
   buildRestartLevelState,
 } from './game/stateFactory';
 import { claimDailyReward, getProgressionSnapshot } from './game/services/progression';
+import Menu from './components/Menu';
 import {
   createTouchControlsState,
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  updateTouchControlsInput,
   updateTouchControlsLayout,
   renderTouchControls,
   isMobileDevice,
+  setControlsAssets,
   type TouchControlsState,
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
+<<<<<<< HEAD
 import { elementalAssetMap } from './game/services/elementalAssetMap';
+=======
+import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
+import { mobileRender } from './game/renderers/renderConstants';
+>>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
 
 let CANVAS_W = 1200;
 const CANVAS_H = 700;
@@ -85,20 +93,32 @@ function App() {
   const [isMobile, setIsMobile] = useState<boolean>(() => isMobileDevice());
   const isMobileRef = useRef(isMobile);
   const isPortraitMobileRef = useRef(false);
+  const compactMobileLayoutRef = useRef(isMobile);
   const loopClockRef = useRef(createLoopClock());
+  const dprRef = useRef(1);
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
+  const [menuOverlay, setMenuOverlay] = useState({ visible: true, selected: 0 });
+  const menuOverlayRef = useRef(menuOverlay);
+  const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
+  const [currentScreen, setCurrentScreen] = useState<GameState['screen']>('menu');
+  const [highScore, setHighScore] = useState(initialState.highScore);
+  const [furthestLevel, setFurthestLevel] = useState(initialState.furthestLevel);
+  const [gems, setGems] = useState(initialState.gemsCurrency);
+  const [difficulty, setDifficulty] = useState(initialState.difficulty);
 
   const patchSettings = (patch: Partial<GameSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
   };
 
-  useEffect(() => {
+  const enterMobileImmersive = () => {
+    if (!isMobileRef.current) return;
 
+<<<<<<< HEAD
     // Load all game assets
     assetLoader.loadAssets({
       boss1: '/bosses/boss1.png',
@@ -106,11 +126,107 @@ function App() {
       controls: '/assets/controls.png',
       ...elementalAssetMap,
     }).then(() => {
+=======
+    const host = containerRef.current;
+    if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
+      void host.requestFullscreen().catch(() => { });
+    }
+  };
+
+  useEffect(() => {
+    menuOverlayRef.current = menuOverlay;
+  }, [menuOverlay]);
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const s = stateRef.current;
+      const next = { visible: s.screen === 'menu', selected: s.selectedMenuButton };
+      const prev = menuOverlayRef.current;
+      if (prev.visible !== next.visible || prev.selected !== next.selected) {
+        setMenuOverlay(next);
+      }
+      
+      // Sync render state for Menu component
+      if (s.screen === 'menu') {
+        setCurrentScreen(s.screen);
+        setHighScore(s.highScore);
+        setFurthestLevel(s.furthestLevel);
+        setGems(s.gemsCurrency);
+        setDifficulty(s.difficulty);
+      } else if (currentScreen === 'menu') {
+        // Menu exited, update screen state
+        setCurrentScreen(s.screen);
+      }
+      
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [currentScreen]);
+
+  const beginCampaignTransition = useCallback(() => {
+    const s = stateRef.current;
+    if (s.screen !== 'menu') return;
+    if (s.screenTransition?.active) return;
+    s.selectedMenuButton = 0;
+    s.screenTransition = {
+      active: true,
+      timer: 0,
+      duration: 26,
+      phase: 'out',
+      target: 'levelSelect',
+      mode: 'fade',
+    };
+    Audio.playStoneOpen();
+    Audio.fadeMusicTo(0, 0.35);
+    window.setTimeout(() => {
+      Audio.fadeMusicTo(1, 0.25);
+    }, 450);
+    enterMobileImmersive();
+  }, []);
+
+  const handleMenuCardActivate = (index: number) => {
+    const s = stateRef.current;
+    if (s.screen !== 'menu') return;
+    if (s.screenTransition?.active) return;
+    s.selectedMenuButton = index;
+    if (index === 0) {
+      beginCampaignTransition();
+      return;
+    }
+    Audio.playStoneOpen();
+    if (index === 1) s.screen = 'survivalDifficulty';
+    if (index === 2) s.screen = 'shop';
+    if (index === 3) s.screen = 'challenges';
+    enterMobileImmersive();
+  };
+
+  useEffect(() => {
+    const loadFonts = async () => {
+      if (!document.fonts?.load) return;
+      await Promise.all([
+        document.fonts.load('700 1em "Cinzel"'),
+        document.fonts.load('600 1em "Cormorant Garamond"'),
+      ]);
+      await document.fonts.ready;
+    };
+
+    // Load all game assets + fonts
+    Promise.all([
+      assetLoader.loadAssets({
+        boss1: '/bosses/boss1.png',
+        boss2: '/bosses/boss2.png',
+        logo: '/assets/logo.png',
+        ...MOBILE_CONTROL_ASSET_PATHS,
+      }),
+      loadFonts(),
+    ]).then(() => {
+>>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
       setAssetsReady(true);
-      // Set the controls icon sheet after it's loaded
-      import('./game/touchControls').then(tc => {
-        tc.setControlsIconSheet(assetLoader.getAsset('controls'));
-      });
+      setControlsAssets(Object.fromEntries(
+        Object.keys(MOBILE_CONTROL_ASSET_PATHS).map((key) => [key, assetLoader.getAsset(key)]),
+      ));
     }).catch(err => {
       console.error('Failed to load assets:', err);
       setFatalError('Failed to load game assets. Please refresh.');
@@ -139,23 +255,25 @@ function App() {
     };
   };
 
-  const enterMobileImmersive = () => {
-    if (!isMobileRef.current) return;
-
-    const host = containerRef.current;
-    if (host && !document.fullscreenElement && typeof host.requestFullscreen === 'function') {
-      void host.requestFullscreen().catch(() => { });
-    }
-  };
+  const isCompactMobileLayout = () => compactMobileLayoutRef.current;
 
   // Compute scale to fill screen while preserving aspect ratio
   useEffect(() => {
+    isMobileRef.current = isMobile;
+
     const computeScale = () => {
       const hostRect = containerRef.current?.getBoundingClientRect();
       const vw = hostRect?.width ?? window.visualViewport?.width ?? window.innerWidth;
       const vh = hostRect?.height ?? window.visualViewport?.height ?? window.innerHeight;
       let s;
       let w = 1200;
+
+      // DPI-aware rendering: cap at 2 for performance on low-end devices
+      const rawDpr = window.devicePixelRatio || 1;
+      const dpr = isMobileRef.current ? Math.min(rawDpr, 2) : 1;
+      dprRef.current = dpr;
+      mobileRender.dpr = dpr;
+      mobileRender.isMobile = isMobileRef.current;
 
       if (isMobileRef.current) {
         if (vw > vh) {
@@ -181,6 +299,7 @@ function App() {
       setCanvasWidth(w);
       setCanvasScale(s);
       isPortraitMobileRef.current = isMobileRef.current && (vh > vw);
+      compactMobileLayoutRef.current = isMobileRef.current && (isPortraitMobileRef.current || Math.min(vw, vh) <= 700);
       requestAnimationFrame(syncTouchLayout);
     };
     computeScale();
@@ -191,6 +310,56 @@ function App() {
       window.removeEventListener('resize', computeScale);
       document.removeEventListener('fullscreenchange', computeScale);
       window.visualViewport?.removeEventListener('resize', computeScale);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    let raf = 0;
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const applyParallax = () => {
+      const p = parallaxRef.current;
+      p.x += (p.targetX - p.x) * 0.08;
+      p.y += (p.targetY - p.y) * 0.08;
+      const s = stateRef.current;
+      if (s.menuParallax) {
+        s.menuParallax.x = p.x;
+        s.menuParallax.y = p.y;
+      } else {
+        s.menuParallax = { x: p.x, y: p.y };
+      }
+      const host = containerRef.current;
+      if (host) {
+        host.style.setProperty('--parallax-x', `${p.x * 18}px`);
+        host.style.setProperty('--parallax-y', `${p.y * 12}px`);
+      }
+      raf = requestAnimationFrame(applyParallax);
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      const host = containerRef.current;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = (event.clientY - rect.top) / rect.height;
+      parallaxRef.current.targetX = clamp((nx - 0.5) * 2, -1, 1);
+      parallaxRef.current.targetY = clamp((ny - 0.5) * 2, -1, 1);
+    };
+
+    const onOrientation = (event: DeviceOrientationEvent) => {
+      const gamma = event.gamma ?? 0;
+      const beta = event.beta ?? 0;
+      parallaxRef.current.targetX = clamp(gamma / 30, -1, 1);
+      parallaxRef.current.targetY = clamp(beta / 30, -1, 1);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('deviceorientation', onOrientation);
+    raf = requestAnimationFrame(applyParallax);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('deviceorientation', onOrientation);
+      cancelAnimationFrame(raf);
     };
   }, []);
 
@@ -228,9 +397,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const mobile = isMobileRef.current;
-    isMobileRef.current = mobile;
-    touchControlsRef.current.visible = mobile;
+    touchControlsRef.current.visible = isMobile;
     requestAnimationFrame(syncTouchLayout);
 
     const enableTouchOnFirst = () => {
@@ -239,30 +406,47 @@ function App() {
         setIsMobile(true);
         touchControlsRef.current.visible = true;
         isPortraitMobileRef.current = window.innerHeight > window.innerWidth;
+        compactMobileLayoutRef.current = isPortraitMobileRef.current || Math.min(window.innerWidth, window.innerHeight) <= 700;
         requestAnimationFrame(syncTouchLayout);
       }
       window.removeEventListener('touchstart', enableTouchOnFirst);
     };
-    if (!mobile) {
+    if (!isMobile) {
       window.addEventListener('touchstart', enableTouchOnFirst, { once: true });
     }
 
     return () => {
       window.removeEventListener('touchstart', enableTouchOnFirst);
     };
-  }, []);
+  }, [isMobile]);
 
 
   useEffect(() => {
     if (!assetsReady) return;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const reportStartupFailure = (message: string) => {
+      queueMicrotask(() => setFatalError(message));
+    };
+    if (!ctx) {
+      reportStartupFailure('Canvas 2D context unavailable');
+      return;
+    }
 
-    initTelemetrySession();
-    containerRef.current?.focus();
+    try {
+      initTelemetrySession();
+      containerRef.current?.focus();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown startup error';
+      trackError(err, { source: 'app_setup' });
+      reportStartupFailure(`Startup failure: ${msg}`);
+      return;
+    }
 
     const handleDialogAdvance = (): boolean => {
       const s = stateRef.current;
@@ -291,16 +475,16 @@ function App() {
         (upg.dashDistanceLevel + 1) * 80,
       ];
 
-      const keys: (keyof typeof upg)[] = ['healthLevel', 'manaLevel', 'regenLevel', 'damageLevel', 'doubleJumpLevel', 'dashDistanceLevel'];
+      const keys: (keyof Upgrades)[] = ['healthLevel', 'manaLevel', 'regenLevel', 'damageLevel', 'doubleJumpLevel', 'dashDistanceLevel'];
       const field = keys[index];
       const cost = costs[index];
 
-      if (s.gemsCurrency >= cost && (upg[field] as number) < 5) {
+      if (s.gemsCurrency >= cost && upg[field] < 5) {
         s.gemsCurrency -= cost;
-        (upg as unknown as Record<string, number>)[field] = (upg[field] as number) + 1;
+        upg[field] = upg[field] + 1;
         saveProgress(s);
         Audio.playGemCollect?.();
-        spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success' as any), '#8bffaf', 20);
+        spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success'), '#8bffaf', 20);
       } else {
         Audio.playPause(); // Error sound
       }
@@ -311,25 +495,50 @@ function App() {
 
       if (s.screen === 'menu') {
         if (tx === undefined || ty === undefined) return;
-
+        if (s.screenTransition?.active) return;
 
         // Responsive Grid buttons
-        const isMobileLayout = CANVAS_W < 600;
+        const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W - 60 : 280;
         const cardH = isMobileLayout ? 85 : 120;
-        const gap = isMobileLayout ? 12 : 30;
+        const gapX = isMobileLayout ? 0 : 24;
+        const gapY = 15;
         const cols = isMobileLayout ? 1 : 2;
-        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = isMobileLayout ? 210 : 320;
+        const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gapX) / 2;
+        const statsY = 18;
+        const statsH = 56;
+        const logo = assetLoader.getAsset('logo');
+        const logoMaxH = CANVAS_H * 0.25;
+        const logoMaxW = Math.min(CANVAS_W * 0.7, 720);
+        const logoScale = logo?.complete && logo.naturalWidth > 0
+          ? Math.min(logoMaxW / logo.naturalWidth, logoMaxH / logo.naturalHeight)
+          : 0;
+        const logoH = logoScale > 0 ? logo.naturalHeight * logoScale : Math.min(logoMaxH, 160);
+        const logoY = statsY + statsH + 18;
+        const toggleH = 52;
+        const toggleY = logoY + logoH + 12;
+        const toggleW = Math.min(280, CANVAS_W - 80);
+        const toggleX = CANVAS_W / 2 - toggleW / 2;
+        const startY = toggleY + toggleH + (isMobileLayout ? 22 : 28);
+
+        if (tx >= toggleX && tx <= toggleX + toggleW && ty >= toggleY && ty <= toggleY + toggleH) {
+          s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
+          Audio.playMetalClick();
+          return;
+        }
 
         for (let i = 0; i < 4; i++) {
           const col = i % cols;
           const row = Math.floor(i / cols);
-          const x = startX + col * (cardW + gap);
-          const y = startY + row * (cardH + gap);
+          const x = startX + col * (cardW + gapX);
+          const y = startY + row * (cardH + gapY);
           if (tx >= x && tx <= x + cardW && ty >= y && ty <= y + cardH) {
-            Audio.playMenuSelect();
-            if (i === 0) s.screen = 'levelSelect';
+            if (i === 0) {
+              beginCampaignTransition();
+              return;
+            }
+            if (s.screenTransition?.active) return;
+            Audio.playStoneOpen();
             if (i === 1) s.screen = 'survivalDifficulty';
             if (i === 2) s.screen = 'shop';
             if (i === 3) s.screen = 'challenges';
@@ -352,7 +561,7 @@ function App() {
         if (tx === undefined || ty === undefined) return;
 
         const diffs: Difficulty[] = ['easy', 'normal', 'hard', 'insane'];
-        const isMobileLayout = CANVAS_W < 600;
+        const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W / 2 - 30 : 220;
         const cardH = isMobileLayout ? 260 : 300;
         const gap = 20;
@@ -425,7 +634,7 @@ function App() {
 
         // Claim buttons logic
         const snap = getProgressionSnapshot(s);
-        const isMobileLayout = CANVAS_W < 600;
+        const isMobileLayout = isCompactMobileLayout();
         const startY = 180;
         const cardW = isMobileLayout ? CANVAS_W - 40 : 600;
         const cardH = 100;
@@ -475,7 +684,7 @@ function App() {
         }
 
         if (s.shopTab === 'upgrades') {
-          const isMobileLayout = CANVAS_W < 600;
+          const isMobileLayout = isCompactMobileLayout();
           const cardW = isMobileLayout ? CANVAS_W - 40 : 340;
           const cardH = isMobileLayout ? 75 : 140;
           const gap = isMobileLayout ? 10 : 20;
@@ -563,9 +772,19 @@ function App() {
 
       if (s.screen === 'levelSelect') {
         if (tx === undefined || ty === undefined) return;
-        const cardW = 194; const cardH = 130; const gap = 16; const cols = 5;
+        const isMobileLayout = isCompactMobileLayout();
+        const cardW = isMobileLayout ? Math.floor((CANVAS_W - 72) / 3) : 194;
+        const cardH = isMobileLayout ? 110 : 130;
+        const gap = isMobileLayout ? 12 : 16;
+        const cols = isMobileLayout ? 3 : 5;
         const startX = CANVAS_W / 2 - (cols * cardW + (cols - 1) * gap) / 2;
-        const startY = 140;
+        const startY = isMobileLayout ? 118 : 140;
+
+        if (ty > CANVAS_H - 88) {
+          s.screen = 'menu';
+          Audio.playMenuSelect();
+          return;
+        }
 
         // Precise hit test - only count clicks within card bounds, not in gaps
         const relX = tx - startX;
@@ -580,7 +799,12 @@ function App() {
           if (index >= 0 && index < s.totalLevels) {
             if (index <= s.furthestLevel) {
               const saved = loadSave();
-              assignState(buildPlayingState(index, saved.highScore, s.difficulty));
+              const nextState = buildPlayingState(index, saved.highScore, s.difficulty);
+              nextState.endingShown = false;
+              nextState.bossDefeated = false;
+              nextState.continueButton = undefined;
+              nextState.screenTimer = 0;
+              assignState(nextState);
               Audio.playMenuSelect();
               Audio.startMusic(index);
               enterMobileImmersive();
@@ -673,6 +897,10 @@ function App() {
 
       if (s.screen !== 'playing') {
         if (s.screen === 'menu') {
+          if (s.screenTransition?.active) {
+            e.preventDefault();
+            return;
+          }
           if (keyLower === 'a' || key === 'ArrowLeft' || keyLower === 'd' || key === 'ArrowRight') {
             s.selectedMenuButton = s.selectedMenuButton === 0 ? 1 : 0;
             Audio.playMenuSelect();
@@ -680,8 +908,7 @@ function App() {
           }
           if (key === '1' || (s.selectedMenuButton === 0 && (key === 'Enter' || key === ' '))) {
             Audio.initAudio();
-            Audio.playMenuSelect();
-            s.screen = 'levelSelect';
+            beginCampaignTransition();
             e.preventDefault();
             return;
           }
@@ -696,7 +923,7 @@ function App() {
           }
           if (keyLower === 'd') {
             s.difficulty = DIFFICULTY_CYCLE[s.difficulty];
-            Audio.playMenuSelect();
+            Audio.playMetalClick();
             return;
           }
           if (keyLower === 'u') {
@@ -746,7 +973,12 @@ function App() {
           } else if (key === 'Enter' || key === ' ') {
             if (s.levelSelectionIndex <= s.furthestLevel) {
               const saved = loadSave();
-              assignState(buildPlayingState(s.levelSelectionIndex, saved.highScore, s.difficulty));
+              const nextState = buildPlayingState(s.levelSelectionIndex, saved.highScore, s.difficulty);
+              nextState.endingShown = false;
+              nextState.bossDefeated = false;
+              nextState.continueButton = undefined;
+              nextState.screenTimer = 0;
+              assignState(nextState);
               Audio.playMenuSelect();
               Audio.startMusic(s.levelSelectionIndex);
             }
@@ -845,7 +1077,7 @@ function App() {
       }
 
       if (s.screen === 'shop' && s.shopTab === 'upgrades') {
-        const isMobileLayout = CANVAS_W < 600;
+        const isMobileLayout = isCompactMobileLayout();
         const cardW = isMobileLayout ? CANVAS_W - 40 : 340;
         const cardH = isMobileLayout ? 75 : 140;
         const gap = isMobileLayout ? 10 : 20;
@@ -869,19 +1101,7 @@ function App() {
       }
 
       if (s.screen === 'menu') {
-        const tx = s.mousePos.x;
-        const ty = s.mousePos.y;
-        const btnW = 280; const btnH = 80; const gap = 40; const baseY = 320;
-        const campX = CANVAS_W / 2 - btnW - gap / 2;
-        const waveX = CANVAS_W / 2 + gap / 2;
-
-        if (ty >= baseY && ty <= baseY + btnH) {
-          if (tx >= campX && tx <= campX + btnW) s.selectedMenuButton = 0;
-          else if (tx >= waveX && tx <= waveX + btnW) s.selectedMenuButton = 1;
-          else s.selectedMenuButton = -1;
-        } else {
-          s.selectedMenuButton = -1;
-        }
+        return;
       }
     };
 
@@ -1087,11 +1307,33 @@ function App() {
           void refreshRemoteLeaderboard(20);
         }
 
+        if (isMobileRef.current) {
+          updateTouchControlsInput(touchControlsRef.current, currentState);
+        }
         const steps = advanceLoopClock(loopClockRef.current, nowMs);
         for (let i = 0; i < steps; i++) {
           update(currentState);
         }
-        render(ctx, currentState, CANVAS_W, CANVAS_H, isMobileRef.current, isPortraitMobileRef.current);
+
+        // Apply DPI scaling for sharp rendering on high-DPI screens
+        const dpr = dprRef.current;
+        const physW = CANVAS_W * dpr;
+        const physH = CANVAS_H * dpr;
+        if (canvas.width !== physW || canvas.height !== physH) {
+          canvas.width = physW;
+          canvas.height = physH;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        render(
+          ctx,
+          currentState,
+          CANVAS_W,
+          CANVAS_H,
+          isMobileRef.current,
+          isPortraitMobileRef.current,
+          compactMobileLayoutRef.current,
+        );
 
         // Render touch controls on top
         if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
@@ -1124,7 +1366,11 @@ function App() {
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };
+<<<<<<< HEAD
   }, [assetsReady]);
+=======
+  }, [assetsReady, beginCampaignTransition]);
+>>>>>>> 404ee4eb7e24d279279880b8027da1408ec170b2
 
   if (fatalError) {
     return (
@@ -1206,11 +1452,17 @@ function App() {
       style={{
         position: 'relative',
         width: '100%',
-        height: '100%',
+        height: '100dvh',
+        minHeight: '100vh',
         backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        boxSizing: 'border-box',
         userSelect: 'none',
         outline: 'none',
         overflow: 'hidden',
@@ -1254,6 +1506,15 @@ function App() {
           {t(settings.locale, 'app_open_settings').toUpperCase()}
         </button>
       )}
+      {currentScreen === 'menu' && (
+        <Menu
+          highScore={highScore}
+          furthestLevel={furthestLevel}
+          gems={gems}
+          difficulty={difficulty}
+          onSelect={handleMenuCardActivate}
+        />
+      )}
       <canvas
         ref={canvasRef}
         width={canvasWidth}
@@ -1261,7 +1522,7 @@ function App() {
         id="game-canvas"
         aria-label="Game canvas"
         style={{
-          display: 'block',
+          display: currentScreen === 'menu' ? 'none' : 'block',
           width: Math.floor(canvasWidth * canvasScale),
           height: Math.floor(CANVAS_H * canvasScale),
           cursor: isMobile ? 'default' : 'crosshair',

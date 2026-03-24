@@ -1,28 +1,53 @@
 import type { Element } from '../types';
 
+// Element palette shifted to jewel-like glows that fit the ancient mystic fantasy skin.
 export const ELEMENT_COLORS: Record<Element, string> = {
-  fire: '#ff4400', water: '#0088ff', earth: '#66aa33', wind: '#aabbee',
+  fire: '#ff6b2d',
+  water: '#5fc4ff',
+  earth: '#9c7a4d',
+  wind: '#d8f1ff',
 };
 
 export const ELEMENT_GLOW: Record<Element, string> = {
-  fire: 'rgba(255, 100, 0, 0.3)', water: 'rgba(0, 100, 255, 0.3)',
-  earth: 'rgba(80, 160, 40, 0.3)', wind: 'rgba(180, 200, 240, 0.3)',
+  fire: 'rgba(255, 125, 60, 0.32)',
+  water: 'rgba(95, 196, 255, 0.3)',
+  earth: 'rgba(156, 122, 77, 0.28)',
+  wind: 'rgba(216, 241, 255, 0.32)',
 };
 
 export const UI_THEME = {
-  paper: '#e9f2ff',
-  muted: '#8aa2c6',
-  accent: '#53b8ff',
-  accentStrong: '#6ad2ff',
-  success: '#62eeb8',
+  paper: '#e8dfcf',
+  muted: '#c8c0b0',
+  accent: '#9ae6de',
+  accentStrong: '#b2f5ff',
+  success: '#f39f4a',
   warning: '#ffd36a',
-  danger: '#ff7688',
-  panelA: 'rgba(7, 18, 38, 0.92)',
-  panelB: 'rgba(10, 35, 66, 0.85)',
-  panelBorder: 'rgba(144, 211, 255, 0.35)',
-  glassBg: 'rgba(255, 255, 255, 0.03)',
-  glassBorder: 'rgba(255, 255, 255, 0.12)',
+  danger: '#ff7c5c',
+  panelA: 'rgba(18, 16, 24, 0.94)',
+  panelB: 'rgba(26, 28, 36, 0.9)',
+  panelBorder: 'rgba(154, 192, 201, 0.4)',
+  glassBg: 'rgba(255, 240, 214, 0.03)',
+  glassBorder: 'rgba(255, 240, 214, 0.12)',
 };
 
-export const FONT_UI = '"Rajdhani", "Trebuchet MS", sans-serif';
-export const FONT_DISPLAY = '"Orbitron", "Eurostile", sans-serif';
+/** Scale factor applied to visual element sizes on mobile for clarity */
+export const MOBILE_SCALE = 1.15;
+
+/** Mutable render context shared across renderers */
+export const mobileRender = {
+  isMobile: false,
+  /** Effective device-pixel-ratio (capped at 2 for perf) */
+  dpr: 1,
+};
+
+/**
+ * Returns the mobile-aware size: original value scaled up when on mobile.
+ * Use for particle sizes, line widths, radii, etc.
+ */
+export function mobileSize(value: number): number {
+  return mobileRender.isMobile ? value * MOBILE_SCALE : value;
+}
+
+// Rugged serif fantasy fonts
+export const FONT_UI = '"Cormorant Garamond", "Georgia", serif';
+export const FONT_DISPLAY = '"Cinzel", "Cinzel Decorative", serif';

@@ -1,23 +1,29 @@
 import type { GameState } from '../types';
 import { GRAVITY, FRICTION } from '../constants';
 
-export function applyPhysics(state: GameState) {
+export function applyPhysics(state: GameState, dt = 1) {
   const s = state.stickman;
+  const landingAssist = state.balanceCurve.landingAssist;
+  const prevX = s.x;
+  const prevY = s.y;
+  const element = state.selectedElement;
+  const gravityMul = element === 'wind' ? 0.7 : element === 'earth' ? 1.1 : 1;
+  const groundFriction = element === 'water' ? 0.97 : FRICTION;
 
   // Apply gravity
   if (!s.onGround && !s.isDashing) {
-    s.vy += GRAVITY;
+    s.vy += GRAVITY * gravityMul * dt;
   }
 
-  // Apply friction
-  if (!s.walking && s.onGround) {
-    s.vx *= FRICTION;
-    if (Math.abs(s.vx) < 0.1) s.vx = 0;
+  // Apply ground friction as safety net (primary deceleration is in playerSystem)
+  if (!s.walking && s.onGround && !s.isDashing) {
+    s.vx *= Math.pow(groundFriction, dt);
+    if (Math.abs(s.vx) < 0.15) s.vx = 0;
   }
 
   // Update position
-  s.x += s.vx;
-  s.y += s.vy;
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
 
   // Ground collision (simple floor)
   if (s.y + s.height > state.worldHeight - 40) {
@@ -31,56 +37,87 @@ export function applyPhysics(state: GameState) {
 
   // Platform collisions
   for (const plat of state.platforms) {
-    if (s.vx > 0) {
-      if (s.x + s.width > plat.x && s.x < plat.x + plat.width && s.y + s.height > plat.y + 5 && s.y < plat.y + plat.height - 5) {
-        s.x = plat.x - s.width; s.vx = 0;
+    const currentLeft = s.x;
+    const currentRight = s.x + s.width;
+    const currentTop = s.y;
+    const currentBottom = s.y + s.height;
+    const prevLeft = prevX;
+    const prevRight = prevX + s.width;
+    const prevTop = prevY;
+    const prevBottom = prevY + s.height;
+    const overlapX = currentRight > plat.x + 2 && currentLeft < plat.x + plat.width - 2;
+    const overlapY = currentBottom > plat.y + 2 && currentTop < plat.y + plat.height - 2;
+
+    if (s.vy >= 0 && prevBottom <= plat.y + 15 && currentBottom >= plat.y && overlapX) {
+      s.y = plat.y - s.height;
+      s.vy = 0;
+      s.onGround = true;
+      s.jumping = false;
+
+      // Landing assist: snap slightly to platform center if it's a challenging (small) platform
+      // Prevents sliding on massive ground platforms while helping on tiny pillars
+      if (landingAssist > 0 && plat.width < 380 && Math.abs(s.vx) < 2.2) {
+        const targetX = plat.x + (plat.width - s.width) / 2;
+        const correction = Math.max(-2, Math.min(2, (targetX - s.x) * 0.12));
+        s.x += correction;
       }
-    } else if (s.vx < 0) {
-      if (s.x < plat.x + plat.width && s.x + s.width > plat.x && s.y + s.height > plat.y + 5 && s.y < plat.y + plat.height - 5) {
-        s.x = plat.x + plat.width; s.vx = 0;
-      }
+
+      if (plat.type === 'ice') state.onIce = true;
+      continue;
     }
 
-    if (s.vy > 0) {
-      if (s.y + s.height > plat.y && s.y < plat.y + plat.height && s.x + s.width > plat.x + 5 && s.x < plat.x + plat.width - 5) {
-        s.y = plat.y - s.height;
-        s.vy = 0;
-        s.onGround = true;
-        s.jumping = false;
-        if (plat.type === 'ice') state.onIce = true;
-      }
-    } else if (s.vy < 0) {
-      if (s.y < plat.y + plat.height && s.y + s.height > plat.y && s.x + s.width > plat.x + 5 && s.x < plat.x + plat.width - 5) {
-        s.y = plat.y + plat.height;
-        s.vy = 0;
-      }
+    if (s.vy < 0 && prevTop >= plat.y + plat.height - 15 && currentTop <= plat.y + plat.height && overlapX) {
+      s.y = plat.y + plat.height;
+      s.vy = 0;
+      continue;
+    }
+
+    if (s.vx > 0 && prevRight <= plat.x + 15 && currentRight >= plat.x && overlapY) {
+      s.x = plat.x - s.width;
+      s.vx = 0;
+      continue;
+    }
+
+    if (s.vx < 0 && prevLeft >= plat.x + plat.width - 15 && currentLeft <= plat.x + plat.width && overlapY) {
+      s.x = plat.x + plat.width;
+      s.vx = 0;
     }
   }
 
   // EnvObject collisions (crates, etc)
   for (const obj of state.envObjects) {
     if (!obj.solid || obj.state === 'destroyed' || obj.state === 'collected') continue;
+    const currentLeft = s.x;
+    const currentRight = s.x + s.width;
+    const currentTop = s.y;
+    const currentBottom = s.y + s.height;
+    const prevLeft = prevX;
+    const prevRight = prevX + s.width;
+    const prevTop = prevY;
+    const prevBottom = prevY + s.height;
+    const overlapX = currentRight > obj.x + 2 && currentLeft < obj.x + obj.width - 2;
+    const overlapY = currentBottom > obj.y + 2 && currentTop < obj.y + obj.height - 2;
 
-    // Top collision
-    if (s.vy > 0 && s.y + s.height > obj.y && s.y < obj.y + 10 && s.x + s.width > obj.x + 5 && s.x < obj.x + obj.width - 5) {
+    if (s.vy >= 0 && prevBottom <= obj.y + 15 && currentBottom >= obj.y && overlapX) {
       s.y = obj.y - s.height;
       s.vy = 0;
       s.onGround = true;
       s.jumping = false;
+      continue;
     }
-    // Bottom collision
-    if (s.vy < 0 && s.y > obj.y + obj.height - 10 && s.y < obj.y + obj.height && s.x + s.width > obj.x + 5 && s.x < obj.x + obj.width - 5) {
+    if (s.vy < 0 && prevTop >= obj.y + obj.height - 15 && currentTop <= obj.y + obj.height && overlapX) {
       s.y = obj.y + obj.height;
       s.vy = 0;
+      continue;
     }
-    // Side collision
-    if (s.y + s.height > obj.y + 5 && s.y < obj.y + obj.height - 5) {
-      if (s.x + s.width > obj.x && s.x + s.width < obj.x + obj.width / 2 && s.vx > 0) {
-        s.x = obj.x - s.width; s.vx = 0;
-      }
-      if (s.x < obj.x + obj.width && s.x > obj.x + obj.width / 2 && s.vx < 0) {
-        s.x = obj.x + obj.width; s.vx = 0;
-      }
+    if (s.vx > 0 && prevRight <= obj.x + 15 && currentRight >= obj.x && overlapY) {
+      s.x = obj.x - s.width;
+      s.vx = 0;
+      continue;
+    }
+    if (s.vx < 0 && prevLeft >= obj.x + obj.width - 15 && currentLeft <= obj.x + obj.width && overlapY) {
+      s.x = obj.x + obj.width;
+      s.vx = 0;
     }
   }
 }

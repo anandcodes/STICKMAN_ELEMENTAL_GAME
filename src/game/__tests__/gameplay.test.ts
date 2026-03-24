@@ -2,6 +2,7 @@ import { test, expect } from 'vitest';
 
 import { update, createInitialState } from '../engine';
 import { loadSave } from '../persistence';
+import { buildRestartLevelState } from '../stateFactory';
 import { handleElementInteraction, updateProjectiles } from '../systems/combat';
 import { setMockAudioContext, setMockStorage, withMockedRandom } from './testHelpers';
 import type { Projectile } from '../types';
@@ -181,4 +182,35 @@ test('dashing into an enemy deals dash impact damage and can secure a kill', () 
   expect(state.enemies[0].state).toBe('dead');
   expect(state.enemiesDefeated).toBe(1);
   expect(state.stickman.health).toBe(state.stickman.maxHealth);
+});
+
+test('early levels widen terrain and reduce enemy density after repeated deaths', () => {
+  setMockStorage();
+
+  const baseline = createInitialState(1, 0, 0, 'normal', 0);
+  const assisted = createInitialState(1, 0, 0, 'normal', 4);
+
+  expect(assisted.balanceCurve.phase).toBe('teach');
+  expect(assisted.assistTier).toBe(2);
+  expect(assisted.platforms[1].width).toBeGreaterThan(baseline.platforms[1].width);
+  expect(assisted.balanceCurve.enemyDensityMultiplier).toBeLessThan(baseline.balanceCurve.enemyDensityMultiplier);
+  expect(assisted.checkpoints.length).toBeGreaterThanOrEqual(baseline.checkpoints.length);
+});
+
+test('restart state respawns from unlocked checkpoint while preserving adaptive assist', () => {
+  setMockStorage();
+
+  const current = createInitialState(2, 0, 0, 'normal', 3);
+  current.screen = 'playing';
+  current.showLevelIntro = false;
+  current.checkpointIndex = Math.min(1, current.checkpoints.length - 1);
+  current.respawnPoint = { ...current.checkpoints[current.checkpointIndex] };
+
+  const restarted = buildRestartLevelState(current, 0);
+
+  expect(restarted.deathStreak).toBe(current.deathStreak);
+  expect(restarted.checkpointIndex).toBe(current.checkpointIndex);
+  expect(restarted.stickman.x).toBe(restarted.checkpoints[restarted.checkpointIndex].x);
+  expect(restarted.stickman.y).toBe(restarted.checkpoints[restarted.checkpointIndex].y);
+  expect(restarted.balanceCurve.showGuides).toBe(true);
 });

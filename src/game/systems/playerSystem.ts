@@ -13,36 +13,56 @@ export function handlePlayerInput(state: GameState) {
 
   // Input handling
   s.walking = false;
-  let targetVx = 0;
-  if (state.keys.has('a') || state.keys.has('arrowleft')) {
-    targetVx -= MOVE_SPEED;
+  const keyboardAxis = (state.keys.has('d') || state.keys.has('arrowright') ? 1 : 0)
+    - (state.keys.has('a') || state.keys.has('arrowleft') ? 1 : 0);
+  const moveAxis = keyboardAxis !== 0 ? keyboardAxis : state.moveInputX;
+
+  // Dead-zone: ignore tiny floating-point residue from joystick
+  const effectiveAxis = Math.abs(moveAxis) < 0.08 ? 0 : moveAxis;
+
+  if (effectiveAxis < 0) {
     s.facing = -1;
     s.walking = true;
   }
-  if (state.keys.has('d') || state.keys.has('arrowright')) {
-    targetVx += MOVE_SPEED;
+  if (effectiveAxis > 0) {
     s.facing = 1;
     s.walking = true;
   }
 
   if (s.walking) {
-    if (targetVx > 0 && s.vx < MAX_SPEED) {
-      s.vx = Math.min(MAX_SPEED, s.vx + targetVx);
-    } else if (targetVx < 0 && s.vx > -MAX_SPEED) {
-      s.vx = Math.max(-MAX_SPEED, s.vx + targetVx);
+    // Target-based velocity: smoothly accelerate toward desired speed
+    const targetVx = effectiveAxis * MAX_SPEED;
+    const accel = MOVE_SPEED * (0.7 + Math.abs(effectiveAxis) * 0.3);
+    if (targetVx > s.vx) {
+      s.vx = Math.min(targetVx, s.vx + accel);
+    } else if (targetVx < s.vx) {
+      s.vx = Math.max(targetVx, s.vx - accel);
     }
+  } else if (!s.isDashing) {
+    // No input: apply friction even in the air to prevent drift
+    const airFriction = s.onGround ? 0.82 : 0.95;
+    s.vx *= airFriction;
+    if (Math.abs(s.vx) < 0.15) s.vx = 0;
   }
 
   // Jump buffering
   if (state.keys.has('w') || state.keys.has('arrowup') || state.keys.has(' ')) {
-    s.jumpBufferTimer = 6;
+    s.jumpBufferTimer = state.balanceCurve.jumpBufferFrames;
     state.keys.delete('w'); state.keys.delete('arrowup'); state.keys.delete(' ');
   } else if (s.jumpBufferTimer > 0) {
     s.jumpBufferTimer--;
   }
 
+  if (state.dashBufferFrames > 0) {
+    state.dashBufferFrames--;
+  }
+
+  if (state.keys.has('shift') || state.keys.has('q')) {
+    state.dashBufferFrames = Math.max(state.dashBufferFrames, state.balanceCurve.dashBufferFrames);
+  }
+
   // Dash input
-  if ((state.keys.has('shift') || state.keys.has('q')) && s.dashCooldown <= 0 && s.mana >= DASH_MANA_COST) {
+  if (state.dashBufferFrames > 0 && s.dashCooldown <= 0 && s.mana >= DASH_MANA_COST) {
     s.isDashing = true;
     s.dashTimer = DASH_BASE_DURATION + (state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE);
     s.dashCooldown = DASH_BASE_COOLDOWN;
@@ -54,30 +74,31 @@ export function handlePlayerInput(state: GameState) {
     Audio.playDash();
     vibrate(state, 40);
     spawnParticles(state, s.x + s.width / 2, s.y + s.height / 2, 'wind', 15);
+    state.dashBufferFrames = 0;
     state.keys.delete('shift'); state.keys.delete('q');
   }
 }
 
-export function updatePlayer(state: GameState) {
+export function updatePlayer(state: GameState, _dt = 1) {
   const s = state.stickman;
 
   // Coyote timer
   if (s.onGround) {
-    s.coyoteTimer = 6;
+    s.coyoteTimer = state.balanceCurve.coyoteFrames;
     s.jumpsUsed = 0;
   } else {
     if (s.coyoteTimer > 0) s.coyoteTimer--;
     else if (s.jumpsUsed === 0) s.jumpsUsed = 1; // walk off ledge
   }
 
-  const maxJumps = 1 + (state.upgrades.doubleJumpLevel > 0 ? 1 : 0);
+  const maxJumps = 1 + (state.upgrades.doubleJumpLevel > 0 ? 1 : 0) + (state.selectedElement === 'wind' ? 1 : 0);
   const canJump = (s.coyoteTimer > 0 && s.jumpsUsed === 0) || (!s.onGround && s.jumpsUsed < maxJumps);
 
   if (s.jumpBufferTimer > 0 && canJump) {
     let jf = JUMP_FORCE;
-    if (state.selectedElement === 'wind' && state.activeRelics.some(r => r.type === 'storm_crown')) {
-      jf *= 1.2;
-    }
+    if (state.selectedElement === 'earth') jf *= 0.9;
+    if (state.selectedElement === 'wind') jf *= 1.05;
+    if (state.selectedElement === 'wind' && state.activeRelics.some(r => r.type === 'storm_crown')) jf *= 1.2;
     s.vy = jf;
     s.onGround = false;
     s.jumping = true;

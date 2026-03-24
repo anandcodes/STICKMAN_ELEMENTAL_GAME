@@ -1,4 +1,4 @@
-import type { GameState, Element, Difficulty, TutorialHint } from './types';
+import type { GameState, Element, Difficulty, TutorialHint, Vec2 } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, vibrate } from './systems/utils';
@@ -17,6 +17,7 @@ import { getRandomRelics, applyRelicEffects } from './relics';
 import { startTrial, endTrial } from './systems/trials';
 import { particlePool, projectilePool } from './services/poolManager';
 import { BASE_CANVAS_W, BASE_CANVAS_H, DIFFICULTY_SETTINGS, getDifficultyForLevel } from './constants';
+import { getRespawnPoint, scaleLevelForProgression } from './difficultyCurve';
 
 let CANVAS_W = BASE_CANVAS_W;
 let CANVAS_H = BASE_CANVAS_H;
@@ -36,8 +37,23 @@ function createTutorialHints(level: number): TutorialHint[] {
   ];
 }
 
-export function createInitialState(level = 0, score = 0, highScore = 0, difficulty: Difficulty = 'normal'): GameState {
-  const def = getLevel(level);
+export function createInitialState(
+  level = 0,
+  score = 0,
+  highScore = 0,
+  difficulty: Difficulty = 'normal',
+  deathStreak = 0,
+  checkpointIndex = 0,
+  requestedRespawnPoint?: Vec2,
+): GameState {
+  const { levelDef: def, balanceCurve, checkpoints, assistTier } = scaleLevelForProgression(
+    getLevel(level),
+    level,
+    deathStreak,
+  );
+  const respawnPoint = requestedRespawnPoint
+    ? { ...requestedRespawnPoint }
+    : getRespawnPoint(checkpoints, checkpointIndex, def.playerStart);
 
   // Level-based difficulty scaling for campaign (except menu/survival)
   const isCampaign = level > 0 && level < 15;
@@ -50,7 +66,7 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
   const upg = savedData.upgrades;
 
   const stickman = {
-    x: def.playerStart.x, y: def.playerStart.y,
+    x: respawnPoint.x, y: respawnPoint.y,
     vx: 0, vy: 0, width: 24, height: 50,
     onGround: false, facing: 1 as const,
     jumpsUsed: 0,
@@ -100,10 +116,18 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     gemsRequired: def.gemsRequired,
     totalGems: def.totalGems,
     keys: new Set(),
+    moveInputX: 0,
+    moveInputY: 0,
     mousePos: { x: 0, y: 0 },
     mouseDown: false,
     isAiming: false,
     aimAngle: 0,
+    aimAssistTargetId: undefined,
+    aimAssistWeight: 0,
+    touchAimActive: false,
+    shootQueued: false,
+    buttonFireActive: false,
+    dashBufferFrames: 0,
     castCooldown: 0,
     wind: { active: false, direction: 0, timer: 0 },
     backgroundStars: bgStars,
@@ -128,6 +152,12 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     screenShake: 0,
     floatingTexts: [],
     difficulty: actualDifficulty,
+    balanceCurve,
+    deathStreak,
+    assistTier,
+    checkpoints,
+    checkpointIndex: clampCheckpointIndex(checkpointIndex, checkpoints.length),
+    respawnPoint,
     upgrades: upg,
     onIce: false,
     shopTab: 'upgrades',
@@ -157,7 +187,24 @@ export function createInitialState(level = 0, score = 0, highScore = 0, difficul
     relicChoices: [],
     trialActive: false,
     shockwaves: [],
+    ultimateReady: false,
+    ultimateTrigger: false,
+    elementMastery: {},
+    slowmoTimer: 0,
+    slowmoFactor: 1,
+    ultimateHintShown: false,
+    bossDefeated: false,
+    endingShown: false,
+    favoriteElement: undefined,
+    elementUsage: { fire: 0, water: 0, earth: 0, wind: 0 },
+    continueButton: undefined,
+    menuParallax: { x: 0, y: 0 },
+    screenTransition: undefined,
   };
+}
+
+function clampCheckpointIndex(index: number, length: number): number {
+  return Math.max(0, Math.min(index, Math.max(0, length - 1)));
 }
 
 function getUnlockedElements(level: number): Element[] {
@@ -223,6 +270,46 @@ function spawnProjectile(state: GameState) {
     s.vx -= vx * 2;
     s.vy -= vy * 2;
   }
+
+  // Track favorite element usage
+  state.elementUsage = state.elementUsage || { fire: 0, water: 0, earth: 0, wind: 0 };
+  state.elementUsage[state.selectedElement] = (state.elementUsage[state.selectedElement] || 0) + 1;
+}
+
+function triggerElementalBurst(state: GameState) {
+  const s = state.stickman;
+  const burstElement = state.selectedElement;
+  const cx = s.x + s.width / 2;
+  const cy = s.y + s.height / 2;
+  spawnParticles(state, cx, cy, burstElement, 40);
+  state.shockwaves.push({ x: cx, y: cy, radius: 40, life: 18, color: '#ffe0b3' });
+  for (const enemy of state.enemies) {
+    if (enemy.state !== 'dead') {
+      enemy.health = 0;
+      enemy.state = 'dead';
+      enemy.hurtTimer = 30;
+      spawnFloatingText(state, enemy.x + enemy.width / 2, enemy.y, 'BURST!', '#ffd06a', 14);
+    }
+  }
+  state.screenShake = Math.max(state.screenShake, 28);
+  s.mana = 0;
+  state.ultimateTrigger = false;
+  state.ultimateReady = false;
+  state.slowmoTimer = 30;
+  state.slowmoFactor = 0.1;
+  const hasGuardian = state.enemies.some((e) => e.type === 'guardian_aether');
+  const isFinalLevel = state.currentLevel >= TOTAL_LEVELS - 1;
+  if (state.enemies.every((e) => e.state === 'dead') && (hasGuardian || isFinalLevel)) {
+    state.bossDefeated = true;
+    state.screen = 'victory';
+    state.slowmoTimer = 0;
+    state.slowmoFactor = 1;
+    // Set favorite element summary
+    if (state.elementUsage) {
+      const sorted = Object.entries(state.elementUsage).sort((a, b) => b[1] - a[1]);
+      state.favoriteElement = sorted[0]?.[0] as Element;
+    }
+  }
 }
 
 
@@ -231,7 +318,28 @@ export function update(state: GameState): void {
   if (state.screen !== 'playing') {
     state.screenTimer++;
     updateFloatingTexts(state);
+
+    if (state.screenTransition?.active) {
+      state.screenTransition.timer++;
+      if (state.screenTransition.timer >= state.screenTransition.duration) {
+        if (state.screenTransition.phase === 'out') {
+          state.screen = state.screenTransition.target;
+          state.screenTimer = 0;
+          state.screenTransition.phase = 'in';
+          state.screenTransition.timer = 0;
+        } else {
+          state.screenTransition.active = false;
+        }
+      }
+    }
+
     if (state.screen === 'relicSelection') return;
+    if (state.screen === 'victory') {
+      state.endingShown = true;
+    }
+    if (state.screenTimer === 1 && (state.screen === 'map' || state.screen === 'skillTree')) {
+      Audio.playStoneOpen();
+    }
 
     if (state.screen === 'levelComplete' && state.screenTimer === 1) {
       state.furthestLevel = Math.max(state.furthestLevel, state.currentLevel + 1);
@@ -242,6 +350,11 @@ export function update(state: GameState): void {
 
   // IMP-1: Pause check
   if (state.paused) return;
+
+  if (state.slowmoTimer && state.slowmoTimer > 0) {
+    state.slowmoTimer--;
+    if (state.slowmoTimer <= 0) state.slowmoFactor = 1;
+  }
 
   state.timeElapsed++;
   applyRelicEffects(state);
@@ -279,16 +392,39 @@ export function update(state: GameState): void {
   if (state.deathAnimTimer > 0) {
     state.keys.clear();
     state.mouseDown = false;
+    state.moveInputX = 0;
+    state.moveInputY = 0;
   }
 
-  // Input & Player update
+  // Input & Player update (inputs run at full rate; movement scaled via dt)
   handlePlayerInput(state);
-  updatePlayer(state);
+  const dt = state.slowmoFactor || 1;
+  updatePlayer(state, dt);
+  const prevUltimate = state.ultimateReady;
+  state.ultimateReady = state.stickman.mana >= state.stickman.maxMana - 0.001;
+  if (!prevUltimate && state.ultimateReady) {
+    Audio.playUltimateReady();
+    if (!state.ultimateHintShown) {
+      state.activeDialog = [{ speaker: 'ANCIENT VOICE', text: 'Your mana overflows. Tap the runic center to unleash your elemental burst.' }];
+      state.dialogCharIndex = 0;
+      state.ultimateHintShown = true;
+    }
+  }
+  if (state.ultimateTrigger && state.ultimateReady) {
+    Audio.duckMusicForUltimate();
+    triggerElementalBurst(state);
+  }
 
   // Shooting Logic
   if (state.castCooldown > 0) state.castCooldown--;
 
-  if (state.aimToShoot) {
+  const usingButtonFire = state.buttonFireActive || state.shootQueued;
+
+  if (usingButtonFire && state.castCooldown <= 0) {
+    state.isAiming = true;
+    spawnProjectile(state);
+    state.shootQueued = false;
+  } else if (state.aimToShoot && !state.touchAimActive) {
     if (state.mouseDown && state.castCooldown <= 0) {
       state.isAiming = true;
       const s = state.stickman;
@@ -300,14 +436,20 @@ export function update(state: GameState): void {
       spawnProjectile(state);
     }
   } else {
-    if (state.mouseDown && state.castCooldown <= 0) {
+    if (state.touchAimActive) {
+      state.isAiming = true;
+    } else if (!usingButtonFire) {
+      state.isAiming = false;
+    }
+
+    if (state.mouseDown && state.castCooldown <= 0 && !usingButtonFire) {
       spawnProjectile(state);
     }
   }
 
   // Physics & Collision
   state.onIce = false;
-  applyPhysics(state);
+  applyPhysics(state, dt);
 
   // IMP-15: Tutorial Hint triggers
   for (const hint of state.tutorialHints) {
@@ -336,6 +478,7 @@ export function update(state: GameState): void {
   updateProjectiles(state);
   updateCollectibles(state);
   updateEnvironment(state);
+  updateCheckpointProgress(state);
 
   // Update melting/earth platforms
   for (let i = state.platforms.length - 1; i >= 0; i--) {
@@ -390,10 +533,14 @@ export function update(state: GameState): void {
   }
 
   // Camera follow
-  const targetCamX = s.x - CANVAS_W / 2 + s.width / 2;
-  const targetCamY = Math.min(0, s.y - CANVAS_H / 2);
+  const leadX = Math.max(-120, Math.min(120, s.vx * 20 || s.facing * 40));
+  const fovBoostX = state.selectedElement === 'wind' ? s.facing * 80 : 0;
+  const fovBoostY = state.selectedElement === 'wind' ? -20 : 0;
+  const targetCamX = s.x - CANVAS_W / 2 + s.width / 2 + fovBoostX + leadX;
+  const targetCamY = Math.min(0, s.y - CANVAS_H / 2 + fovBoostY);
   state.camera.x += (targetCamX - state.camera.x) * 0.08;
-  state.camera.y += (targetCamY - state.camera.y) * 0.08;
+  const verticalLerp = state.selectedElement === 'wind' ? 0.06 : 0.08;
+  state.camera.y += (targetCamY - state.camera.y) * verticalLerp;
 
   // Clamp camera to world bounds
   state.camera.x = Math.max(0, Math.min(state.worldWidth - CANVAS_W, state.camera.x));
@@ -441,6 +588,7 @@ function updateParticles(state: GameState) {
 function updateDeathAnimation(state: GameState) {
   const s = state.stickman;
   if (state.deathAnimTimer === 0) {
+    state.deathStreak++;
     state.screenShake = 20;
     trackEvent('player_death', {
       mode: state.endlessWave !== undefined ? 'endless' : 'campaign',
@@ -486,6 +634,16 @@ function updateDeathAnimation(state: GameState) {
   }
 }
 
+function updateCheckpointProgress(state: GameState) {
+  const nextCheckpoint = state.checkpoints[state.checkpointIndex + 1];
+  if (!nextCheckpoint) return;
+  if (state.stickman.x + state.stickman.width / 2 < nextCheckpoint.x) return;
+
+  state.checkpointIndex++;
+  state.respawnPoint = { ...nextCheckpoint };
+  spawnFloatingText(state, nextCheckpoint.x, nextCheckpoint.y - 16, 'CHECKPOINT', '#7fe8ff', 14);
+}
+
 function updateWaveDirector(state: GameState) {
   const s = state.stickman;
   state.endlessTimer!++;
@@ -511,7 +669,7 @@ function updateWaveDirector(state: GameState) {
     const isTitanWave = state.endlessWave! % 15 === 0;
     const numEnemies = isBossWave
       ? (isTitanWave ? 1 : 1 + Math.floor(state.endlessWave! / 10))
-      : Math.min(20, 3 + Math.floor(state.endlessWave! * 1.2));
+      : Math.min(20, Math.max(2, Math.round((3 + Math.floor(state.endlessWave! * 1.2)) * state.balanceCurve.enemyDensityMultiplier)));
 
     for (let i = 0; i < numEnemies; i++) {
       const spawnX = 100 + Math.random() * (state.worldWidth - 200);

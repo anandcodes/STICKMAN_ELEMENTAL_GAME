@@ -13,6 +13,7 @@ export function render(
   H: number,
   isMobile: boolean = false,
   isPortraitMobile: boolean = false,
+  compactMobileLayout: boolean = false,
 ): void {
   const nowMs = performance.now();
   const shakeX = (Math.random() - 0.5) * state.screenShake * 2;
@@ -35,6 +36,6 @@ export function render(
     ctx.translate(hudFollowX + uiShakeX, hudFollowY + uiShakeY);
   }
 
-  drawUIRenderer(ctx, state, W, H, nowMs, isMobile, isPortraitMobile);
+  drawUIRenderer(ctx, state, W, H, nowMs, isMobile, isPortraitMobile, compactMobileLayout);
   ctx.restore();
 }

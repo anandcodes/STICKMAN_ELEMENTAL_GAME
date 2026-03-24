@@ -200,12 +200,20 @@ function queueSync(save: SaveData): void {
 }
 
 async function postSync(cfg: CloudConfig, payload: CloudSyncPayload): Promise<void> {
-  await fetch(cfg.endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    keepalive: true,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+  
+  try {
+    await fetch(cfg.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function flushCloudSyncQueue(): Promise<void> {
@@ -256,10 +264,21 @@ async function readRemoteSave(cfg: CloudConfig): Promise<SaveData | null> {
   const url = new URL(cfg.endpoint, baseOrigin);
   url.searchParams.set('accountId', accountId);
 
-  const response = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
-  if (!response.ok) return null;
-  const json = await response.json() as unknown;
-  return extractRemoteSave(json);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+  
+  try {
+    const response = await fetch(url.toString(), { 
+      method: 'GET', 
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const json = await response.json() as unknown;
+    return extractRemoteSave(json);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function hasMeaningfulSaveDelta(a: SaveData, b: SaveData): boolean {

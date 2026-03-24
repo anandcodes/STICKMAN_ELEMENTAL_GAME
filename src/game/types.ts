@@ -1,5 +1,5 @@
 export type Element = 'fire' | 'water' | 'earth' | 'wind';
-export type GameScreen = 'menu' | 'levelSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'challenges' | 'survivalDifficulty' | 'relicSelection' | 'settings';
+export type GameScreen = 'menu' | 'levelSelect' | 'playing' | 'levelComplete' | 'gameOver' | 'victory' | 'shop' | 'challenges' | 'survivalDifficulty' | 'relicSelection' | 'settings' | 'map' | 'skillTree';
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'insane';
 export type ShopTab = 'upgrades' | 'skins' | 'powerups' | 'currency' | 'special' | 'relics';
 export type Locale = 'en' | 'hi';
@@ -45,11 +45,12 @@ export interface EnvObject {
   currentSpeed?: number;  // for water_current
   dialogue?: DialogNode[]; // for lore_tome
   energyTimer?: number; // for corrupted_crystal pulse
+  hintTimer?: number; // for hint display timers
 }
 
 export interface Enemy {
   id: number;
-  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'tree_guardian' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk' | 'corrupted_wraith' | 'void_brute' | 'void_titan';
+  type: 'slime' | 'bat' | 'golem' | 'fire_spirit' | 'ice_spirit' | 'boss1' | 'boss2' | 'tree_guardian' | 'shadow_wolf' | 'lava_crab' | 'thunder_hawk' | 'corrupted_wraith' | 'void_brute' | 'void_titan' | 'guardian_aether';
   x: number; y: number; width: number; height: number;
   vx: number; vy: number;
   health: number; maxHealth: number;
@@ -67,6 +68,10 @@ export interface Enemy {
   attackTimer?: number; // For boss attacks
   chargeTimer?: number; // For brute dashes
   phase?: number;       // For boss phases
+  burnTimer?: number;
+  shieldBroken?: boolean;
+  stunTimer?: number;
+  invulnerable?: boolean;
 }
 
 export interface Platform {
@@ -116,6 +121,7 @@ export interface FloatingText {
   life: number;
   maxLife: number;
   size: number;
+  wiggle?: boolean;
 }
 
 export interface Upgrades {
@@ -149,6 +155,28 @@ export interface DifficultySettings {
   manaRegenRate: number;
   label: string;
   color: string;
+}
+
+export interface Checkpoint {
+  x: number;
+  y: number;
+}
+
+export interface LevelBalanceCurve {
+  phase: 'teach' | 'test' | 'twist' | 'master';
+  platformWidthMultiplier: number;
+  gapDistanceMultiplier: number;
+  hazardSpeedMultiplier: number;
+  enemyDensityMultiplier: number;
+  verticalityFactor: number;
+  checkpointInterval: number;
+  movingPlatformFrequency: number;
+  coyoteFrames: number;
+  jumpBufferFrames: number;
+  dashBufferFrames: number;
+  landingAssist: number;
+  safeLandingWidth: number;
+  showGuides: boolean;
 }
 
 export interface TutorialHint {
@@ -239,10 +267,18 @@ export interface GameState {
   gemsRequired: number;
   totalGems: number;
   keys: Set<string>;
+  moveInputX: number;
+  moveInputY: number;
   mousePos: Vec2;
   mouseDown: boolean;
   isAiming?: boolean;   // Current aiming state
   aimAngle?: number;    // Current aim direction
+  aimAssistTargetId?: number;
+  aimAssistWeight: number;
+  touchAimActive: boolean;
+  shootQueued: boolean;
+  buttonFireActive: boolean;
+  dashBufferFrames: number;
   castCooldown: number;
   wind: { active: boolean; direction: number; timer: number };
   backgroundStars: { x: number; y: number; size: number; twinkle: number; speed?: number }[];
@@ -266,7 +302,14 @@ export interface GameState {
   paused: boolean;
   screenShake: number; // frames remaining
   floatingTexts: FloatingText[];
+  floatingTextsPool?: FloatingText[];
   difficulty: Difficulty;
+  balanceCurve: LevelBalanceCurve;
+  deathStreak: number;
+  assistTier: number;
+  checkpoints: Checkpoint[];
+  checkpointIndex: number;
+  respawnPoint: Vec2;
   upgrades: Upgrades;
   onIce: boolean; // IMP-10: currently standing on ice
   tutorialHints: TutorialHint[];
@@ -293,4 +336,24 @@ export interface GameState {
   trialActive: boolean;
   trialElement?: Element;
   shockwaves: { x: number, y: number, radius: number, life: number, color: string }[];
+  ultimateReady: boolean;
+  ultimateTrigger: boolean;
+  elementMastery: Partial<Record<Element, string[]>>;
+  slowmoTimer?: number;
+  slowmoFactor?: number;
+  ultimateHintShown?: boolean;
+  bossDefeated?: boolean;
+  endingShown?: boolean;
+  favoriteElement?: Element;
+  elementUsage?: Record<Element, number>;
+  continueButton?: { x: number; y: number; w: number; h: number };
+  menuParallax?: Vec2;
+  screenTransition?: {
+    active: boolean;
+    timer: number;
+    duration: number;
+    phase: 'out' | 'in';
+    target: GameScreen;
+    mode: 'fade';
+  };
 }
