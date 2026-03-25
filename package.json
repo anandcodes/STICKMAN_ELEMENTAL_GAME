@@ -19,7 +19,12 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "release:tag": "node scripts/create-release-tag.mjs",
-    "release:tag:push": "node scripts/create-release-tag.mjs --push"
+    "release:tag:push": "node scripts/create-release-tag.mjs --push",
+    "mobile:init": "npx cap init",
+    "mobile:add-android": "npx cap add android",
+    "mobile:copy": "npx cap copy",
+    "mobile:sync": "npx cap sync",
+    "mobile:open": "npx cap open android"
   },
   "dependencies": {
     "react": "19.2.3",
