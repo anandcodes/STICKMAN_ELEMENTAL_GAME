@@ -12,10 +12,18 @@ export function level11(): LevelDef {
         { x: 550, y: 380, width: 120, height: 20, type: 'stone' },
         { x: 850, y: 460, width: 140, height: 20, type: 'stone' },
         { x: 1100, y: 350, width: 160, height: 20, type: 'stone' },
+        { x: 1350, y: 350, width: 100, height: 20, type: 'stone', isCrumbling: true, crumbleState: 'idle', crumbleTimer: 0 },
+        { x: 1550, y: 350, width: 100, height: 20, type: 'stone', isCrumbling: true, crumbleState: 'idle', crumbleTimer: 0 },
     ];
+
+    const hazards: import('../types').Hazard[] = [
+        { id: nid(), type: 'laser', x: 700, y: 300, width: 0, height: 280, vx: 2, vy: 0, damage: 0.5, active: true, timer: 0 },
+        { id: nid(), type: 'blade', x: 1400, y: 500, width: 60, height: 60, vx: 0, vy: 0, damage: 1, active: true, timer: 0, angle: 0, angularVelocity: 0.1 },
+    ];
+
     const envObjects: EnvObject[] = [
-        { id: nid(), type: 'fire_pit', x: 420, y: 560, width: 60, height: 20, health: 100, maxHealth: 100, state: 'burning', solid: false },
-        { id: nid(), type: 'puddle', x: 820, y: 570, width: 60, height: 10, health: 100, maxHealth: 100, state: 'normal', solid: false },
+        { id: nid(), type: 'magma_pool', x: 420, y: 560, width: 80, height: 20, health: 100, maxHealth: 100, state: 'magma', solid: false },
+        { id: nid(), type: 'mud_trap', x: 820, y: 570, width: 60, height: 10, health: 100, maxHealth: 100, state: 'mud', solid: false },
         { id: nid(), type: 'fire_pit', x: 1520, y: 560, width: 60, height: 20, health: 100, maxHealth: 100, state: 'burning', solid: false },
         makeGem(250, 430), makeGem(600, 360), makeGem(900, 440), makeGem(1150, 330),
         makeGem(1400, 560), makeGem(100, 560),
@@ -31,7 +39,7 @@ export function level11(): LevelDef {
         name: 'Ch 3 - The Shattered Rift', subtitle: 'Void crystals drain your mana!',
         worldWidth: 2200, worldHeight: 700,
         bgColors: ['#ff66cc', '#ff99dd', '#ffccff', '#ff99dd'], // Candy pink sky
-        platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
+        platforms, envObjects, enemies, hazards, playerStart: { x: 60, y: 480 },
         gemsRequired: 5, totalGems: 6, elementHint: 'Watch out for Corrupted Crystals!',
         powerups: [], timeLimit: 0,
     };
@@ -62,7 +70,7 @@ export function level12(): LevelDef {
         name: 'Ch 3 - Corrupted Citadel', subtitle: 'Teleporting wraiths roam the void',
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#99ff99', '#ccffcc', '#eeffff', '#99ff99'], // Vivid mint
-        platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
+        platforms, envObjects, enemies, hazards: [], playerStart: { x: 60, y: 480 },
         gemsRequired: 4, totalGems: 5, elementHint: 'Stay mobile to dodge the Wraiths.',
         powerups: [], timeLimit: 0,
     };
@@ -89,7 +97,7 @@ export function level13(): LevelDef {
         name: 'Ch 3 - The Lava Caldera', subtitle: 'Magma pools and Void Brutes abound',
         worldWidth: 2600, worldHeight: 700,
         bgColors: ['#ffcc00', '#ffee66', '#ffffaa', '#ffee66'], // Golden noon
-        platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
+        platforms, envObjects, enemies, hazards: [], playerStart: { x: 60, y: 480 },
         gemsRequired: 3, totalGems: 4, elementHint: 'Dodge the charging Brutes!',
         powerups: [], timeLimit: 0,
     };
@@ -122,7 +130,7 @@ export function level14(): LevelDef {
         name: 'Ch 3 - The Convergence Zone', subtitle: 'All elements collide in the void',
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#55ccff', '#88ddff', '#bbffff', '#55ccff'], // Crystalline blue
-        platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
+        platforms, envObjects, enemies, hazards: [], playerStart: { x: 60, y: 480 },
         gemsRequired: 4, totalGems: 5, elementHint: 'Use elemental synergies to survive.',
         powerups: [], timeLimit: 0,
     };
@@ -150,7 +158,7 @@ export function level15(): LevelDef {
         name: 'Ch 3 - The Void Titan (Final Boss)', subtitle: 'The end of the campaign',
         worldWidth: 3000, worldHeight: 700,
         bgColors: ['#ff5588', '#ff88aa', '#ffbbcc', '#ff5588'], // Bubblegum neon
-        platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
+        platforms, envObjects, enemies, hazards: [], playerStart: { x: 60, y: 480 },
         gemsRequired: 3, totalGems: 3, elementHint: 'Match your magic to the Titan\'s glowing orb weakness!',
         powerups: [], timeLimit: 0,
     };

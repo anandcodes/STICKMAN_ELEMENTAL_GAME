@@ -468,6 +468,22 @@ function App() {
         upg[field] = upg[field] + 1;
         saveProgress(s);
         Audio.playGemCollect?.();
+        
+        // Visual Feedback: Burst of particles & shake
+        s.screenShake = 15;
+        for (let i = 0; i < 20; i++) {
+          s.uiParticles.push({
+            x: CANVAS_W / 2,
+            y: 300,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 30,
+            maxLife: 30,
+            size: Math.random() * 4 + 2,
+            color: i % 2 === 0 ? '#ffd700' : '#ffffff'
+          });
+        }
+
         spawnFloatingText(s, CANVAS_W / 2, 100, tr(s, 'shop_purchase_success'), '#8bffaf', 20);
       } else {
         Audio.playPause(); // Error sound

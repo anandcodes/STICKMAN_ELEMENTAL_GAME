@@ -36,6 +36,7 @@ export function updateCollectibles(state: GameState) {
     if (obj.type === 'health_potion') {
       obj.state = 'collected';
       s.health = Math.min(s.maxHealth, s.health + 40);
+      s.lastHealTime = state.timeElapsed; // UI Feedback
       spawnParticles(state, obj.x + 8, obj.y + 10, 'fire', 10);
       addScore(state, 10);
       Audio.playPotionCollect();
@@ -50,6 +51,7 @@ export function updateCollectibles(state: GameState) {
     if (obj.type === 'mana_crystal') {
       obj.state = 'collected';
       s.mana = Math.min(s.maxMana, s.mana + 50);
+      s.lastHealTime = state.timeElapsed; // Reuse for mana feedback too
       spawnParticles(state, obj.x + 8, obj.y + 10, 'water', 10);
       addScore(state, 10);
       Audio.playPotionCollect();

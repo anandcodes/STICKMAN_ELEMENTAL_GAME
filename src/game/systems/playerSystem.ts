@@ -84,6 +84,15 @@ export function handlePlayerInput(state: GameState) {
     state.dashBufferFrames = 0;
     state.keys.delete('shift'); state.keys.delete('q');
   }
+
+  // Ultimate input
+  if (state.keys.has('r') && s.ultCharge >= 100 && !s.ultActive) {
+    s.ultActive = true;
+    s.ultTimer = 180; // 3 seconds @ 60fps
+    s.ultCharge = 0;
+    state.keys.delete('r');
+    // Actual effect logic will be in engine/ultimates
+  }
 }
 
 export function updatePlayer(state: GameState, _dt = 1) {
@@ -110,6 +119,7 @@ export function updatePlayer(state: GameState, _dt = 1) {
     s.onGround = false;
     s.jumping = true;
     s.jumpsUsed++;
+    s.jumpSquash = 10;
     s.jumpBufferTimer = 0;
     s.coyoteTimer = 0;
     Audio.playJump();
@@ -135,7 +145,13 @@ export function updatePlayer(state: GameState, _dt = 1) {
   const regenBonus = 1 + (state.upgrades.regenLevel * 0.4);
   s.mana = Math.min(s.maxMana, s.mana + ds * regenBonus);
 
-  // Invincibility
+  // Invincibility & Animation Timers
   if (s.invincibleTimer > 0) s.invincibleTimer--;
   if (s.hurtTimer > 0) s.hurtTimer--;
+  if (s.landTimer > 0) s.landTimer--;
+  if (s.jumpSquash > 0) s.jumpSquash--;
+  if (s.ultTimer > 0) {
+    s.ultTimer--;
+    if (s.ultTimer <= 0) s.ultActive = false;
+  }
 }

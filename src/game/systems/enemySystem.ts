@@ -97,6 +97,7 @@ export function updateEnemies(state: GameState): void {
             s.health -= enemy.damage * diff.enemyDamageMult;
             s.invincibleTimer = 60;
             s.hurtTimer = 15;
+            s.lastDamageTime = state.timeElapsed; // UI Feedback
             state.redFlash = 10;
             state.screenShake = 10;
             if (state.selectedElement === 'earth') {

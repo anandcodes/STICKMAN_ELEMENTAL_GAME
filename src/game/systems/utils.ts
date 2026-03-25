@@ -162,6 +162,10 @@ export function handleEnemyHit(state: GameState, proj: import('../types').Projec
         fire: '#ff9a56', water: '#6bc4ff', earth: '#b58a52', wind: '#e7f7ff',
     };
 
+    const s = state.stickman;
+    const chargeGain = (elem === enemy.weakness ? 3 : 1);
+    s.ultCharge = Math.min(100, (s.ultCharge || 0) + chargeGain);
+
     if (elem === enemy.weakness) {
         dmg = 35 * dmgMul;
         spawnParticles(state, enemy.x + enemy.width / 2, enemy.y, elem, 20);

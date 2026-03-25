@@ -1,5 +1,6 @@
 import type { GameState, Element, Difficulty, TutorialHint, Vec2, WeatherType } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
+import { updateHazards } from './systems/hazardSystem';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, vibrate } from './systems/utils';
 import { updateEnemies } from './systems/enemySystem';
@@ -18,6 +19,7 @@ import { startTrial, endTrial } from './systems/trials';
 import { particlePool, projectilePool } from './services/poolManager';
 import { BASE_CANVAS_W, BASE_CANVAS_H, DIFFICULTY_SETTINGS, getDifficultyForLevel } from './constants';
 import { getRespawnPoint, scaleLevelForProgression } from './difficultyCurve';
+import { updateUltimates } from './systems/ultimates';
 
 let CANVAS_W = BASE_CANVAS_W;
 let CANVAS_H = BASE_CANVAS_H;
@@ -83,6 +85,13 @@ export function createInitialState(
     dashCooldown: 0,
     dashTimer: 0,
     isDashing: false,
+    lastDamageTime: -100,
+    lastHealTime: -100,
+    landTimer: 0,
+    jumpSquash: 0,
+    ultCharge: 0,
+    ultActive: false,
+    ultTimer: 0,
   };
 
   const bgStars = Array.from({ length: 80 }, () => ({
@@ -105,9 +114,11 @@ export function createInitialState(
     platforms: [...def.platforms],
     envObjects: [...def.envObjects],
     enemies: [...def.enemies],
+    hazards: [],
     powerups: [...(def.powerups || [])],
     projectiles: [],
     particles: [],
+    uiParticles: [],
     activePowerups: { speedTimer: 0, shieldTimer: 0, rapidfireTimer: 0 },
     selectedElement: 'fire',
     unlockedElements: getUnlockedElements(level),
@@ -418,6 +429,9 @@ export function update(state: GameState): void {
 
   const s = state.stickman;
 
+  // Hazards & Environmental Updates
+  updateHazards(state, 1);
+
   // Tutorial system update
   updateTutorial(state);
 
@@ -502,6 +516,7 @@ export function update(state: GameState): void {
   // Physics & Collision
   state.onIce = false;
   applyPhysics(state, dt);
+  updateUltimates(state);
 
   // IMP-15: Tutorial Hint triggers
   for (const hint of state.tutorialHints) {
@@ -577,6 +592,7 @@ export function update(state: GameState): void {
   // Effects & HUD updates
   updateShockwaves(state);
   updateFloatingTexts(state);
+  updateUIParticles(state);
   if (state.screenShake > 0) state.screenShake--;
   if (state.redFlash > 0) state.redFlash--;
   if (state.levelTimer > 0) {
@@ -810,4 +826,18 @@ export function selectRelic(state: GameState, index: number): GameState {
   state.relicChoices = [];
   spawnFloatingText(state, state.stickman.x + state.stickman.width / 2, state.stickman.y - 40, 'RELIC ACQUIRED: ' + relic.name, '#00ffcc', 20);
   return state;
+}
+
+function updateUIParticles(state: GameState) {
+  for (let i = state.uiParticles.length - 1; i >= 0; i--) {
+    const p = state.uiParticles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    p.life--;
+    if (p.life <= 0) {
+      state.uiParticles.splice(i, 1);
+    }
+  }
 }

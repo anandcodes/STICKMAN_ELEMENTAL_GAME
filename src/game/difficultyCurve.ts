@@ -66,19 +66,38 @@ function getBaseCurve(level: number): LevelBalanceCurve {
     };
   }
 
+  if (level <= 20) {
+    return {
+      phase: 'master',
+      platformWidthMultiplier: 0.92,
+      gapDistanceMultiplier: 1.06,
+      hazardSpeedMultiplier: 1.08,
+      enemyDensityMultiplier: 1.08,
+      verticalityFactor: 1.08,
+      checkpointInterval: 760,
+      movingPlatformFrequency: 1,
+      coyoteFrames: 6,
+      jumpBufferFrames: 6,
+      dashBufferFrames: 10,
+      landingAssist: 4,
+      safeLandingWidth: 0,
+      showGuides: false,
+    };
+  }
+
   return {
-    phase: 'master',
-    platformWidthMultiplier: 0.92,
-    gapDistanceMultiplier: 1.06,
-    hazardSpeedMultiplier: 1.08,
-    enemyDensityMultiplier: 1.08,
-    verticalityFactor: 1.08,
-    checkpointInterval: 760,
-    movingPlatformFrequency: 1,
-    coyoteFrames: 6,
-    jumpBufferFrames: 6,
-    dashBufferFrames: 10,
-    landingAssist: 4,
+    phase: 'void',
+    platformWidthMultiplier: 0.88,
+    gapDistanceMultiplier: 1.15,
+    hazardSpeedMultiplier: 1.25,
+    enemyDensityMultiplier: 1.2,
+    verticalityFactor: 1.3,
+    checkpointInterval: 900,
+    movingPlatformFrequency: 1.2,
+    coyoteFrames: 5,
+    jumpBufferFrames: 5,
+    dashBufferFrames: 12,
+    landingAssist: 0,
     safeLandingWidth: 0,
     showGuides: false,
   };

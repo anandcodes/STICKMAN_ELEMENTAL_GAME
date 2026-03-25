@@ -284,6 +284,44 @@ export function playGameOver(): void {
     });
 }
 
+// ===== ULTIMATE SFX =====
+
+export function playExplosion(): void {
+    playNoise(0.5, 0.3, 200);
+    playTone(60, 0.4, 'sawtooth', 0.2);
+}
+
+export function playIceSpikes(): void {
+    for (let i = 0; i < 5; i++) {
+        playTone(1000 + i * 200, 0.1, 'sine', 0.1, 0, i * 0.05);
+    }
+    playNoise(0.15, 0.1, 2000);
+}
+
+export function playEarthquake(): void {
+    playNoise(1.0, 0.2, 50);
+    for (let i = 0; i < 10; i++) {
+        playTone(40 + Math.random() * 20, 0.2, 'sawtooth', 0.15, 0, i * 0.1);
+    }
+}
+
+export function playWindGust(): void {
+    const ctx = ensureContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, t);
+    osc.frequency.exponentialRampToValueAtTime(1000, t + 0.3);
+    gain.gain.setValueAtTime(0.01, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+    osc.connect(gain);
+    gain.connect(sfxGain || ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.5);
+}
+
 export function playVictory(): void {
     const melody = [523, 659, 784, 1047, 784, 1047, 1318];
     melody.forEach((n, i) => {

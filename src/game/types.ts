@@ -36,6 +36,12 @@ export interface Particle {
   size: number; color: string;
 }
 
+export interface UIParticle {
+  x: number; y: number; vx: number; vy: number;
+  life: number; maxLife: number;
+  size: number; color: string;
+}
+
 export interface Projectile {
   x: number; y: number; vx: number; vy: number;
   element: Element; life: number; size: number;
@@ -80,6 +86,10 @@ export interface Enemy {
   onGround?: boolean;   // Added for slime jumping etc
   attackTimer?: number; // For boss attacks
   chargeTimer?: number; // For brute dashes
+  isCharging?: boolean;
+  chargeDir?: number;
+  dodgeTimer?: number;
+  dodgeDir?: number;
   phase?: number;       // For boss phases
   burnTimer?: number;
   shieldBroken?: boolean;
@@ -89,8 +99,24 @@ export interface Enemy {
 
 export interface Platform {
   x: number; y: number; width: number; height: number;
-  type: 'ground' | 'stone' | 'ice' | 'earth';
+  type: 'ground' | 'stone' | 'ice' | 'earth' | 'metal';
   melting?: boolean; meltTimer?: number;
+  isCrumbling?: boolean;
+  crumbleTimer?: number;
+  crumbleState?: 'idle' | 'shaking' | 'falling';
+  shakeOffset?: number;
+}
+
+export interface Hazard {
+  id: number;
+  type: 'laser' | 'blade' | 'spike_trap';
+  x: number; y: number; width: number; height: number;
+  vx: number; vy: number;
+  damage: number;
+  active: boolean;
+  timer: number;
+  angle?: number;
+  angularVelocity?: number;
 }
 
 export interface Stickman {
@@ -105,11 +131,18 @@ export interface Stickman {
   casting: boolean; castTimer: number;
   health: number; maxHealth: number;
   mana: number; maxMana: number;
+  lastDamageTime: number;
+  lastHealTime: number;
   invincibleTimer: number;
   hurtTimer: number;
+  landTimer: number;
+  jumpSquash: number;
   dashCooldown: number;
   dashTimer: number;
   isDashing: boolean;
+  ultCharge: number;
+  ultActive: boolean;
+  ultTimer: number;
 }
 
 export interface LevelDef {
@@ -121,6 +154,7 @@ export interface LevelDef {
   platforms: Platform[];
   envObjects: EnvObject[];
   enemies: Enemy[];
+  hazards: Hazard[];
   powerups: Powerup[];
   playerStart: Vec2;
   gemsRequired: number;
@@ -178,7 +212,7 @@ export interface Checkpoint {
 }
 
 export interface LevelBalanceCurve {
-  phase: 'teach' | 'test' | 'twist' | 'master';
+  phase: 'teach' | 'test' | 'twist' | 'master' | 'void';
   platformWidthMultiplier: number;
   gapDistanceMultiplier: number;
   hazardSpeedMultiplier: number;
@@ -275,11 +309,13 @@ export interface GameState {
   platforms: Platform[];
   envObjects: EnvObject[];
   enemies: Enemy[];
+  hazards: Hazard[];
   endlessWave?: number;
   endlessKills?: number;
   endlessTimer?: number;
   projectiles: Projectile[];
   particles: Particle[];
+  uiParticles: UIParticle[];
   powerups: Powerup[];
   activePowerups: {
     speedTimer: number;

@@ -56,7 +56,7 @@ export function level1(): LevelDef {
         subtitle: 'Learn the basics of primal magic',
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#66ccff', '#88eeaa', '#aaff77', '#44cc55'], // Bright daytime forest
-        platforms, envObjects, enemies, powerups,
+        platforms, envObjects, enemies, hazards: [], powerups,
         playerStart: { x: 80, y: 480 },
         gemsRequired: 5, totalGems: 8,
         elementHint: 'Use 🔥 Fire on crates and slimes!',
@@ -126,7 +126,7 @@ export function level2(): LevelDef {
         subtitle: 'Melt the ice, freeze the puddles',
         worldWidth: 2800, worldHeight: 700,
         bgColors: ['#aaddff', '#ccf5ff', '#eeffff', '#88ccff'], // Bright frosted daytime
-        platforms, envObjects, enemies, powerups,
+        platforms, envObjects, enemies, hazards: [], powerups,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 7, totalGems: 10,
         elementHint: 'Use 🔥 Fire to melt ice, 💧 Water to freeze puddles!',
@@ -202,7 +202,7 @@ export function level3(): LevelDef {
         subtitle: 'Extinguish the subterranean flames',
         worldWidth: 3000, worldHeight: 700,
         bgColors: ['#ff5522', '#ffaa33', '#ffcc44', '#cc4411'], // Vivid explosive sunset
-        platforms, envObjects, enemies, powerups,
+        platforms, envObjects, enemies, hazards: [], powerups,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 12,
         elementHint: 'Use 💧 Water on fire pits and fire spirits!',
@@ -267,7 +267,7 @@ export function level4(): LevelDef {
         subtitle: 'Navigate the currents to proceed',
         worldWidth: 3200, worldHeight: 700,
         bgColors: ['#2288ff', '#55aaff', '#99ccff', '#ddf0ff'], // Bright open sky
-        platforms, envObjects, enemies, powerups: [],
+        platforms, envObjects, enemies, hazards: [], powerups: [],
         playerStart: { x: 60, y: 480 },
         gemsRequired: 10, totalGems: 14,
         elementHint: 'Use 🌪️ Wind for mobility and 🌿 Earth for platforms!',
@@ -348,7 +348,7 @@ export function level5(): LevelDef {
         subtitle: 'Defeat the Earth Guardian to escape the forest',
         worldWidth: 3500, worldHeight: 700,
         bgColors: ['#33aa44', '#55cc66', '#aaff88', '#228833'], // Deep but vivid enchanted green
-        platforms, envObjects, enemies, powerups: [],
+        platforms, envObjects, enemies, hazards: [], powerups: [],
         playerStart: { x: 60, y: 480 },
         gemsRequired: 12, totalGems: 16,
         elementHint: 'Switch elements to exploit enemy weaknesses!',

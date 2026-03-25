@@ -29,10 +29,15 @@ export function drawWorld(
     ? (['#33aaff', '#44bbff', '#66ccff', '#88ddff'] as [string, string, string, string])
     : ['#28a0ff', '#4fb8ff', '#85d4ff', '#b5e8ff'];
     
-  // Weather-based sky tinting
+  const isVoid = state.currentLevel >= 20;
+
+  // Sky
   let skyColor1 = bgColors[0];
   let skyColor2 = bgColors[3];
-  if (state.weather.type === 'rain' || state.weather.type === 'storm') {
+  if (isVoid) {
+    skyColor1 = '#0a001a';
+    skyColor2 = '#1a0033';
+  } else if (state.weather.type === 'rain' || state.weather.type === 'storm') {
     const tint = state.weather.type === 'storm' ? '#2c3e50' : '#7f8c8d';
     skyColor1 = tint;
     skyColor2 = '#95a5a6';
@@ -47,62 +52,100 @@ export function drawWorld(
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Fluffy Parallax Clouds (replacing stars)
+  // Background Objects (Clouds or Stars)
   for (let i = 0; i < state.backgroundStars.length; i++) {
     if (lowQuality && i % 3 !== 0) continue;
-    const cloud = state.backgroundStars[i];
-    const sx = (cloud.x - cam.x * (cloud.speed || 0.1) * 0.5) % W;
-    const sy = cloud.y * 0.4;
+    const obj = state.backgroundStars[i];
+    const sx = (obj.x - cam.x * (obj.speed || 0.1) * 0.5) % W;
+    const sy = obj.y * 0.4;
     const x = sx < 0 ? sx + W : sx;
     if (x < -60 || x > W + 60) continue;
     
     ctx.save();
     ctx.translate(x, sy);
-    const alpha = 0.6 + 0.3 * Math.sin(cloud.twinkle);
-    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-    const scale = (mobileRender.isMobile ? Math.max(1.5, cloud.size * 1.2) : cloud.size) * 3;
+    const alpha = 0.6 + 0.3 * Math.sin(obj.twinkle);
     
-    // Draw fluffy cloud shape
-    ctx.beginPath();
-    ctx.arc(0, 0, scale, 0, Math.PI * 2);
-    ctx.arc(-scale * 1.2, scale * 0.2, scale * 0.8, 0, Math.PI * 2);
-    ctx.arc(scale * 1.2, scale * 0.2, scale * 0.8, 0, Math.PI * 2);
-    ctx.fill();
+    if (isVoid) {
+      // Draw glowing void particles/stars
+      ctx.fillStyle = i % 2 === 0 ? `rgba(180, 100, 255, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, obj.size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      if (!lowQuality) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ctx.fillStyle as string;
+        ctx.beginPath(); ctx.arc(0, 0, obj.size * 0.2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      // Draw fluffy cloud shape
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      const scale = (mobileRender.isMobile ? Math.max(1.5, obj.size * 1.2) : obj.size) * 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, scale, 0, Math.PI * 2);
+      ctx.arc(-scale * 1.2, scale * 0.2, scale * 0.8, 0, Math.PI * 2);
+      ctx.arc(scale * 1.2, scale * 0.2, scale * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
-  // Cartoon Sun (replacing eclipse)
+  // Celestial Body (Sun or Void Singularity)
   const sunX = W * 0.8 - cam.x * 0.02;
   const sunY = 90;
   ctx.save();
   ctx.translate(sunX, sunY);
   
-  // Sun Rays (rotating)
-  ctx.rotate(nowMs * 0.0005);
-  ctx.fillStyle = 'rgba(255, 235, 120, 0.2)';
-  for (let i = 0; i < 12; i++) {
+  if (isVoid) {
+    // Void Singularity (Black Hole)
+    const time = nowMs * 0.001;
+    // Accretion disk
+    ctx.rotate(time * 0.5);
+    const diskGrad = ctx.createRadialGradient(0, 0, 40, 0, 0, 80);
+    diskGrad.addColorStop(0, 'rgba(200, 100, 255, 0.8)');
+    diskGrad.addColorStop(0.5, 'rgba(100, 0, 255, 0.4)');
+    diskGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = diskGrad;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-20, -180);
-    ctx.lineTo(20, -180);
+    ctx.ellipse(0, 0, 100, 30, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.rotate((Math.PI * 2) / 12);
-  }
-  ctx.rotate(-nowMs * 0.0005);
+    
+    // Core (Black)
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI * 2); ctx.fill();
+    // Event Horizon Glow
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#b04aff';
+    ctx.beginPath(); ctx.arc(0, 0, 37, 0, Math.PI * 2); ctx.stroke();
+  } else {
+    // Cartoon Sun
+    ctx.rotate(nowMs * 0.0005);
+    ctx.fillStyle = 'rgba(255, 235, 120, 0.2)';
+    for (let i = 0; i < 12; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-20, -180);
+      ctx.lineTo(20, -180);
+      ctx.fill();
+      ctx.rotate((Math.PI * 2) / 12);
+    }
+    ctx.rotate(-nowMs * 0.0005);
 
-  // Sun Core
-  ctx.fillStyle = '#ffcf33';
-  ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#fff1a0';
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.stroke();
-  
-  // Sun Face (cute)
-  ctx.fillStyle = '#cc8c14';
-  ctx.beginPath(); ctx.arc(-12, -8, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(12, -8, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.arc(0, 5, 12, 0.2, Math.PI - 0.2); ctx.stroke();
+    // Sun Core
+    ctx.fillStyle = '#ffcf33';
+    ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff1a0';
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.stroke();
+    
+    // Sun Face (cute)
+    ctx.fillStyle = '#cc8c14';
+    ctx.beginPath(); ctx.arc(-12, -8, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, -8, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 5, 12, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
   
   ctx.restore();
 
@@ -113,6 +156,7 @@ export function drawWorld(
 
   drawPlatforms(ctx, state, cam.x, W);
   drawEnvObjects(ctx, state, cam.x, W, nowMs);
+  drawHazards(ctx, state, cam.x, W, nowMs);
   drawBalanceGuides(ctx, state, cam.x, W);
   drawEnemies(ctx, state, cam.x, W, nowMs);
   drawPowerups(ctx, state, cam.x, W, nowMs);
@@ -226,8 +270,9 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
     if (p.melting) ctx.globalAlpha = (p.meltTimer || 0) / 120;
 
     const platformSprite = getLoadedAsset(getPlatformAssetKey(p.type));
+    const shakeX = p.shakeOffset || 0;
     if (platformSprite) {
-      ctx.drawImage(platformSprite, p.x, p.y, p.width, p.height);
+      ctx.drawImage(platformSprite, p.x + shakeX, p.y, p.width, p.height);
       if (p.type !== 'ice') {
         ctx.strokeStyle = 'rgba(255,255,255,0.08)';
         ctx.lineWidth = 1;
@@ -278,9 +323,13 @@ function drawPlatforms(ctx: CanvasRenderingContext2D, state: GameState, camX: nu
       ctx.strokeStyle = '#ffe4b5'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(p.x + 10, p.y + 6); ctx.lineTo(p.x + 28, p.y + 14); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(p.x + 18, p.y + p.height * 0.45); ctx.lineTo(p.x + 24, p.y + p.height * 0.62); ctx.stroke();
+    } else if (p.type === 'metal') {
+      ctx.fillStyle = '#4b4b4b';
+      roundRect(ctx, p.x + shakeX, p.y, p.width, p.height, 4); ctx.fill();
+      ctx.strokeStyle = '#777'; ctx.lineWidth = 1; ctx.strokeRect(p.x + shakeX, p.y, p.width, p.height);
     } else {
       ctx.fillStyle = '#8e96a3';
-      roundRect(ctx, p.x, p.y, p.width, p.height, 8); ctx.fill();
+      roundRect(ctx, p.x + shakeX, p.y, p.width, p.height, 8); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -1071,9 +1120,43 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState, nowMs: nu
     ctx.globalAlpha = 1;
   }
 
-  // Determine current animation state
+  // Determine current animation state with Squash & Stretch
   const headSize = 16;
-  let bodyW = 20, bodyH = 26;
+  const baseW = 20, baseH = 26;
+  let stretchX = 1, stretchY = 1;
+
+  // Velocity-based S&S
+  if (!s.onGround) {
+    const vyFactor = Math.min(0.3, Math.abs(s.vy) * 0.02);
+    if (s.vy < 0) { // Rising
+      stretchY = 1 + vyFactor;
+      stretchX = 1 - vyFactor * 0.5;
+    } else { // Falling
+      stretchY = 1 + vyFactor * 0.5;
+      stretchX = 1 - vyFactor * 0.25;
+    }
+  }
+
+  // Event-based S&S
+  if (s.landTimer > 0) {
+    const landFactor = s.landTimer / 10;
+    stretchY = 1 - landFactor * 0.4;
+    stretchX = 1 + landFactor * 0.5;
+  } else if (s.jumpSquash > 0) {
+    const jumpFactor = s.jumpSquash / 10;
+    stretchY = 1 + jumpFactor * 0.4;
+    stretchX = 1 - jumpFactor * 0.3;
+  }
+
+  // Dash Stretching
+  if (s.isDashing) {
+    stretchX = 1.6;
+    stretchY = 0.7;
+  }
+
+  let bodyW = baseW * stretchX;
+  let bodyH = baseH * stretchY;
+  
   let headY = cy - 8, bodyTop = headY + 12, bodyBot = s.y + s.height - 4;
   let walkCycle = 0, armAngleFront = 0, armAngleBack = 0;
   let legStride = 0;
@@ -1095,26 +1178,24 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState, nowMs: nu
     armAngleBack = -Math.PI * 0.9;
   } else if (s.casting) {
     // Casting (arm thrust forward, leaning)
-    headY = cy - 6;
-    bodyTop = headY + 12;
+    headY = cy - (bodyH * 0.2);
+    bodyTop = headY + (bodyH * 0.45);
     const worldMouseX = state.mousePos.x + state.camera.x;
     const worldMouseY = state.mousePos.y + state.camera.y;
     armAngleFront = Math.atan2(worldMouseY - (bodyTop + 4), worldMouseX - cx);
-    armAngleBack = Math.PI; // back arm sweeps back
+    armAngleBack = Math.PI; 
     if (!s.onGround) {
       legStride = 6;
     }
   } else if (!s.onGround) {
     // Jumping / Falling
+    headY = cy - (bodyH * 0.3);
+    bodyTop = headY + (bodyH * 0.4);
     if (s.vy < 0) {
-      // Rising
-      headY = cy - 14; bodyH = 30; bodyW = 16;
       armAngleFront = -Math.PI / 2 + 0.5 * f;
       armAngleBack = -Math.PI / 2 - 0.5 * f;
       legStride = 4;
     } else {
-      // Falling
-      headY = cy - 10; bodyH = 24; bodyW = 22;
       armAngleFront = -Math.PI + 0.5 * f;
       armAngleBack = 0.5 * f;
       legStride = 8;
@@ -1123,18 +1204,17 @@ function drawStickman(ctx: CanvasRenderingContext2D, state: GameState, nowMs: nu
     // Running
     walkCycle = Math.sin(s.animFrame * Math.PI / 1.5);
     const bounce = Math.abs(Math.sin(s.animFrame * Math.PI / 1.5)) * 4;
-    headY = cy - 6 - bounce;
-    bodyTop = headY + 12;
-    bodyH = 22; bodyW = 22; // leaning slightly
+    headY = cy - (bodyH * 0.2) - bounce;
+    bodyTop = headY + (bodyH * 0.45);
     armAngleFront = walkCycle;
     armAngleBack = -walkCycle;
     legStride = walkCycle * 14;
   } else {
     // Idle
     const breathe = Math.sin(t) * 2;
-    headY = cy - 10 + breathe * 0.5;
-    bodyTop = headY + 14;
-    bodyH = 24 - breathe;
+    headY = cy - (bodyH * 0.35) + breathe * 0.5;
+    bodyTop = headY + (bodyH * 0.5);
+    bodyH -= breathe;
     armAngleFront = Math.PI / 2 - 0.2 * f;
     armAngleBack = Math.PI / 2 + 0.2 * f;
   }
@@ -1620,4 +1700,37 @@ function drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number, state
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
+}
+function drawHazards(ctx: CanvasRenderingContext2D, state: GameState, camX: number, W: number, nowMs: number) {
+  for (const h of state.hazards) {
+     if (h.x + h.width < camX - 100 || h.x > camX + W + 100) continue;
+     if (!h.active) continue;
+
+     ctx.save();
+     if (h.type === 'laser') {
+        const glow = Math.sin(nowMs * 0.01) * 0.3 + 0.7;
+        ctx.strokeStyle = `rgba(255, 0, 0, ${glow})`;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'red';
+        ctx.beginPath();
+        ctx.moveTo(h.x, h.y);
+        ctx.lineTo(h.x + h.width, h.y + h.height);
+        ctx.stroke();
+     } else if (h.type === 'blade') {
+        ctx.translate(h.x + h.width/2, h.y + h.height/2);
+        ctx.rotate(h.angle || 0);
+        ctx.fillStyle = '#999';
+        ctx.beginPath();
+        ctx.arc(0, 0, h.width/2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+            ctx.rotate(Math.PI / 4);
+            ctx.strokeRect(0, -2, h.width/2 + 5, 4);
+        }
+     }
+     ctx.restore();
+  }
 }

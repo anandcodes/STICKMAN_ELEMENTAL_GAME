@@ -29,7 +29,10 @@ export function applyPhysics(state: GameState, dt = 1) {
   // Ground collision (simple floor)
   if (s.y + s.height > state.worldHeight - 40) {
     s.y = state.worldHeight - 40 - s.height;
-    if (!s.onGround && s.vy > 1) spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 10);
+    if (!s.onGround && s.vy > 1) {
+      spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 10);
+      if (s.vy > 2.5) s.landTimer = 10;
+    }
     s.vy = 0;
     s.onGround = true;
     s.jumping = false;
@@ -52,7 +55,10 @@ export function applyPhysics(state: GameState, dt = 1) {
 
     if (s.vy >= 0 && prevBottom <= plat.y + 15 && currentBottom >= plat.y && overlapX) {
       s.y = plat.y - s.height;
-      if (!s.onGround && s.vy > 1) spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 10);
+      if (!s.onGround && s.vy > 1) {
+        spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 10);
+        if (s.vy > 2.5) s.landTimer = 10;
+      }
       s.vy = 0;
       s.onGround = true;
       s.jumping = false;
@@ -103,7 +109,10 @@ export function applyPhysics(state: GameState, dt = 1) {
 
     if (s.vy >= 0 && prevBottom <= obj.y + 15 && currentBottom >= obj.y && overlapX) {
       s.y = obj.y - s.height;
-      if (!s.onGround && s.vy > 1) spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 8);
+      if (!s.onGround && s.vy > 1) {
+        spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 8);
+        if (s.vy > 2.5) s.landTimer = 10;
+      }
       s.vy = 0;
       s.onGround = true;
       s.jumping = false;

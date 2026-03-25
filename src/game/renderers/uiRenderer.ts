@@ -827,8 +827,13 @@ function drawMenuScreen(
   const drawCardAt = (card: typeof menuCards[number], index: number) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
-    const x = startX + col * (cardW + gapX);
-    const y = startY + row * (cardH + gapY);
+    let x = startX + col * (cardW + gapX);
+    let y = startY + row * (cardH + gapY);
+    
+    // Add periodic bounce for "Juice"
+    if (card.active) {
+      y += Math.sin(state.timeElapsed * 0.08) * 3;
+    }
     drawMenuCard(ctx, state, {
       x, y, w: cardW, h: cardH,
       title: card.title,
@@ -1399,6 +1404,18 @@ function drawHUD(
   _isPortraitMobile: boolean,
 ) {
   const s = state.stickman;
+
+  // Track visual values for "ghost bar" effect
+  if (!(state as any)._visualHp) (state as any)._visualHp = s.health;
+  if (!(state as any)._visualMp) (state as any)._visualMp = s.mana;
+  (state as any)._visualHp += (s.health - (state as any)._visualHp) * 0.1;
+  (state as any)._visualMp += (s.mana - (state as any)._visualMp) * 0.1;
+
+  ctx.save();
+  // Apply HUD Shake
+  if (state.screenShake > 0) {
+    ctx.translate((Math.random() - 0.5) * state.screenShake * 0.4, (Math.random() - 0.5) * state.screenShake * 0.4);
+  }
   const elementColor = ELEMENT_COLORS[state.selectedElement];
   const charName = ELEMENT_CHARACTER_NAMES[state.selectedElement];
 
@@ -1461,17 +1478,45 @@ function drawHUD(
 
   // HP bar background
   const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
+  const visualHpRatio = Math.max(0, (state as any)._visualHp / Math.max(1, s.maxHealth));
+  
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   roundRect(ctx, barX, panelY + 8, barW, barH, 9);
   ctx.fill();
+
+  // Ghost Bar (HP dropping)
+  if (visualHpRatio > healthRatio) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    roundRect(ctx, barX, panelY + 8, barW * visualHpRatio, barH, 9);
+    ctx.fill();
+  }
+
   // HP bar fill
+  const hitFlash = Math.max(0, 1 - (state.timeElapsed - s.lastDamageTime) / 15);
+  const healFlash = Math.max(0, 1 - (state.timeElapsed - s.lastHealTime) / 20);
+  
   const hpGrad = ctx.createLinearGradient(barX, panelY + 8, barX + barW, panelY + 8);
   hpGrad.addColorStop(0, '#5fe63a');
   hpGrad.addColorStop(1, '#2daa14');
   ctx.fillStyle = hpGrad;
+  
   if (healthRatio > 0) {
     roundRect(ctx, barX, panelY + 8, barW * healthRatio, barH, 9);
     ctx.fill();
+    
+    // Impact Flash
+    if (hitFlash > 0) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${hitFlash * 0.7})`;
+      roundRect(ctx, barX, panelY + 8, barW * healthRatio, barH, 9);
+      ctx.fill();
+    }
+    // Heal Flash
+    if (healFlash > 0) {
+       ctx.strokeStyle = `rgba(255, 255, 255, ${healFlash})`;
+       ctx.lineWidth = 2;
+       roundRect(ctx, barX, panelY + 8, barW * healthRatio, barH, 9);
+       ctx.stroke();
+    }
   }
   // HP bar border
   ctx.strokeStyle = 'rgba(255,255,255,0.25)';
@@ -1486,9 +1531,19 @@ function drawHUD(
 
   // MP bar background
   const manaRatio = Math.max(0, s.mana / Math.max(1, s.maxMana));
+  const visualMpRatio = Math.max(0, (state as any)._visualMp / Math.max(1, s.maxMana));
+
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   roundRect(ctx, barX, panelY + 8 + barH + barGap, barW, barH, 9);
   ctx.fill();
+
+  // Ghost Bar (MP catching up)
+  if (visualMpRatio > manaRatio) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    roundRect(ctx, barX, panelY + 8 + barH + barGap, barW * visualMpRatio, barH, 9);
+    ctx.fill();
+  }
+
   // MP bar fill
   const mpGrad = ctx.createLinearGradient(barX, panelY + 8 + barH + barGap, barX + barW, panelY + 8 + barH + barGap);
   mpGrad.addColorStop(0, '#4a9eff');
@@ -1502,9 +1557,42 @@ function drawHUD(
   ctx.lineWidth = 1.5;
   roundRect(ctx, barX, panelY + 8 + barH + barGap, barW, barH, 9);
   ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px Arial, sans-serif';
   ctx.fillText(`${Math.ceil(s.mana)}/${Math.ceil(s.maxMana)}`, barX + barW / 2, panelY + 8 + barH + barGap + barH - 4);
+
+  // Focus Bar (Ultimate)
+  const ultRatio = Math.max(0, (s.ultCharge || 0) / 100);
+  const ultY = panelY + 8 + (barH + barGap) * 2;
+  const isReady = s.ultCharge >= 100;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  roundRect(ctx, barX, ultY, barW, barH, 9);
+  ctx.fill();
+
+  if (ultRatio > 0) {
+    const ultGrad = ctx.createLinearGradient(barX, ultY, barX + barW, ultY);
+    ultGrad.addColorStop(0, '#ffd700');
+    ultGrad.addColorStop(1, '#ff8c00');
+    ctx.fillStyle = ultGrad;
+    
+    if (isReady) {
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
+      ctx.shadowColor = '#fff700';
+      ctx.shadowBlur = 10 * pulse;
+    }
+    
+    roundRect(ctx, barX, ultY, barW * ultRatio, barH, 9);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.strokeStyle = isReady ? '#fff700' : 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = isReady ? 2 : 1.5;
+  roundRect(ctx, barX, ultY, barW, barH, 9);
+  ctx.stroke();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px Arial, sans-serif';
+  ctx.fillText(isReady ? 'ULTIMATE READY [R]' : 'FOCUS', barX + barW / 2, ultY + barH - 4);
 
   // ─── Character name + level label ───
   ctx.textAlign = 'left';
@@ -1594,6 +1682,9 @@ function drawHUD(
 
     ctx.restore();
   });
+
+  drawUIParticles(ctx, state);
+  ctx.restore();
 
   // Store element switcher bounds for touch hit testing
   state._elementSwitcherBounds = elements.map((elem, i) => ({
@@ -2032,4 +2123,15 @@ function drawMiniMap(ctx: CanvasRenderingContext2D, state: GameState, W: number)
   ctx.fill();
   
   ctx.restore();
+}
+
+function drawUIParticles(ctx: CanvasRenderingContext2D, state: GameState) {
+  state.uiParticles.forEach(p => {
+    ctx.globalAlpha = p.life / 30;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
 }

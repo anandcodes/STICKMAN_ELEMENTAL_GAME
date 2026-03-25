@@ -14,7 +14,7 @@ export function level16(): LevelDef {
   return {
     name: 'Forest Ruins: Entrance', subtitle: 'A New Biome',
     worldWidth: 2500, worldHeight: 700,
-    bgColors: forestBg, platforms,
+    bgColors: forestBg, platforms, hazards: [],
     envObjects: [
       makeSpike(900, 580, 200),
       makeSpike(1200, 580, 200),
@@ -42,7 +42,7 @@ export function level17(): LevelDef {
   return {
     name: 'Forest Ruins: Canopy', subtitle: 'Swing Across',
     worldWidth: 2500, worldHeight: 700,
-    bgColors: forestBg, platforms,
+    bgColors: forestBg, platforms, hazards: [],
     envObjects: [
       makeSpike(400, 680, 1800), // Huge bottom spike
       makeVine(600, 100, 20, 400),
@@ -70,7 +70,7 @@ export function level18(): LevelDef {
   return {
     name: 'Forest Ruins: Moving Grounds', subtitle: 'Mind Your Step',
     worldWidth: 3000, worldHeight: 700,
-    bgColors: forestBg, platforms,
+    bgColors: forestBg, platforms, hazards: [],
     envObjects: [
       makeSpike(300, 680, 2300), 
       // Horizontal moving
@@ -103,7 +103,7 @@ export function level19(): LevelDef {
   return {
     name: 'Forest Ruins: Deep Jungle', subtitle: 'Enemy Territory',
     worldWidth: 3000, worldHeight: 700,
-    bgColors: forestBg, platforms,
+    bgColors: forestBg, platforms, hazards: [],
     envObjects: [
       makeSpike(700, 580, 200),
       makeSpike(1300, 580, 200),
@@ -139,7 +139,7 @@ export function level20(): LevelDef {
   return {
     name: 'Forest Ruins: Ancient Core', subtitle: 'The Tree Guardian',
     worldWidth: 2500, worldHeight: 700,
-    bgColors: forestBg, platforms,
+    bgColors: forestBg, platforms, hazards: [],
     envObjects: [
       makeVine(300, 150, 20, 300),
       makeVine(1300, 150, 20, 300),
