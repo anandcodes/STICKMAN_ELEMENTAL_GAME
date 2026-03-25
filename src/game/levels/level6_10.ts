@@ -59,6 +59,7 @@ export function level6(): LevelDef {
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 10,
         elementHint: 'Use 🌱 Earth to move boulders and grow bridges.',
+        powerups: [],
         timeLimit: 0,
     };
 }
@@ -111,6 +112,7 @@ export function level7(): LevelDef {
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 10,
         elementHint: 'Use 🔥 Fire to melt blockages, 💧 Water freezes puddles.',
+        powerups: [],
         timeLimit: 0,
     };
 }
@@ -170,6 +172,7 @@ export function level8(): LevelDef {
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 10,
         elementHint: 'Use 🔥 Fire to burn large crates, 💧 Water for lava pits.',
+        powerups: [],
         timeLimit: 0,
     };
 }
@@ -221,6 +224,7 @@ export function level9(): LevelDef {
         playerStart: { x: 60, y: 480 },
         gemsRequired: 6, totalGems: 8,
         elementHint: 'Jump into updrafts to soar higher. Cast 🌪️ Wind in mid-air!',
+        powerups: [],
         timeLimit: 0,
     };
 }
@@ -281,6 +285,7 @@ export function level10(): LevelDef {
         playerStart: { x: 60, y: 480 },
         gemsRequired: 10, totalGems: 12,
         elementHint: 'Mastery of all 4 elements is required.',
+        powerups: [],
         timeLimit: 0,
     };
 }

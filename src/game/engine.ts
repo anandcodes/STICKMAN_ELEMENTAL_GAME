@@ -105,8 +105,10 @@ export function createInitialState(
     platforms: [...def.platforms],
     envObjects: [...def.envObjects],
     enemies: [...def.enemies],
+    powerups: [...(def.powerups || [])],
     projectiles: [],
     particles: [],
+    activePowerups: { speedTimer: 0, shieldTimer: 0, rapidfireTimer: 0 },
     selectedElement: 'fire',
     unlockedElements: getUnlockedElements(level),
     camera: { x: 0, y: 0 },
@@ -431,6 +433,16 @@ export function update(state: GameState): void {
     state.moveInputY = 0;
   }
 
+  // Process Active Powerups Timers
+  if (state.activePowerups) {
+    if (state.activePowerups.speedTimer > 0) state.activePowerups.speedTimer--;
+    if (state.activePowerups.shieldTimer > 0) {
+      state.activePowerups.shieldTimer--;
+      s.invincibleTimer = 5; // keep invincible while shield is active
+    }
+    if (state.activePowerups.rapidfireTimer > 0) state.activePowerups.rapidfireTimer--;
+  }
+
   // Input & Player update (inputs run at full rate; movement scaled via dt)
   handlePlayerInput(state);
   const dt = state.slowmoFactor || 1;
@@ -451,6 +463,9 @@ export function update(state: GameState): void {
   }
 
   // Shooting Logic
+  if (state.activePowerups && state.activePowerups.rapidfireTimer > 0 && state.castCooldown > 3) {
+    state.castCooldown = 3; // super fast shooting
+  }
   if (state.castCooldown > 0) state.castCooldown--;
 
   const usingButtonFire = state.buttonFireActive || state.shootQueued;

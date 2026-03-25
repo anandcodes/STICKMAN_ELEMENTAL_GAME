@@ -31,8 +31,13 @@ export function handlePlayerInput(state: GameState) {
 
   if (s.walking) {
     // Target-based velocity: smoothly accelerate toward desired speed
-    const targetVx = effectiveAxis * MAX_SPEED;
-    const accel = MOVE_SPEED * (0.7 + Math.abs(effectiveAxis) * 0.3);
+    let speedMult = 1;
+    if (state.activePowerups && state.activePowerups.speedTimer > 0) {
+      speedMult = 1.8; // Not quite double to keep it controllable, but very fast
+    }
+    
+    const targetVx = effectiveAxis * MAX_SPEED * speedMult;
+    const accel = MOVE_SPEED * speedMult * (0.7 + Math.abs(effectiveAxis) * 0.3);
     if (targetVx > s.vx) {
       s.vx = Math.min(targetVx, s.vx + accel);
     } else if (targetVx < s.vx) {
@@ -62,10 +67,12 @@ export function handlePlayerInput(state: GameState) {
   }
 
   // Dash input
+  const dashCooldownMult = (state.activePowerups && state.activePowerups.speedTimer > 0) ? 0.4 : 1;
+  
   if (state.dashBufferFrames > 0 && s.dashCooldown <= 0 && s.mana >= DASH_MANA_COST) {
     s.isDashing = true;
     s.dashTimer = DASH_BASE_DURATION + (state.upgrades.dashDistanceLevel * DASH_DURATION_PER_UPGRADE);
-    s.dashCooldown = DASH_BASE_COOLDOWN;
+    s.dashCooldown = DASH_BASE_COOLDOWN * dashCooldownMult;
     s.mana -= DASH_MANA_COST;
     s.invincibleTimer = s.dashTimer + 5;
     const speed = DASH_BASE_SPEED + (state.upgrades.dashDistanceLevel * DASH_SPEED_PER_UPGRADE);

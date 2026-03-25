@@ -63,4 +63,36 @@ export function updateCollectibles(state: GameState) {
       Audio.playLevelComplete();
     }
   }
+
+  // Handle Powerups
+  for (const p of state.powerups) {
+    if (!p.active) continue;
+    
+    // Floating animation
+    p.bobTimer += 0.05;
+    
+    const touching = s.x + s.width > p.x && s.x < p.x + p.width &&
+      s.y + s.height > p.y && s.y < p.y + p.height;
+      
+    if (touching) {
+      p.active = false;
+      addScore(state, 50);
+      Audio.playPotionCollect();
+      
+      const cx = s.x + s.width / 2;
+      if (p.type === 'shield') {
+         state.activePowerups.shieldTimer = 480; // 8 seconds
+         spawnFloatingText(state, cx, s.y - 10, 'SHIELD!', '#00ffff', 24, { wiggle: true });
+         spawnParticles(state, cx, s.y + s.height / 2, 'water', 20);
+      } else if (p.type === 'speed') {
+         state.activePowerups.speedTimer = 480; // 8 seconds
+         spawnFloatingText(state, cx, s.y - 10, 'SPEED UP!', '#ffff00', 24, { wiggle: true });
+         spawnParticles(state, cx, s.y + s.height / 2, 'wind', 20);
+      } else if (p.type === 'rapidfire') {
+         state.activePowerups.rapidfireTimer = 300; // 5 seconds
+         spawnFloatingText(state, cx, s.y - 10, 'RAPID FIRE!', '#ff3300', 24, { wiggle: true });
+         spawnParticles(state, cx, s.y + s.height / 2, 'fire', 20);
+      }
+    }
+  }
 }

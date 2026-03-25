@@ -80,3 +80,10 @@ export function makeMovingPlatform(x: number, y: number, w: number, h: number, m
     moveOriginX: x, moveOriginY: y, moveRange, vx, vy
   };
 }
+
+export function makePowerup(type: import('../types').PowerupType, x: number, y: number): import('../types').Powerup {
+  return {
+    id: nid(), type, x, y, width: 32, height: 32,
+    active: true, bobTimer: Math.random() * 10
+  };
+}

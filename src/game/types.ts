@@ -15,6 +15,19 @@ export interface Relic {
   rarity: 'common' | 'rare' | 'legendary';
 }
 
+export type PowerupType = 'speed' | 'shield' | 'rapidfire';
+
+export interface Powerup {
+  id: number;
+  type: PowerupType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  active: boolean;
+  bobTimer: number;
+}
+
 export interface Vec2 { x: number; y: number; }
 
 export interface Particle {
@@ -108,6 +121,7 @@ export interface LevelDef {
   platforms: Platform[];
   envObjects: EnvObject[];
   enemies: Enemy[];
+  powerups: Powerup[];
   playerStart: Vec2;
   gemsRequired: number;
   totalGems: number;
@@ -258,6 +272,12 @@ export interface GameState {
   endlessTimer?: number;
   projectiles: Projectile[];
   particles: Particle[];
+  powerups: Powerup[];
+  activePowerups: {
+    speedTimer: number;
+    shieldTimer: number;
+    rapidfireTimer: number;
+  };
   selectedElement: Element;
   unlockedElements: Element[];
   camera: Vec2;

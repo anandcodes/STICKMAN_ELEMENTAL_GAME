@@ -32,7 +32,8 @@ export function level11(): LevelDef {
         worldWidth: 2200, worldHeight: 700,
         bgColors: ['#ff66cc', '#ff99dd', '#ffccff', '#ff99dd'], // Candy pink sky
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 5, totalGems: 6, elementHint: 'Watch out for Corrupted Crystals!', timeLimit: 0,
+        gemsRequired: 5, totalGems: 6, elementHint: 'Watch out for Corrupted Crystals!',
+        powerups: [], timeLimit: 0,
     };
 }
 
@@ -62,7 +63,8 @@ export function level12(): LevelDef {
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#99ff99', '#ccffcc', '#eeffff', '#99ff99'], // Vivid mint
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 4, totalGems: 5, elementHint: 'Stay mobile to dodge the Wraiths.', timeLimit: 0,
+        gemsRequired: 4, totalGems: 5, elementHint: 'Stay mobile to dodge the Wraiths.',
+        powerups: [], timeLimit: 0,
     };
 }
 
@@ -88,7 +90,8 @@ export function level13(): LevelDef {
         worldWidth: 2600, worldHeight: 700,
         bgColors: ['#ffcc00', '#ffee66', '#ffffaa', '#ffee66'], // Golden noon
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 3, totalGems: 4, elementHint: 'Dodge the charging Brutes!', timeLimit: 0,
+        gemsRequired: 3, totalGems: 4, elementHint: 'Dodge the charging Brutes!',
+        powerups: [], timeLimit: 0,
     };
 }
 
@@ -120,7 +123,8 @@ export function level14(): LevelDef {
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#55ccff', '#88ddff', '#bbffff', '#55ccff'], // Crystalline blue
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 4, totalGems: 5, elementHint: 'Use elemental synergies to survive.', timeLimit: 0,
+        gemsRequired: 4, totalGems: 5, elementHint: 'Use elemental synergies to survive.',
+        powerups: [], timeLimit: 0,
     };
 }
 
@@ -147,6 +151,7 @@ export function level15(): LevelDef {
         worldWidth: 3000, worldHeight: 700,
         bgColors: ['#ff5588', '#ff88aa', '#ffbbcc', '#ff5588'], // Bubblegum neon
         platforms, envObjects, enemies, playerStart: { x: 60, y: 480 },
-        gemsRequired: 3, totalGems: 3, elementHint: 'Match your magic to the Titan\'s glowing orb weakness!', timeLimit: 0,
+        gemsRequired: 3, totalGems: 3, elementHint: 'Match your magic to the Titan\'s glowing orb weakness!',
+        powerups: [], timeLimit: 0,
     };
 }

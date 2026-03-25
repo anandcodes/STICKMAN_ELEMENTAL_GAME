@@ -53,6 +53,7 @@ export function getTutorialLevel(): LevelDef {
     playerStart: { x: 50, y: 480 },
     gemsRequired: 5,
     totalGems: 5,
+    powerups: [],
     elementHint: 'Follow the on-screen instructions.',
     timeLimit: 0,
   };

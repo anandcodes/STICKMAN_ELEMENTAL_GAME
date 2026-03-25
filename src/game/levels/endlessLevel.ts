@@ -25,6 +25,7 @@ export function endlessLevel(): LevelDef {
         platforms, envObjects, enemies: [], // Enemies spawned by wave director
         playerStart: { x: 550, y: 480 },
         gemsRequired: 9999, totalGems: 0, // No exit portal
+        powerups: [],
         elementHint: 'The horde is infinite. Defend yourself.',
         timeLimit: 0,
     };

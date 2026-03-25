@@ -104,11 +104,13 @@ export function drawWorld(
   drawEnvObjects(ctx, state, cam.x, W, nowMs);
   drawBalanceGuides(ctx, state, cam.x, W);
   drawEnemies(ctx, state, cam.x, W, nowMs);
+  drawPowerups(ctx, state, cam.x, W, nowMs);
   drawProjectiles(ctx, state, nowMs);
   drawParticles(ctx, state);
   drawShockwaves(ctx, state);
 
   const s = state.stickman;
+  drawPowerupAura(ctx, state, nowMs);
   if (s.invincibleTimer <= 0 || Math.floor(s.invincibleTimer / 4) % 2 === 0) {
     drawStickman(ctx, state, nowMs);
   }
@@ -1277,7 +1279,7 @@ function drawStickmanSprite(ctx: CanvasRenderingContext2D, state: GameState, now
       ? 'death'
       : s.casting
         ? 'attack'
-        : s.walking
+        : (!s.onGround || s.walking)
           ? 'run'
           : 'idle';
 
@@ -1289,39 +1291,72 @@ function drawStickmanSprite(ctx: CanvasRenderingContext2D, state: GameState, now
 
   const frameCount = 8;
   const frameRate =
-    animation === 'run'
-      ? 12
-      : animation === 'attack'
-        ? 14
-        : animation === 'death'
-          ? 10
-          : 8;
-  const frameIndex = Math.floor((nowMs / (1000 / frameRate)) % frameCount);
+    animation === 'run' ? 12 : animation === 'attack' ? 14 : animation === 'death' ? 10 : 8;
+  
+  let frameIndex = Math.floor((nowMs / (1000 / frameRate)) % frameCount);
+
+  // Aerial mid-air lock
+  if (!s.onGround && state.deathAnimTimer === 0 && !s.casting) {
+    frameIndex = s.vy < 0 ? 2 : 6; 
+  }
+
   const frameWidth = sprite.naturalWidth / frameCount;
   const frameHeight = sprite.naturalHeight;
 
   const spriteSize = Math.max(84, s.height * 1.9);
-  const drawX = s.x + s.width / 2 - spriteSize / 2;
-  const drawY = s.y + s.height - spriteSize + 5;
   const facingLeft = s.facing < 0;
 
   ctx.save();
+  
+  // --- Dynamic Squash, Stretch, and Tilt ---
+  let scaleX = 1;
+  let scaleY = 1;
+  let rotation = 0;
+  
+  if (!s.onGround && state.deathAnimTimer === 0) {
+    // Stretch vertically proportional to velocity
+    const normalizedVy = Math.max(-1, Math.min(1, s.vy / 15));
+    const stretchFactor = Math.abs(normalizedVy) * 0.35;
+    scaleY = 1 + stretchFactor;
+    scaleX = 1 - stretchFactor * 0.4;
+    
+    // Tilt forward/backward in the air
+    const normalizedVx = Math.max(-1, Math.min(1, s.vx / 8));
+    rotation = normalizedVx * 0.2;
+  } else if (s.onGround && s.hurtTimer > 0) {
+    // Hurt squash
+    scaleY = 0.85;
+    scaleX = 1.15;
+  } else if (s.onGround && s.walking) {
+    // Running bounce
+    scaleY = 1 + Math.sin(nowMs * 0.02) * 0.05;
+  }
+  
+  // Pivot from the center of the entity
+  const centerX = s.x + s.width / 2;
+  const centerY = s.y + s.height / 2;
+  
+  ctx.translate(centerX, centerY);
+  
   if (facingLeft) {
-    const centerX = s.x + s.width / 2;
-    ctx.translate(centerX * 2, 0);
     ctx.scale(-1, 1);
   }
+  
+  ctx.rotate(rotation);
+  ctx.scale(scaleX, scaleY);
+  
   ctx.drawImage(
     sprite,
     frameIndex * frameWidth,
     0,
     frameWidth,
     frameHeight,
-    drawX,
-    drawY,
+    -spriteSize / 2,
+    s.height / 2 - spriteSize + 5,
     spriteSize,
     spriteSize,
   );
+  
   ctx.restore();
 
   return true;
@@ -1410,4 +1445,103 @@ function drawBalanceGuides(ctx: CanvasRenderingContext2D, state: GameState, camX
     ctx.setLineDash([]);
   }
   ctx.restore();
+}
+function drawPowerups(ctx: CanvasRenderingContext2D, state: GameState, camX: number, W: number, nowMs: number) {
+  if (!state.powerups) return;
+  for (const p of state.powerups) {
+    if (!p.active) continue;
+    if (p.x + p.width < camX - 50 || p.x > camX + W + 50) continue;
+
+    const bob = Math.sin(nowMs * 0.005 + p.id) * 8;
+    const px = p.x;
+    const py = p.y + bob;
+
+    ctx.save();
+    // Glow
+    const color = p.type === 'shield' ? '#00ffff' : p.type === 'speed' ? '#ffff00' : '#ff3300';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = color;
+    
+    // Icon Background
+    const grad = ctx.createRadialGradient(px + p.width / 2, py + p.height / 2, 0, px + p.width / 2, py + p.height / 2, p.width);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath(); ctx.arc(px + p.width / 2, py + p.height / 2, p.width / 1.2, 0, Math.PI * 2); ctx.fill();
+    
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    
+    // Draw icon circle
+    ctx.beginPath();
+    ctx.arc(px + p.width / 2, py + p.height / 2, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const icon = p.type === 'shield' ? '🛡️' : p.type === 'speed' ? '⚡' : '🔥';
+    ctx.fillText(icon, px + p.width / 2, py + p.height / 2);
+
+    ctx.restore();
+  }
+}
+
+function drawPowerupAura(ctx: CanvasRenderingContext2D, state: GameState, nowMs: number) {
+  const s = state.stickman;
+  const ap = state.activePowerups;
+  if (!ap) return;
+
+  if (ap.shieldTimer > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([12, 8]);
+    ctx.lineDashOffset = -nowMs * 0.12;
+    ctx.beginPath();
+    ctx.arc(s.x + s.width / 2, s.y + s.height / 2, 50, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#00ffff';
+    ctx.beginPath();
+    ctx.arc(s.x + s.width / 2, s.y + s.height / 2, 50, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  
+  if (ap.speedTimer > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 3; i++) {
+        const offset = (nowMs * 0.02 + i * 15) % 45;
+        ctx.globalAlpha = 0.8 * (1 - offset / 45);
+        ctx.beginPath();
+        ctx.arc(s.x + s.width / 2, s.y + s.height / 2, 30 + offset, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (ap.rapidfireTimer > 0) {
+    ctx.save();
+    ctx.fillStyle = '#ff3300';
+    const pulse = 0.2 + Math.sin(nowMs * 0.025) * 0.15;
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(s.x + s.width / 2, s.y + s.height / 2, 42, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.globalAlpha = pulse * 1.5;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffcc00';
+    ctx.stroke();
+    ctx.restore();
+  }
 }

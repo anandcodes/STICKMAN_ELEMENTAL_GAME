@@ -1,5 +1,5 @@
 import type { LevelDef, Platform, EnvObject, Enemy } from '../types';
-import { nid, makeEnemy, makeGem, makePortal, makeSpike, makeWindZone, makeWaterCurrent } from './utils';
+import { nid, makeEnemy, makeGem, makePortal, makeSpike, makeWindZone, makeWaterCurrent, makePowerup } from './utils';
 
 // ============ LEVEL 1: Forest Awakening ============
 export function level1(): LevelDef {
@@ -41,6 +41,10 @@ export function level1(): LevelDef {
         makePortal(2350, 580),
     ];
 
+    const powerups: import('../types').Powerup[] = [
+        makePowerup('speed', 1250, 540),
+    ];
+
     const enemies: Enemy[] = [
         makeEnemy('slime', 600, 580, 'fire', 'water', 120, 8, 1.2, 30),
         makeEnemy('slime', 1000, 580, 'fire', 'water', 100, 8, 1.0, 30),
@@ -52,7 +56,7 @@ export function level1(): LevelDef {
         subtitle: 'Learn the basics of primal magic',
         worldWidth: 2500, worldHeight: 700,
         bgColors: ['#66ccff', '#88eeaa', '#aaff77', '#44cc55'], // Bright daytime forest
-        platforms, envObjects, enemies,
+        platforms, envObjects, enemies, powerups,
         playerStart: { x: 80, y: 480 },
         gemsRequired: 5, totalGems: 8,
         elementHint: 'Use 🔥 Fire on crates and slimes!',
@@ -105,6 +109,10 @@ export function level2(): LevelDef {
         makePortal(2650, 580),
     ];
 
+    const powerups: import('../types').Powerup[] = [
+        makePowerup('shield', 1500, 540),
+    ];
+
     const enemies: Enemy[] = [
         makeEnemy('ice_spirit', 700, 500, 'fire', 'water', 130, 10, 1.5, 40),
         makeEnemy('slime', 1200, 580, 'fire', 'water', 100, 8, 1.0, 35),
@@ -118,7 +126,7 @@ export function level2(): LevelDef {
         subtitle: 'Melt the ice, freeze the puddles',
         worldWidth: 2800, worldHeight: 700,
         bgColors: ['#aaddff', '#ccf5ff', '#eeffff', '#88ccff'], // Bright frosted daytime
-        platforms, envObjects, enemies,
+        platforms, envObjects, enemies, powerups,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 7, totalGems: 10,
         elementHint: 'Use 🔥 Fire to melt ice, 💧 Water to freeze puddles!',
@@ -176,6 +184,10 @@ export function level3(): LevelDef {
         makePortal(2850, 580),
     ];
 
+    const powerups: import('../types').Powerup[] = [
+        makePowerup('rapidfire', 2000, 540),
+    ];
+
     const enemies: Enemy[] = [
         makeEnemy('fire_spirit', 400, 520, 'water', 'fire', 120, 12, 1.5, 50),
         makeEnemy('golem', 900, 580, 'water', 'earth', 100, 15, 0.8, 80),
@@ -190,7 +202,7 @@ export function level3(): LevelDef {
         subtitle: 'Extinguish the subterranean flames',
         worldWidth: 3000, worldHeight: 700,
         bgColors: ['#ff5522', '#ffaa33', '#ffcc44', '#cc4411'], // Vivid explosive sunset
-        platforms, envObjects, enemies,
+        platforms, envObjects, enemies, powerups,
         playerStart: { x: 60, y: 480 },
         gemsRequired: 8, totalGems: 12,
         elementHint: 'Use 💧 Water on fire pits and fire spirits!',
@@ -255,7 +267,7 @@ export function level4(): LevelDef {
         subtitle: 'Navigate the currents to proceed',
         worldWidth: 3200, worldHeight: 700,
         bgColors: ['#2288ff', '#55aaff', '#99ccff', '#ddf0ff'], // Bright open sky
-        platforms, envObjects, enemies,
+        platforms, envObjects, enemies, powerups: [],
         playerStart: { x: 60, y: 480 },
         gemsRequired: 10, totalGems: 14,
         elementHint: 'Use 🌪️ Wind for mobility and 🌿 Earth for platforms!',
@@ -336,7 +348,7 @@ export function level5(): LevelDef {
         subtitle: 'Defeat the Earth Guardian to escape the forest',
         worldWidth: 3500, worldHeight: 700,
         bgColors: ['#33aa44', '#55cc66', '#aaff88', '#228833'], // Deep but vivid enchanted green
-        platforms, envObjects, enemies,
+        platforms, envObjects, enemies, powerups: [],
         playerStart: { x: 60, y: 480 },
         gemsRequired: 12, totalGems: 16,
         elementHint: 'Switch elements to exploit enemy weaknesses!',

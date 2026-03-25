@@ -29,7 +29,7 @@ export function level16(): LevelDef {
       makeEnemy('slime', 1600, 580, 'fire', 'water', 200, 10, 1.2, 50),
       makeEnemy('bat', 1100, 300, 'earth', 'wind', 200, 15, 1.5, 40),
     ],
-    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, timeLimit: 0,
+    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, powerups: [], timeLimit: 0,
     elementHint: 'Vines might help you climb...'
   };
 }
@@ -57,7 +57,7 @@ export function level17(): LevelDef {
       makeEnemy('bat', 1200, 350, 'earth', 'wind', 150, 15, 1.5, 40),
       makeEnemy('bat', 1600, 300, 'earth', 'wind', 150, 15, 1.5, 40),
     ],
-    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, timeLimit: 0,
+    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, powerups: [], timeLimit: 0,
     elementHint: 'Don\'t look down.'
   };
 }
@@ -87,7 +87,7 @@ export function level18(): LevelDef {
     enemies: [
       makeEnemy('slime', 2700, 580, 'fire', 'water', 150, 15, 1.3, 60),
     ],
-    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, timeLimit: 0,
+    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, powerups: [], timeLimit: 0,
     elementHint: 'Wait for the right moment.'
   };
 }
@@ -123,7 +123,7 @@ export function level19(): LevelDef {
       makeEnemy('bat', 1500, 150, 'earth', 'wind', 250, 20, 1.6, 60),
       makeEnemy('bat', 2100, 250, 'earth', 'wind', 250, 20, 1.6, 60),
     ],
-    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, timeLimit: 0,
+    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, powerups: [], timeLimit: 0,
     elementHint: 'Use your elements wisely.'
   };
 }
@@ -151,7 +151,7 @@ export function level20(): LevelDef {
       makeEnemy('bat', 500, 200, 'earth', 'wind', 500, 15, 1.5, 50),
       makeEnemy('bat', 2000, 200, 'earth', 'wind', 500, 15, 1.5, 50),
     ],
-    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, timeLimit: 0,
+    playerStart: { x: 50, y: 480 }, gemsRequired: 5, totalGems: 5, powerups: [], timeLimit: 0,
     elementHint: 'Fire is highly effective against the ancient roots!'
   };
 }
