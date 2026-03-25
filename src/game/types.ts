@@ -254,6 +254,14 @@ export interface GameSettings {
   aimToShoot: boolean;
 }
 
+export type WeatherType = 'clear' | 'rain' | 'snow' | 'windy' | 'storm';
+
+export interface WeatherState {
+  type: WeatherType;
+  intensity: number; // 0 to 1
+  timer: number;
+}
+
 export interface GameState {
   screen: GameScreen;
   currentLevel: number;
@@ -378,4 +386,6 @@ export interface GameState {
     target: GameScreen;
     mode: 'fade';
   };
+  weather: WeatherState;
+  activeSynergies: string[];
 }

@@ -163,8 +163,35 @@ export function updateProjectiles(state: GameState) {
                 const o = state.projectiles[j];
                 if (o.isEnemy || o.element === p.element) continue;
                 const dist = Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
-                if (dist < p.size + o.size + 10) {
+                if (dist < p.size + o.size + 15) {
                     createSynergyZone(state, (p.x + o.x) / 2, (p.y + o.y) / 2, p.element, o.element);
+                    
+                    // Specific Synergy Actions
+                    const elements = [p.element, o.element];
+                    if (elements.includes('fire') && elements.includes('wind')) {
+                        // Firestorm: Create a large fire projectile effectively
+                        const storm = projectilePool.get();
+                        storm.x = (p.x + o.x) / 2; storm.y = (p.y + o.y) / 2;
+                        storm.vx = (p.vx + o.vx) * 1.5; storm.vy = (p.vy + o.vy) * 1.5;
+                        storm.element = 'fire'; storm.size = 24; storm.life = 100;
+                        state.projectiles.push(storm);
+                        state.activeSynergies.push('Firestorm');
+                    } else if (elements.includes('water') && elements.includes('wind')) {
+                        // Blizzard: Slow all nearby enemies
+                        state.enemies.forEach(e => {
+                           const d = Math.sqrt((e.x - p.x)**2 + (e.y - p.y)**2);
+                           if (d < 200) { e.speed *= 0.5; e.stunTimer = 60; }
+                        });
+                        spawnFloatingText(state, p.x, p.y, 'BLIZZARD!', '#ffffff', 20);
+                    } else if (elements.includes('earth') && elements.includes('water')) {
+                        // Mud: Create slowing puddles
+                        state.envObjects.push({
+                            id: Date.now(), type: 'mud_trap',
+                            x: p.x - 40, y: p.y - 10, width: 80, height: 10,
+                            health: 100, maxHealth: 100, state: 'mud', solid: false
+                        });
+                    }
+
                     // then remove lower. Both projectiles are consumed by the synergy.
                     state.projectiles.splice(Math.max(i, j), 1);
                     state.projectiles.splice(Math.min(i, j), 1);

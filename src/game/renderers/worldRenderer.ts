@@ -28,11 +28,22 @@ export function drawWorld(
   const bgColors = highContrast
     ? (['#33aaff', '#44bbff', '#66ccff', '#88ddff'] as [string, string, string, string])
     : ['#28a0ff', '#4fb8ff', '#85d4ff', '#b5e8ff'];
+    
+  // Weather-based sky tinting
+  let skyColor1 = bgColors[0];
+  let skyColor2 = bgColors[3];
+  if (state.weather.type === 'rain' || state.weather.type === 'storm') {
+    const tint = state.weather.type === 'storm' ? '#2c3e50' : '#7f8c8d';
+    skyColor1 = tint;
+    skyColor2 = '#95a5a6';
+  } else if (state.weather.type === 'snow') {
+    skyColor1 = '#dcdde1';
+    skyColor2 = '#f5f6fa';
+  }
+
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-  skyGrad.addColorStop(0, bgColors[0]);
-  skyGrad.addColorStop(0.35, bgColors[1]);
-  skyGrad.addColorStop(0.7, bgColors[2]);
-  skyGrad.addColorStop(1, bgColors[3]);
+  skyGrad.addColorStop(0, skyColor1);
+  skyGrad.addColorStop(1, skyColor2);
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -165,6 +176,9 @@ export function drawWorld(
   }
 
   ctx.restore();
+
+  drawWeather(ctx, state, W, H, nowMs);
+  drawVignette(ctx, W, H, state);
 
   if (!lowQuality) {
     drawLights(ctx, state, W, H);
@@ -1544,4 +1558,66 @@ function drawPowerupAura(ctx: CanvasRenderingContext2D, state: GameState, nowMs:
     ctx.stroke();
     ctx.restore();
   }
+}
+
+function drawWeather(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, nowMs: number) {
+  if (!state.weather) return;
+  const { type, intensity } = state.weather;
+  if (type === 'clear' || intensity <= 0) return;
+
+  ctx.save();
+  const count = Math.floor(intensity * (W / 10));
+  
+  if (type === 'rain' || type === 'storm') {
+    ctx.strokeStyle = type === 'storm' ? 'rgba(174, 194, 224, 0.6)' : 'rgba(174, 194, 224, 0.4)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < count; i++) {
+        const x = (Math.sin(i * 123.45) * W * 2 + nowMs * 0.2) % (W + 100) - 50;
+        const y = (Math.cos(i * 543.21) * H * 2 + nowMs * 0.8) % (H + 100) - 50;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 5, y + 15);
+        ctx.stroke();
+    }
+    
+    if (type === 'storm' && Math.random() < 0.01) {
+       ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+       ctx.fillRect(0, 0, W, H);
+    }
+  } else if (type === 'snow') {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    for (let i = 0; i < count * 0.5; i++) {
+        const x = (Math.sin(i * 123.45) * W * 2 + nowMs * 0.05) % (W + 100) - 50;
+        const y = (Math.cos(i * 543.21) * H * 2 + nowMs * 0.1) % (H + 100) - 50;
+        const size = 1 + Math.sin(nowMs * 0.002 + i) * 1;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+  } else if (type === 'windy') {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < count * 0.3; i++) {
+        const x = (Math.sin(i * 123.45) * W * 2 + nowMs * 0.5) % (W + 100) - 50;
+        const y = (Math.cos(i * 543.21) * H * 2) % H;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 40, y + (Math.sin(x * 0.01) * 10));
+        ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
+  if (state.graphicsQuality === 'low') return;
+  
+  const grad = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.7);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+  
+  ctx.save();
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
 }

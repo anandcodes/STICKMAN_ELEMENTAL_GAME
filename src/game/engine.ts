@@ -1,4 +1,4 @@
-import type { GameState, Element, Difficulty, TutorialHint, Vec2 } from './types';
+import type { GameState, Element, Difficulty, TutorialHint, Vec2, WeatherType } from './types';
 import { createTutorialSteps, updateTutorial } from './systems/tutorial';
 import { getLevel, TOTAL_LEVELS, makeEnemy } from './levels';
 import { updateFloatingTexts, updateShockwaves, spawnFloatingText, spawnParticles, vibrate } from './systems/utils';
@@ -203,6 +203,8 @@ export function createInitialState(
     continueButton: undefined,
     menuParallax: { x: 0, y: 0 },
     screenTransition: undefined,
+    weather: { type: 'clear', intensity: 0, timer: 0 },
+    activeSynergies: [],
   };
 }
 
@@ -611,6 +613,39 @@ export function update(state: GameState): void {
   // Wave Director (Endless Mode)
   if (state.endlessWave !== undefined && state.endlessTimer !== undefined) {
     updateWaveDirector(state);
+  }
+
+  updateWeather(state);
+}
+
+function updateWeather(state: GameState) {
+  state.weather.timer++;
+  
+  // Change weather every ~20 seconds (1200 frames)
+  if (state.weather.timer > 1200) {
+    state.weather.timer = 0;
+    const types: WeatherType[] = ['clear', 'rain', 'snow', 'windy', 'storm'];
+    // Storm is rare
+    const newType = Math.random() < 0.1 ? 'storm' : types[Math.floor(Math.random() * 4)];
+    state.weather.type = newType;
+    state.weather.intensity = 0; // Fade in intensity
+  }
+
+  if (state.weather.intensity < 1) {
+    state.weather.intensity += 0.002;
+  }
+
+  // Weather effects on gameplay
+  if (state.weather.type === 'rain' || state.weather.type === 'storm') {
+    // Rain slowly restores mana but slightly reduces fire damage (simulated by mana cost)
+    state.stickman.mana = Math.min(state.stickman.maxMana, state.stickman.mana + 0.02 * state.weather.intensity);
+  } else if (state.weather.type === 'snow') {
+    // Snow makes movement slightly slippery
+    // This will be handled in physicsSystem
+  } else if (state.weather.type === 'windy') {
+    // Wind pushes player (handled in updateWeather or physics)
+    const windPush = Math.sin(state.timeElapsed * 0.01) * 0.2 * state.weather.intensity;
+    state.stickman.vx += windPush;
   }
 }
 

@@ -1673,6 +1673,8 @@ function drawHUD(
   ctx.fillStyle = '#e0e0e0';
   ctx.fillText(abilityName, W - 16, 339);
   ctx.restore();
+
+  drawMiniMap(ctx, state, W);
 }
 
 function drawShopScreen(ctx: CanvasRenderingContext2D, state: GameState, W: number, H: number, compactMobileLayout: boolean) {
@@ -1986,4 +1988,48 @@ function wrapCenteredText(
   if (line) {
     ctx.fillText(line.trim(), centerX, y);
   }
+}
+
+function drawMiniMap(ctx: CanvasRenderingContext2D, state: GameState, W: number) {
+  if (state.graphicsQuality === 'low') return;
+  
+  const size = 120;
+  const padding = 20;
+  const mx = W - size - padding;
+  const my = 80; // Below top-right buttons
+  
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = '#1a2a50';
+  roundRect(ctx, mx, my, size, size, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#c0c8d8';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  const scale = size / Math.max(state.worldWidth || 2000, state.worldHeight || 1000);
+  
+  // Platforms
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  state.platforms.forEach(p => {
+    ctx.fillRect(mx + p.x * scale, my + p.y * scale, Math.max(2, p.width * scale), Math.max(1, p.height * scale));
+  });
+  
+  // Enemies
+  ctx.fillStyle = '#ff4444';
+  state.enemies.forEach(e => {
+    if (e.state !== 'dead') {
+      ctx.fillRect(mx + e.x * scale, my + e.y * scale, 3, 3);
+    }
+  });
+  
+  // Player
+  ctx.fillStyle = '#00ff00';
+  ctx.shadowColor = '#00ff00';
+  ctx.shadowBlur = 4;
+  ctx.beginPath();
+  ctx.arc(mx + state.stickman.x * scale, my + state.stickman.y * scale, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
 }
