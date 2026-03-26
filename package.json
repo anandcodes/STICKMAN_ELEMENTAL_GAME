@@ -27,10 +27,13 @@
     "mobile:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/core": "^6.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
     "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
