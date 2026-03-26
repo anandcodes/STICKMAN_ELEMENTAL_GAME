@@ -1,4 +1,5 @@
 import type { GameState, Enemy, EnvObject } from '../types';
+import { getEffectiveAimAssistConeDeg } from '../mobile/runtimeConfig';
 import { ELEMENT_COLORS, ELEMENT_GLOW, mobileRender, mobileSize } from './renderConstants';
 import { roundRect } from './renderUtils';
 import { assetLoader } from '../services/assetLoader';
@@ -183,8 +184,14 @@ export function drawWorld(
     const ex = ax + Math.cos(state.aimAngle) * length;
     const ey = ay + Math.sin(state.aimAngle) * length;
     const crosshair = assetLoader.getAsset('crosshair');
+    const aimOpacity = state.touchAimActive
+      ? 0.95
+      : state.aimAssistWeight > 0
+        ? 0.75
+        : 0.58;
 
     ctx.save();
+    ctx.globalAlpha = aimOpacity;
     const guide = ctx.createLinearGradient(ax, ay, ex, ey);
     guide.addColorStop(0, 'rgba(255,255,255,0.25)');
     guide.addColorStop(1, state.aimAssistWeight > 0 ? '#92ffe0' : ELEMENT_COLORS[state.selectedElement]);
@@ -214,6 +221,18 @@ export function drawWorld(
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(tx, ty, Math.max(18, lockedEnemy.width * 0.7), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (state.mobileDebugOverlay) {
+      const cone = (getEffectiveAimAssistConeDeg(state) * Math.PI) / 180;
+      ctx.strokeStyle = 'rgba(146, 255, 224, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax + Math.cos(state.aimAngle - cone) * (length + 24), ay + Math.sin(state.aimAngle - cone) * (length + 24));
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax + Math.cos(state.aimAngle + cone) * (length + 24), ay + Math.sin(state.aimAngle + cone) * (length + 24));
       ctx.stroke();
     }
     ctx.restore();

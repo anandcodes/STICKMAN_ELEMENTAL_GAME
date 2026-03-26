@@ -562,7 +562,7 @@ export function drawUIRenderer(
   }
 
   if (isPlaying) {
-    drawHUD(ctx, state, W, nowMs, isPortraitMobile);
+    drawHUD(ctx, state, W, nowMs, isPortraitMobile, isMobile);
 
     if (state.activeDialog.length > 0) {
       drawDialogSystem(ctx, state, W, H, nowMs, isPortraitMobile);
@@ -1401,9 +1401,12 @@ function drawHUD(
   state: GameState,
   W: number,
   _nowMs: number,
-  _isPortraitMobile: boolean,
+  isPortraitMobile: boolean,
+  isMobile: boolean,
 ) {
   const s = state.stickman;
+  const hudScale = isMobile ? (isPortraitMobile ? 0.8 : 0.88) : 1;
+  const textScale = isMobile ? (isPortraitMobile ? 0.88 : 0.94) : 1;
 
   // Track visual values for "ghost bar" effect
   if (!(state as any)._visualHp) (state as any)._visualHp = s.health;
@@ -1424,7 +1427,7 @@ function drawHUD(
   // ═══════════════════════════════════════════
   const panelX = 14;
   const panelY = 10;
-  const avatarR = 38;
+  const avatarR = 38 * hudScale;
   const avatarCX = panelX + avatarR + 6;
   const avatarCY = panelY + avatarR + 6;
 
@@ -1433,7 +1436,7 @@ function drawHUD(
   ctx.shadowColor = elementColor;
   ctx.shadowBlur = 18;
   ctx.strokeStyle = elementColor;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 5 * hudScale;
   ctx.beginPath();
   ctx.arc(avatarCX, avatarCY, avatarR + 3, 0, Math.PI * 2);
   ctx.stroke();
@@ -1447,7 +1450,7 @@ function drawHUD(
 
   // White inner border
   ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.5 * hudScale;
   ctx.beginPath();
   ctx.arc(avatarCX, avatarCY, avatarR - 3, 0, Math.PI * 2);
   ctx.stroke();
@@ -1455,26 +1458,26 @@ function drawHUD(
   // Stickman silhouette — bigger
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.arc(avatarCX, avatarCY - 14, 10, 0, Math.PI * 2);
+  ctx.arc(avatarCX, avatarCY - 14 * hudScale, 10 * hudScale, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 4 * hudScale;
   ctx.lineCap = 'round';
   // Body
-  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY - 3); ctx.lineTo(avatarCX, avatarCY + 16); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY - 3 * hudScale); ctx.lineTo(avatarCX, avatarCY + 16 * hudScale); ctx.stroke();
   // Arms
-  ctx.beginPath(); ctx.moveTo(avatarCX - 12, avatarCY + 6); ctx.lineTo(avatarCX + 12, avatarCY + 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(avatarCX - 12 * hudScale, avatarCY + 6 * hudScale); ctx.lineTo(avatarCX + 12 * hudScale, avatarCY + 6 * hudScale); ctx.stroke();
   // Left leg
-  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16); ctx.lineTo(avatarCX - 10, avatarCY + 30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16 * hudScale); ctx.lineTo(avatarCX - 10 * hudScale, avatarCY + 30 * hudScale); ctx.stroke();
   // Right leg
-  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16); ctx.lineTo(avatarCX + 10, avatarCY + 30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(avatarCX, avatarCY + 16 * hudScale); ctx.lineTo(avatarCX + 10 * hudScale, avatarCY + 30 * hudScale); ctx.stroke();
   ctx.restore();
 
   // ─── HP / MP BARS ───
   const barX = panelX + (avatarR + 6) * 2 + 14;
-  const barW = 220;
-  const barH = 18;
-  const barGap = 6;
+  const barW = 220 * hudScale;
+  const barH = 18 * hudScale;
+  const barGap = 6 * hudScale;
 
   // HP bar background
   const healthRatio = Math.max(0, s.health / Math.max(1, s.maxHealth));
@@ -1525,7 +1528,7 @@ function drawHUD(
   ctx.stroke();
   // HP text
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(12 * textScale)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(`${Math.ceil(s.health)}/${Math.ceil(s.maxHealth)}`, barX + barW / 2, panelY + 8 + barH - 4);
 
@@ -1591,16 +1594,16 @@ function drawHUD(
   ctx.stroke();
 
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(10 * textScale)}px Arial, sans-serif`;
   ctx.fillText(isReady ? 'ULTIMATE READY [R]' : 'FOCUS', barX + barW / 2, ultY + barH - 4);
 
   // ─── Character name + level label ───
   ctx.textAlign = 'left';
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 16px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(16 * textScale)}px Arial, sans-serif`;
   ctx.fillText(charName, barX, panelY + 8 + barH * 2 + barGap + 20);
   ctx.fillStyle = '#bbb';
-  ctx.font = 'bold 13px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(13 * textScale)}px Arial, sans-serif`;
   ctx.fillText(`Level ${state.currentLevel + 1}`, barX + ctx.measureText(charName).width + 12, panelY + 8 + barH * 2 + barGap + 20);
 
   // ═══════════════════════════════════════════
@@ -1608,11 +1611,11 @@ function drawHUD(
   // ═══════════════════════════════════════════
   const scoreY = panelY + 8 + barH * 2 + barGap + 42;
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(18 * textScale)}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.fillText(`Score: ${state.score.toLocaleString()}`, panelX + 4, scoreY);
   ctx.fillStyle = HUD_COLORS.coinsText;
-  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(18 * textScale)}px Arial, sans-serif`;
   ctx.fillText(`Coins: ${state.gemsCurrency.toLocaleString()}`, panelX + 4, scoreY + 24);
 
   // ═══════════════════════════════════════════
@@ -1625,90 +1628,88 @@ function drawHUD(
   const cooldownValues: Record<string, string> = { fire: '', water: '0.5s', earth: '1.2s', wind: '0.6s' };
   const elLabels: Record<string, string> = { fire: 'FIRE', water: 'WATER', earth: 'EARTH', wind: 'AIR' };
 
-  elements.forEach((elem, i) => {
-    const ey = elemStartY + i * elemSlotH;
-    const isActive = elem === state.selectedElement;
-    const isUnlocked = state.unlockedElements.includes(elem);
-    const eColor = ELEMENT_COLORS[elem];
+  if (!isMobile) {
+    elements.forEach((elem, i) => {
+      const ey = elemStartY + i * elemSlotH;
+      const isActive = elem === state.selectedElement;
+      const isUnlocked = state.unlockedElements.includes(elem);
+      const eColor = ELEMENT_COLORS[elem];
 
-    ctx.save();
-    ctx.globalAlpha = isUnlocked ? (isActive ? 1 : 0.7) : 0.2;
+      ctx.save();
+      ctx.globalAlpha = isUnlocked ? (isActive ? 1 : 0.7) : 0.2;
 
-    // Element icon circle — large and vivid
-    ctx.fillStyle = isActive ? eColor : 'rgba(60,60,60,0.7)';
-    ctx.beginPath();
-    ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
-    ctx.fill();
+      ctx.fillStyle = isActive ? eColor : 'rgba(60,60,60,0.7)';
+      ctx.beginPath();
+      ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Border ring
-    ctx.strokeStyle = isActive ? '#fff' : 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = isActive ? 3 : 2;
-    ctx.beginPath();
-    ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
-    ctx.stroke();
+      ctx.strokeStyle = isActive ? '#fff' : 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = isActive ? 3 : 2;
+      ctx.beginPath();
+      ctx.arc(panelX + elemIconR + 6, ey + elemIconR + 4, elemIconR, 0, Math.PI * 2);
+      ctx.stroke();
 
-    // Element icon emoji — bigger
-    ctx.font = '20px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ELEMENT_ICONS[elem], panelX + elemIconR + 6, ey + elemIconR + 5);
-    ctx.textBaseline = 'alphabetic';
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ELEMENT_ICONS[elem], panelX + elemIconR + 6, ey + elemIconR + 5);
+      ctx.textBaseline = 'alphabetic';
 
-    // Element label — bigger, bold
-    const labelX = panelX + elemIconR * 2 + 20;
-    ctx.fillStyle = isActive ? '#fff' : '#bbb';
-    ctx.font = isActive ? 'bold 15px Arial, sans-serif' : 'bold 13px Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(elLabels[elem], labelX, ey + 16);
+      const labelX = panelX + elemIconR * 2 + 20;
+      ctx.fillStyle = isActive ? '#fff' : '#bbb';
+      ctx.font = isActive ? 'bold 15px Arial, sans-serif' : 'bold 13px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(elLabels[elem], labelX, ey + 16);
 
-    // Active element: show percentage
-    if (isActive) {
-      ctx.fillStyle = eColor;
-      ctx.font = 'bold 13px Arial, sans-serif';
-      ctx.fillText('100%', labelX, ey + 36);
-    }
+      if (isActive) {
+        ctx.fillStyle = eColor;
+        ctx.font = 'bold 13px Arial, sans-serif';
+        ctx.fillText('100%', labelX, ey + 36);
+      }
 
-    // Unlocked non-active: show cooldown + tap hint
-    if (isUnlocked && !isActive) {
-      ctx.fillStyle = '#aaa';
-      ctx.font = 'bold 12px Arial, sans-serif';
-      const cd = cooldownValues[elem];
-      if (cd) ctx.fillText(cd, labelX, ey + 34);
+      if (isUnlocked && !isActive) {
+        ctx.fillStyle = '#aaa';
+        ctx.font = 'bold 12px Arial, sans-serif';
+        const cd = cooldownValues[elem];
+        if (cd) ctx.fillText(cd, labelX, ey + 34);
 
-      ctx.fillStyle = '#888';
-      ctx.font = '11px Arial, sans-serif';
-      ctx.fillText('Tap to switch', labelX + (cd ? 36 : 0), ey + 34);
-    }
+        ctx.fillStyle = '#888';
+        ctx.font = '11px Arial, sans-serif';
+        ctx.fillText('Tap to switch', labelX + (cd ? 36 : 0), ey + 34);
+      }
 
-    ctx.restore();
-  });
+      ctx.restore();
+    });
+  }
 
   drawUIParticles(ctx, state);
   ctx.restore();
 
   // Store element switcher bounds for touch hit testing
-  state._elementSwitcherBounds = elements.map((elem, i) => ({
-    element: elem,
-    x: panelX,
-    y: elemStartY + i * elemSlotH,
-    w: elemIconR * 2 + 140,
-    h: elemSlotH,
-  }));
+  state._elementSwitcherBounds = isMobile
+    ? []
+    : elements.map((elem, i) => ({
+      element: elem,
+      x: panelX,
+      y: elemStartY + i * elemSlotH,
+      w: elemIconR * 2 + 140,
+      h: elemSlotH,
+    }));
 
   // ═══════════════════════════════════════════
   // LEVEL NAME (top-right)
   // ═══════════════════════════════════════════
   ctx.save();
   const levelText = (state.levelName || '').toUpperCase();
-  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.font = `bold ${Math.round(20 * textScale)}px Arial, sans-serif`;
   ctx.textAlign = 'right';
   const lvlTextW = ctx.measureText(levelText).width;
   // Background pill
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  roundRect(ctx, W - lvlTextW - 100, panelY + 2, lvlTextW + 24, 32, 8);
+  roundRect(ctx, W - lvlTextW - 100 * hudScale, panelY + 2, lvlTextW + 24 * hudScale, 32 * hudScale, 8 * hudScale);
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.fillText(levelText, W - 84, panelY + 26);
+  ctx.fillText(levelText, W - 84 * hudScale, panelY + 26 * hudScale);
   ctx.restore();
 
   // ═══════════════════════════════════════════
@@ -2028,6 +2029,23 @@ function drawSettingsScreen(ctx: CanvasRenderingContext2D, state: GameState, W: 
     { label: 'Reduced Motion', value: state.reducedMotion ? 'ON' : 'OFF' },
     { label: 'High Contrast', value: state.highContrast ? 'ON' : 'OFF' },
     { label: 'Aim to Shoot', value: state.aimToShoot ? 'ON' : 'OFF' },
+    { label: 'Control Mode', value: state.mobileControlMode === 'one_thumb' ? 'ONE THUMB' : 'DUAL STICK' },
+    {
+      label: 'Accessibility Preset',
+      value: state.mobileAccessibilityPreset === 'large_controls'
+        ? 'LARGE'
+        : state.mobileAccessibilityPreset === 'assisted'
+          ? 'ASSISTED'
+          : 'STANDARD',
+    },
+    {
+      label: 'Skill Preset',
+      value: state.mobileSkillPreset === 'casual'
+        ? 'CASUAL'
+        : state.mobileSkillPreset === 'precision'
+          ? 'PRECISION'
+          : 'STANDARD',
+    },
   ];
 
   settings.forEach((entry, i) => {

@@ -5,6 +5,9 @@ export type ShopTab = 'upgrades' | 'skins' | 'powerups' | 'currency' | 'special'
 export type Locale = 'en' | 'hi';
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 export type KeyboardLayout = 'wasd' | 'arrows' | 'both';
+export type MobileControlMode = 'dual_stick' | 'one_thumb';
+export type MobileAccessibilityPreset = 'standard' | 'large_controls' | 'assisted';
+export type MobileSkillPreset = 'casual' | 'standard' | 'precision';
 export type RelicType = 'burning_soul' | 'storm_crown' | 'earth_heart' | 'sea_blessing' | 'vitality_core' | 'mana_flux' | 'berserker_blood' | 'static_static';
 
 export interface Relic {
@@ -286,6 +289,9 @@ export interface GameSettings {
   sfxVolume: number;
   controlsScale: number;
   aimToShoot: boolean;
+  mobileControlMode: MobileControlMode;
+  mobileAccessibilityPreset: MobileAccessibilityPreset;
+  mobileSkillPreset: MobileSkillPreset;
 }
 
 export type WeatherType = 'clear' | 'rain' | 'snow' | 'windy' | 'storm';
@@ -343,7 +349,9 @@ export interface GameState {
   touchAimActive: boolean;
   shootQueued: boolean;
   buttonFireActive: boolean;
+  attackBufferFrames: number;
   dashBufferFrames: number;
+  platformDropFrames: number;
   castCooldown: number;
   wind: { active: boolean; direction: number; timer: number };
   backgroundStars: { x: number; y: number; size: number; twinkle: number; speed?: number }[];
@@ -393,6 +401,10 @@ export interface GameState {
   highContrast: boolean;
   controlsScale: number;
   aimToShoot: boolean;
+  mobileControlMode: MobileControlMode;
+  mobileAccessibilityPreset: MobileAccessibilityPreset;
+  mobileSkillPreset: MobileSkillPreset;
+  mobileDebugOverlay: boolean;
   onDamage?: () => void;
   deathAnimTimer: number;
   deathType?: 'fall' | 'enemy' | 'spike';

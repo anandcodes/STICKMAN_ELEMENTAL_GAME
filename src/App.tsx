@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { update, spawnFloatingText, setEngineCanvasSize, selectRelic } from './game/engine';
 import { render } from './game/renderer';
-import type { Difficulty, Element, GameSettings, GameState, ShopTab, GraphicsQuality, Upgrades } from './game/types';
+import type {
+  Difficulty,
+  Element,
+  GameSettings,
+  GameState,
+  ShopTab,
+  GraphicsQuality,
+  Upgrades,
+  MobileAccessibilityPreset,
+  MobileControlMode,
+} from './game/types';
 import { TOTAL_LEVELS } from './game/levels';
 import * as Audio from './game/audio';
 import { hydrateSaveFromCloud, loadSave, saveProgress } from './game/persistence';
@@ -20,10 +30,12 @@ import {
 import { claimDailyReward, getProgressionSnapshot } from './game/services/progression';
 import Menu from './components/Menu';
 import {
+  cacheTouchCanvasRect,
   createTouchControlsState,
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  resetTouchControlsState,
   updateTouchControlsInput,
   updateTouchControlsLayout,
   renderTouchControls,
@@ -33,6 +45,22 @@ import {
 } from './game/touchControls';
 import { assetLoader } from './game/services/assetLoader';
 import { MOBILE_CONTROL_ASSET_PATHS } from './game/mobile/config';
+import type { CachedCanvasRect } from './game/mobile/mobileLayout';
+import {
+  flushMobileInputTelemetry,
+  maybeCheckpointMobileInputTelemetry,
+  maybeFlushMobileInputTelemetry,
+  recoverMobileInputTelemetry,
+} from './game/mobile/observability';
+import { shouldEnableMobileDebugOverlay } from './game/mobile/debugFlags';
+import {
+  clearInputContacts,
+  createInputContactRegistry,
+  isTouchPointerEvent,
+  listInputContacts,
+  removeInputContact,
+  upsertInputContact,
+} from './game/mobile/pointerBridge';
 import { mobileRender } from './game/renderers/renderConstants';
 import { getLevelNodePosition } from './game/renderers/uiRenderer';
 
@@ -45,6 +73,21 @@ const DIFFICULTY_CYCLE: Record<Difficulty, Difficulty> = {
   hard: 'insane',
   insane: 'easy'
 };
+const SETTINGS_ENTRY_COUNT = 8;
+const ACCESSIBILITY_PRESET_CYCLE: Record<MobileAccessibilityPreset, MobileAccessibilityPreset> = {
+  standard: 'large_controls',
+  large_controls: 'assisted',
+  assisted: 'standard',
+};
+const CONTROL_MODE_CYCLE: Record<MobileControlMode, MobileControlMode> = {
+  dual_stick: 'one_thumb',
+  one_thumb: 'dual_stick',
+};
+const SKILL_PRESET_CYCLE: Record<GameSettings['mobileSkillPreset'], GameSettings['mobileSkillPreset']> = {
+  casual: 'standard',
+  standard: 'precision',
+  precision: 'casual',
+};
 
 function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.locale = settings.locale;
@@ -55,6 +98,11 @@ function applySettingsToState(state: GameState, settings: GameSettings): void {
   state.highContrast = settings.highContrast;
   state.controlsScale = settings.controlsScale;
   state.aimToShoot = settings.aimToShoot;
+  state.mobileControlMode = settings.mobileControlMode;
+  state.mobileAccessibilityPreset = settings.mobileAccessibilityPreset;
+  state.mobileSkillPreset = settings.mobileSkillPreset;
+  state.mobileDebugOverlay = typeof window !== 'undefined'
+    && shouldEnableMobileDebugOverlay(window.location.search);
 }
 
 function tr(state: GameState, key: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
@@ -93,12 +141,15 @@ function App() {
   const compactMobileLayoutRef = useRef(isMobile);
   const loopClockRef = useRef(createLoopClock());
   const dprRef = useRef(1);
+  const inputContactRegistryRef = useRef(createInputContactRegistry());
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [canvasScale, setCanvasScale] = useState(1);
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const settingsRef = useRef(settings);
   const lastLeaderboardRefreshRef = useRef(0);
+  const lastPauseStateRef = useRef(initialState.paused);
+  const lastScreenStateRef = useRef(initialState.screen);
   const [menuOverlay, setMenuOverlay] = useState({ visible: true, selected: 0 });
   const menuOverlayRef = useRef(menuOverlay);
   const parallaxRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
@@ -223,19 +274,24 @@ function App() {
   const assignState = (next: GameState) => {
     applySettingsToState(next, settingsRef.current);
     stateRef.current = next;
+    lastPauseStateRef.current = next.paused;
+    lastScreenStateRef.current = next.screen;
+    clearInputContacts(inputContactRegistryRef.current);
+    resetTouchControlsState(touchControlsRef.current, next);
   };
 
   const syncTouchLayout = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
+    cacheTouchCanvasRect(touchControlsRef.current, rect);
     updateTouchControlsLayout(touchControlsRef.current, stateRef.current, CANVAS_W, CANVAS_H, rect.width, rect.height);
   };
 
   /**
    * Map a screen-space coordinate (clientX, clientY) to canvas logical coordinates.
    */
-  const screenToCanvas = (clientX: number, clientY: number, rect: DOMRect): { x: number; y: number } => {
+  const screenToCanvas = (clientX: number, clientY: number, rect: DOMRect | CachedCanvasRect): { x: number; y: number } => {
     return {
       x: ((clientX - rect.left) / rect.width) * CANVAS_W,
       y: ((clientY - rect.top) / rect.height) * CANVAS_H,
@@ -291,12 +347,16 @@ function App() {
     };
     computeScale();
     window.addEventListener('resize', computeScale);
+    window.addEventListener('orientationchange', computeScale);
     document.addEventListener('fullscreenchange', computeScale);
     window.visualViewport?.addEventListener('resize', computeScale);
+    window.visualViewport?.addEventListener('scroll', computeScale);
     return () => {
       window.removeEventListener('resize', computeScale);
+      window.removeEventListener('orientationchange', computeScale);
       document.removeEventListener('fullscreenchange', computeScale);
       window.visualViewport?.removeEventListener('resize', computeScale);
+      window.visualViewport?.removeEventListener('scroll', computeScale);
     };
   }, [isMobile]);
 
@@ -424,6 +484,7 @@ function App() {
 
     try {
       initTelemetrySession();
+      recoverMobileInputTelemetry();
       containerRef.current?.focus();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown startup error';
@@ -599,7 +660,7 @@ function App() {
         const ty_val = ty ?? s.mousePos.y;
 
         // Settings list hit test
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < SETTINGS_ENTRY_COUNT; i++) {
           const sy = 160 + i * 70;
           if (tx_val >= CANVAS_W / 2 - 250 && tx_val <= CANVAS_W / 2 + 250 && ty_val >= sy - 30 && ty_val <= sy + 30) {
             // Toggle setting
@@ -615,6 +676,16 @@ function App() {
               patchSettings({ highContrast: !settingsRef.current.highContrast });
             } else if (i === 4) {
               patchSettings({ aimToShoot: !settingsRef.current.aimToShoot });
+            } else if (i === 5) {
+              patchSettings({ mobileControlMode: CONTROL_MODE_CYCLE[settingsRef.current.mobileControlMode] });
+            } else if (i === 6) {
+              patchSettings({
+                mobileAccessibilityPreset: ACCESSIBILITY_PRESET_CYCLE[settingsRef.current.mobileAccessibilityPreset],
+              });
+            } else if (i === 7) {
+              patchSettings({
+                mobileSkillPreset: SKILL_PRESET_CYCLE[settingsRef.current.mobileSkillPreset],
+              });
             }
             Audio.playMenuSelect();
             return;
@@ -1057,7 +1128,7 @@ function App() {
 
       if (s.screen === 'settings') {
         const ty = s.mousePos.y;
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < SETTINGS_ENTRY_COUNT; i++) {
           const sy = 160 + i * 70;
           if (ty >= sy - 30 && ty <= sy + 30) {
             s.shopSelectionIndex = i;
@@ -1154,6 +1225,9 @@ function App() {
     const onBlur = () => {
       stateRef.current.keys.clear();
       stateRef.current.mouseDown = false;
+      clearInputContacts(inputContactRegistryRef.current);
+      resetTouchControlsState(touchControlsRef.current, stateRef.current);
+      flushMobileInputTelemetry('blur', Date.now(), { screen: stateRef.current.screen });
       // Auto-pause when losing focus
       if (settingsRef.current.autoPauseOnBlur && stateRef.current.screen === 'playing' && !stateRef.current.showLevelIntro) {
         stateRef.current.paused = true;
@@ -1175,13 +1249,38 @@ function App() {
       setFatalError('Unhandled promise rejection');
     };
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushMobileInputTelemetry('visibility_hidden', Date.now(), { screen: stateRef.current.screen });
+      }
+    };
+
+    const onPageHide = () => {
+      flushMobileInputTelemetry('pagehide', Date.now(), { screen: stateRef.current.screen });
+    };
+
+    const onBeforeUnload = () => {
+      flushMobileInputTelemetry('beforeunload', Date.now(), { screen: stateRef.current.screen });
+    };
+
     // Touch support - full mobile controls
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const s = stateRef.current;
       const controls = touchControlsRef.current;
+      const usePointerBridge = 'PointerEvent' in window && navigator.maxTouchPoints > 0;
       enterMobileImmersive();
       syncTouchLayout();
+
+      if (
+        usePointerBridge
+        && s.screen === 'playing'
+        && !s.paused
+        && !s.showLevelIntro
+        && s.activeDialog.length === 0
+      ) {
+        return;
+      }
 
       if (handleDialogAdvance()) return;
 
@@ -1250,29 +1349,120 @@ function App() {
         return;
       }
 
+      syncTouchLayout();
       const newTouches = Array.from(e.changedTouches);
-      handleTouchStart(newTouches, controls, s, canvas, CANVAS_W, CANVAS_H, screenToCanvas);
+      handleTouchStart(newTouches, controls, s, canvas, CANVAS_W, CANVAS_H, screenToCanvas, Array.from(e.touches));
     };
 
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
+      const s = stateRef.current;
+      if ('PointerEvent' in window && navigator.maxTouchPoints > 0 && s.screen === 'playing' && !s.paused && !s.showLevelIntro) {
+        return;
+      }
       const controls = touchControlsRef.current;
       const changedTouches = Array.from(e.changedTouches);
-      handleTouchMove(changedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H, screenToCanvas);
+      handleTouchMove(changedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H, screenToCanvas, Array.from(e.touches));
     };
 
     const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
+      const s = stateRef.current;
+      if ('PointerEvent' in window && navigator.maxTouchPoints > 0 && s.screen === 'playing' && !s.paused && !s.showLevelIntro) {
+        return;
+      }
       const controls = touchControlsRef.current;
       const endedTouches = Array.from(e.changedTouches);
-      handleTouchEnd(endedTouches, controls, stateRef.current);
+      handleTouchEnd(endedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H, screenToCanvas, Array.from(e.touches));
     };
 
     const onTouchCancel = (e: TouchEvent) => {
       e.preventDefault();
+      const s = stateRef.current;
+      if ('PointerEvent' in window && navigator.maxTouchPoints > 0 && s.screen === 'playing' && !s.paused && !s.showLevelIntro) {
+        return;
+      }
       const controls = touchControlsRef.current;
       const endedTouches = Array.from(e.changedTouches);
-      handleTouchEnd(endedTouches, controls, stateRef.current);
+      handleTouchEnd(endedTouches, controls, stateRef.current, canvas, CANVAS_W, CANVAS_H, screenToCanvas, Array.from(e.touches));
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      const s = stateRef.current;
+      if (!isTouchPointerEvent(e) || s.screen !== 'playing' || s.paused || s.showLevelIntro || s.activeDialog.length > 0) {
+        return;
+      }
+      e.preventDefault();
+      enterMobileImmersive();
+      syncTouchLayout();
+      const changed = upsertInputContact(inputContactRegistryRef.current, e.pointerId, e.clientX, e.clientY);
+      canvas.setPointerCapture?.(e.pointerId);
+      handleTouchStart(
+        [changed],
+        touchControlsRef.current,
+        s,
+        canvas,
+        CANVAS_W,
+        CANVAS_H,
+        screenToCanvas,
+        listInputContacts(inputContactRegistryRef.current),
+      );
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const s = stateRef.current;
+      if (!isTouchPointerEvent(e) || s.screen !== 'playing') return;
+      if (!inputContactRegistryRef.current.contacts.has(e.pointerId)) return;
+      e.preventDefault();
+      const changed = upsertInputContact(inputContactRegistryRef.current, e.pointerId, e.clientX, e.clientY);
+      handleTouchMove(
+        [changed],
+        touchControlsRef.current,
+        s,
+        canvas,
+        CANVAS_W,
+        CANVAS_H,
+        screenToCanvas,
+        listInputContacts(inputContactRegistryRef.current),
+      );
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const s = stateRef.current;
+      if (!isTouchPointerEvent(e) || s.screen !== 'playing') return;
+      if (!inputContactRegistryRef.current.contacts.has(e.pointerId)) return;
+      e.preventDefault();
+      const finalContact = upsertInputContact(inputContactRegistryRef.current, e.pointerId, e.clientX, e.clientY);
+      removeInputContact(inputContactRegistryRef.current, e.pointerId);
+      handleTouchEnd(
+        [finalContact],
+        touchControlsRef.current,
+        s,
+        canvas,
+        CANVAS_W,
+        CANVAS_H,
+        screenToCanvas,
+        listInputContacts(inputContactRegistryRef.current),
+      );
+    };
+
+    const onPointerCancel = (e: PointerEvent) => {
+      const s = stateRef.current;
+      if (!isTouchPointerEvent(e) || s.screen !== 'playing') return;
+      if (!inputContactRegistryRef.current.contacts.has(e.pointerId)) return;
+      e.preventDefault();
+      const finalContact = upsertInputContact(inputContactRegistryRef.current, e.pointerId, e.clientX, e.clientY);
+      removeInputContact(inputContactRegistryRef.current, e.pointerId);
+      handleTouchEnd(
+        [finalContact],
+        touchControlsRef.current,
+        s,
+        canvas,
+        CANVAS_W,
+        CANVAS_H,
+        screenToCanvas,
+        listInputContacts(inputContactRegistryRef.current),
+      );
     };
 
     document.addEventListener('keydown', onKeyDown);
@@ -1285,8 +1475,131 @@ function App() {
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     canvas.addEventListener('touchcancel', onTouchCancel, { passive: false });
+    canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+    canvas.addEventListener('pointermove', onPointerMove, { passive: false });
+    canvas.addEventListener('pointerup', onPointerUp, { passive: false });
+    canvas.addEventListener('pointercancel', onPointerCancel, { passive: false });
     window.addEventListener('error', onWindowError);
     window.addEventListener('unhandledrejection', onUnhandledRejection);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    const renderCurrentFrame = (currentState: GameState) => {
+      const dpr = dprRef.current;
+      const physW = CANVAS_W * dpr;
+      const physH = CANVAS_H * dpr;
+      if (canvas.width !== physW || canvas.height !== physH) {
+        canvas.width = physW;
+        canvas.height = physH;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      render(
+        ctx,
+        currentState,
+        CANVAS_W,
+        CANVAS_H,
+        isMobileRef.current,
+        isPortraitMobileRef.current,
+        compactMobileLayoutRef.current,
+      );
+
+      if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
+        renderTouchControls(ctx, touchControlsRef.current, currentState);
+      }
+    };
+
+    const advanceOneFrame = (currentState: GameState) => {
+      const previousPaused = lastPauseStateRef.current;
+      const previousScreen = lastScreenStateRef.current;
+      if (isMobileRef.current) {
+        updateTouchControlsInput(touchControlsRef.current, currentState);
+      }
+      update(currentState);
+      maybeFlushMobileInputTelemetry();
+      maybeCheckpointMobileInputTelemetry();
+      if (!previousPaused && currentState.paused) {
+        flushMobileInputTelemetry('pause', Date.now(), { screen: currentState.screen });
+      }
+      if (
+        previousScreen === 'playing'
+        && (currentState.screen === 'levelComplete' || currentState.screen === 'gameOver' || currentState.screen === 'victory')
+      ) {
+        flushMobileInputTelemetry('level_end', Date.now(), {
+          outcome: currentState.screen,
+          level: currentState.currentLevel,
+        });
+      }
+      lastPauseStateRef.current = currentState.paused;
+      lastScreenStateRef.current = currentState.screen;
+    };
+
+    const debugWindow = window as typeof window & {
+      advanceTime?: (ms: number) => void;
+      render_game_to_text?: () => string;
+    };
+    debugWindow.advanceTime = (ms: number) => {
+      const steps = Math.max(1, Math.round(ms / (1000 / 60)));
+      const currentState = stateRef.current;
+      for (let i = 0; i < steps; i++) {
+        advanceOneFrame(currentState);
+      }
+      renderCurrentFrame(currentState);
+    };
+    debugWindow.render_game_to_text = () => {
+      const currentState = stateRef.current;
+      const player = currentState.stickman;
+      return JSON.stringify({
+        coordinates: 'origin top-left, +x right, +y down',
+        screen: currentState.screen,
+        paused: currentState.paused,
+        intro: currentState.showLevelIntro,
+        player: {
+          x: Math.round(player.x),
+          y: Math.round(player.y),
+          vx: Number(player.vx.toFixed(2)),
+          vy: Number(player.vy.toFixed(2)),
+          onGround: player.onGround,
+          health: Math.round(player.health),
+          mana: Math.round(player.mana),
+          element: currentState.selectedElement,
+        },
+        aiming: {
+          active: !!currentState.touchAimActive || !!currentState.isAiming,
+          angle: currentState.aimAngle !== undefined ? Number(currentState.aimAngle.toFixed(3)) : null,
+          assist: Number(currentState.aimAssistWeight.toFixed(2)),
+        },
+        mobileControls: {
+          movement: Number(currentState.moveInputX.toFixed(2)),
+          attackBuffered: currentState.attackBufferFrames,
+          dashBuffered: currentState.dashBufferFrames,
+          platformDrop: currentState.platformDropFrames,
+          mode: currentState.mobileControlMode,
+          accessibility: currentState.mobileAccessibilityPreset,
+          skill: currentState.mobileSkillPreset,
+          inputPath: typeof window !== 'undefined' && 'PointerEvent' in window && navigator.maxTouchPoints > 0
+            ? 'pointer_bridge'
+            : 'touch_fallback',
+          debugOverlay: currentState.mobileDebugOverlay,
+        },
+        enemies: currentState.enemies
+          .filter((enemy) => enemy.state !== 'dead')
+          .slice(0, 6)
+          .map((enemy) => ({
+            id: enemy.id,
+            x: Math.round(enemy.x),
+            y: Math.round(enemy.y),
+            health: Math.round(enemy.health),
+            state: enemy.state,
+          })),
+        projectiles: currentState.projectiles.slice(0, 8).map((projectile) => ({
+          x: Math.round(projectile.x),
+          y: Math.round(projectile.y),
+          element: projectile.element,
+        })),
+      });
+    };
 
     let animId: number;
     const gameLoop = (nowMs: number) => {
@@ -1297,39 +1610,12 @@ function App() {
           void refreshRemoteLeaderboard(20);
         }
 
-        if (isMobileRef.current) {
-          updateTouchControlsInput(touchControlsRef.current, currentState);
-        }
         const steps = advanceLoopClock(loopClockRef.current, nowMs);
         for (let i = 0; i < steps; i++) {
-          update(currentState);
+          advanceOneFrame(currentState);
         }
 
-        // Apply DPI scaling for sharp rendering on high-DPI screens
-        const dpr = dprRef.current;
-        const physW = CANVAS_W * dpr;
-        const physH = CANVAS_H * dpr;
-        if (canvas.width !== physW || canvas.height !== physH) {
-          canvas.width = physW;
-          canvas.height = physH;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        render(
-          ctx,
-          currentState,
-          CANVAS_W,
-          CANVAS_H,
-          isMobileRef.current,
-          isPortraitMobileRef.current,
-          compactMobileLayoutRef.current,
-        );
-
-        // Render touch controls on top
-        if (touchControlsRef.current.visible && currentState.screen === 'playing' && !currentState.showLevelIntro) {
-          syncTouchLayout();
-          renderTouchControls(ctx, touchControlsRef.current, currentState);
-        }
+        renderCurrentFrame(currentState);
 
         animId = requestAnimationFrame(gameLoop);
       } catch (err) {
@@ -1353,8 +1639,17 @@ function App() {
       canvas.removeEventListener('touchmove', onTouchMove);
       canvas.removeEventListener('touchend', onTouchEnd);
       canvas.removeEventListener('touchcancel', onTouchCancel);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      delete debugWindow.advanceTime;
+      delete debugWindow.render_game_to_text;
     };
   }, [assetsReady, beginCampaignTransition]);
 

@@ -24,7 +24,8 @@
     "mobile:add-android": "npx cap add android",
     "mobile:copy": "npx cap copy",
     "mobile:sync": "npx cap sync",
-    "mobile:open": "npx cap open android"
+    "mobile:open": "npx cap open android",
+    "mobile:test:multitouch": "tsx scripts/mobileMultiTouchRunner.ts"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",

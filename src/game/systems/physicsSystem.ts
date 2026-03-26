@@ -5,6 +5,9 @@ import { spawnParticles } from './utils';
 export function applyPhysics(state: GameState, dt = 1) {
   const s = state.stickman;
   const landingAssist = state.balanceCurve.landingAssist;
+  if (state.platformDropFrames > 0) {
+    state.platformDropFrames--;
+  }
   const prevX = s.x;
   const prevY = s.y;
   const element = state.selectedElement;
@@ -53,7 +56,9 @@ export function applyPhysics(state: GameState, dt = 1) {
     const overlapX = currentRight > plat.x + 2 && currentLeft < plat.x + plat.width - 2;
     const overlapY = currentBottom > plat.y + 2 && currentTop < plat.y + plat.height - 2;
 
-    if (s.vy >= 0 && prevBottom <= plat.y + 15 && currentBottom >= plat.y && overlapX) {
+    const canLandOnPlatform = state.platformDropFrames <= 0;
+
+    if (canLandOnPlatform && s.vy >= 0 && prevBottom <= plat.y + 15 && currentBottom >= plat.y && overlapX) {
       s.y = plat.y - s.height;
       if (!s.onGround && s.vy > 1) {
         spawnParticles(state, s.x + s.width / 2, s.y + s.height, 'earth', 10);

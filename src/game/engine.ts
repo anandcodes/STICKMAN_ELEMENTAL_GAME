@@ -12,6 +12,7 @@ import * as Audio from './audio';
 import { loadSave, saveProgress } from './persistence';
 import { trackEvent } from './telemetry';
 import { loadSettings } from './settings';
+import { recordMobileInputMetric } from './mobile/observability';
 import { submitLeaderboardEntry } from './services/leaderboard';
 import { getAchievementLabel, updateProgression } from './services/progression';
 import { getRandomRelics, applyRelicEffects } from './relics';
@@ -141,7 +142,9 @@ export function createInitialState(
     touchAimActive: false,
     shootQueued: false,
     buttonFireActive: false,
+    attackBufferFrames: 0,
     dashBufferFrames: 0,
+    platformDropFrames: 0,
     castCooldown: 0,
     wind: { active: false, direction: 0, timer: 0 },
     backgroundStars: bgStars,
@@ -191,6 +194,10 @@ export function createInitialState(
     highContrast: runtimeSettings.highContrast,
     controlsScale: runtimeSettings.controlsScale,
     aimToShoot: runtimeSettings.aimToShoot,
+    mobileControlMode: runtimeSettings.mobileControlMode,
+    mobileAccessibilityPreset: runtimeSettings.mobileAccessibilityPreset,
+    mobileSkillPreset: runtimeSettings.mobileSkillPreset,
+    mobileDebugOverlay: false,
     endlessWave: level === 15 ? 1 : undefined,
     endlessKills: level === 15 ? 0 : undefined,
     endlessTimer: level === 15 ? 0 : undefined,
@@ -447,6 +454,7 @@ export function update(state: GameState): void {
     state.mouseDown = false;
     state.moveInputX = 0;
     state.moveInputY = 0;
+    state.attackBufferFrames = 0;
   }
 
   // Process Active Powerups Timers
@@ -483,13 +491,21 @@ export function update(state: GameState): void {
     state.castCooldown = 3; // super fast shooting
   }
   if (state.castCooldown > 0) state.castCooldown--;
+  const prevAttackBufferFrames = state.attackBufferFrames;
+  if (state.attackBufferFrames > 0 && !state.shootQueued) {
+    state.attackBufferFrames--;
+  }
 
-  const usingButtonFire = state.buttonFireActive || state.shootQueued;
+  const usingButtonFire = state.buttonFireActive || state.shootQueued || state.attackBufferFrames > 0;
 
   if (usingButtonFire && state.castCooldown <= 0) {
+    if (state.attackBufferFrames > 0) {
+      recordMobileInputMetric('buffered_attack_success');
+    }
     state.isAiming = true;
     spawnProjectile(state);
     state.shootQueued = false;
+    state.attackBufferFrames = 0;
   } else if (state.aimToShoot && !state.touchAimActive) {
     if (state.mouseDown && state.castCooldown <= 0) {
       state.isAiming = true;
@@ -499,7 +515,11 @@ export function update(state: GameState): void {
       state.aimAngle = Math.atan2(worldMouseY - (s.y + s.height / 4), worldMouseX - (s.x + s.width / 2));
     } else if (state.isAiming && !state.mouseDown) {
       state.isAiming = false;
-      spawnProjectile(state);
+      if (state.castCooldown <= 0) {
+        spawnProjectile(state);
+      } else {
+        state.attackBufferFrames = Math.max(state.attackBufferFrames, 12);
+      }
     }
   } else {
     if (state.touchAimActive) {
@@ -511,6 +531,10 @@ export function update(state: GameState): void {
     if (state.mouseDown && state.castCooldown <= 0 && !usingButtonFire) {
       spawnProjectile(state);
     }
+  }
+
+  if (prevAttackBufferFrames > 0 && state.attackBufferFrames === 0 && state.castCooldown > 0 && !state.shootQueued) {
+    recordMobileInputMetric('buffered_attack_expired');
   }
 
   // Physics & Collision

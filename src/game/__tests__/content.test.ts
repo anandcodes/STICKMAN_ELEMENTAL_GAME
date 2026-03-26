@@ -13,6 +13,8 @@ function makeLevel(name: string): LevelDef {
     platforms: [],
     envObjects: [],
     enemies: [],
+    hazards: [],
+    powerups: [],
     playerStart: { x: 0, y: 0 },
     gemsRequired: 1,
     totalGems: 1,

@@ -8,7 +8,17 @@ import {
   trackEvent,
   type TelemetryConfig,
 } from '../telemetry';
+import {
+  getMobileInputObservabilitySnapshot,
+  maybeCheckpointMobileInputTelemetry,
+  maybeFlushMobileInputTelemetry,
+  recordMobileInputDecision,
+  recordMobileInputMetric,
+  recoverMobileInputTelemetry,
+  resetMobileInputObservability,
+} from '../mobile/observability';
 import { setMockStorage } from './testHelpers';
+import { areMobileQaToolsEnabled, shouldEnableMobileDebugOverlay } from '../mobile/debugFlags';
 
 function makeConfig(overrides: Partial<TelemetryConfig> = {}): TelemetryConfig {
   return {
@@ -101,4 +111,62 @@ test('trackError deduplicates repeated errors in a short window', async () => {
   expect(sent.filter((e) => e.event === 'client_error').length).toBe(1);
 
   __setTelemetryConfigForTests(null);
+});
+
+test('mobile input observability flushes aggregated telemetry', async () => {
+  const sent: Record<string, unknown>[] = [];
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
+    return { ok: true } as Response;
+  });
+  globalThis.fetch = mockFetch;
+
+  resetMobileInputObservability();
+  __setTelemetryConfigForTests(makeConfig());
+  recordMobileInputMetric('dead_zone_exit');
+  recordMobileInputMetric('buffered_attack_success');
+  recordMobileInputDecision('dash_trigger', 'dt=180');
+  maybeFlushMobileInputTelemetry(35000);
+  await Promise.resolve();
+
+  const snapshot = getMobileInputObservabilitySnapshot();
+  expect(snapshot.counters.dead_zone_exit).toBe(1);
+  expect(sent.some((event) => event.event === 'mobile_input_summary')).toBe(true);
+
+  __setTelemetryConfigForTests(null);
+});
+
+test('mobile input telemetry checkpoints recover after abrupt termination', async () => {
+  const sent: Record<string, unknown>[] = [];
+  setMockStorage();
+  const mockFetch = vi.fn().mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
+    return { ok: true } as Response;
+  });
+  globalThis.fetch = mockFetch;
+
+  resetMobileInputObservability();
+  __setTelemetryConfigForTests(makeConfig());
+  recordMobileInputMetric('buffered_attack_queued');
+  recordMobileInputMetric('dash_trigger');
+  recordMobileInputDecision('ownership_recover', 'aim_touch=4');
+  maybeCheckpointMobileInputTelemetry(10000);
+
+  const recovered = recoverMobileInputTelemetry(20000);
+  await Promise.resolve();
+
+  expect(recovered).toBe(1);
+  expect(sent.some((event) => {
+    if (event.event !== 'mobile_input_summary') return false;
+    const payload = event.payload as Record<string, unknown>;
+    return payload.reason === 'recovered_checkpoint';
+  })).toBe(true);
+
+  __setTelemetryConfigForTests(null);
+});
+
+test('mobile QA tools are disabled in production unless explicitly enabled', () => {
+  expect(areMobileQaToolsEnabled({ DEV: false, VITE_ENABLE_MOBILE_QA_TOOLS: 'false' })).toBe(false);
+  expect(shouldEnableMobileDebugOverlay('?mobileInputDebug=1', { DEV: false, VITE_ENABLE_MOBILE_QA_TOOLS: 'false' })).toBe(false);
+  expect(shouldEnableMobileDebugOverlay('?mobileInputDebug=1', { DEV: false, VITE_ENABLE_MOBILE_QA_TOOLS: 'true' })).toBe(true);
 });

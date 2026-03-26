@@ -1,4 +1,4 @@
-import { GameState, Hazard, Platform } from '../types';
+import type { GameState } from '../types';
 import { spawnParticles } from './utils';
 
 export function updateHazards(state: GameState, dt: number) {

@@ -1,4 +1,11 @@
-import type { GameSettings, GraphicsQuality, KeyboardLayout, Locale } from './types';
+import type {
+  GameSettings,
+  GraphicsQuality,
+  KeyboardLayout,
+  Locale,
+  MobileAccessibilityPreset,
+  MobileControlMode,
+} from './types';
 
 export const SETTINGS_KEY = 'elemental_stickman_settings';
 export const SETTINGS_SCHEMA_VERSION = 1;
@@ -19,6 +26,9 @@ export const DEFAULT_SETTINGS: GameSettings = {
   controlsScale: 1,
   aimToShoot: true,
   hapticsEnabled: true,
+  mobileControlMode: 'dual_stick',
+  mobileAccessibilityPreset: 'standard',
+  mobileSkillPreset: 'standard',
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -45,6 +55,18 @@ function asKeyboardLayout(value: unknown): KeyboardLayout | null {
   return value === 'wasd' || value === 'arrows' || value === 'both' ? value : null;
 }
 
+function asMobileControlMode(value: unknown): MobileControlMode | null {
+  return value === 'dual_stick' || value === 'one_thumb' ? value : null;
+}
+
+function asAccessibilityPreset(value: unknown): MobileAccessibilityPreset | null {
+  return value === 'standard' || value === 'large_controls' || value === 'assisted' ? value : null;
+}
+
+function asSkillPreset(value: unknown): 'casual' | 'standard' | 'precision' | null {
+  return value === 'casual' || value === 'standard' || value === 'precision' ? value : null;
+}
+
 function normalizeSettings(raw: unknown): GameSettings {
   if (!raw || typeof raw !== 'object') {
     return { ...DEFAULT_SETTINGS };
@@ -54,6 +76,9 @@ function normalizeSettings(raw: unknown): GameSettings {
   const locale = asLocale(data.locale) ?? DEFAULT_SETTINGS.locale;
   const graphicsQuality = asGraphicsQuality(data.graphicsQuality) ?? DEFAULT_SETTINGS.graphicsQuality;
   const keyboardLayout = asKeyboardLayout(data.keyboardLayout) ?? DEFAULT_SETTINGS.keyboardLayout;
+  const mobileControlMode = asMobileControlMode(data.mobileControlMode) ?? DEFAULT_SETTINGS.mobileControlMode;
+  const mobileAccessibilityPreset = asAccessibilityPreset(data.mobileAccessibilityPreset) ?? DEFAULT_SETTINGS.mobileAccessibilityPreset;
+  const mobileSkillPreset = asSkillPreset(data.mobileSkillPreset) ?? DEFAULT_SETTINGS.mobileSkillPreset;
 
   return {
     version: SETTINGS_SCHEMA_VERSION,
@@ -71,6 +96,9 @@ function normalizeSettings(raw: unknown): GameSettings {
     controlsScale: clamp(asNumber(data.controlsScale, DEFAULT_SETTINGS.controlsScale), 0.5, 2),
     aimToShoot: !!asBoolean(data.aimToShoot, DEFAULT_SETTINGS.aimToShoot),
     hapticsEnabled: asBoolean(data.hapticsEnabled, DEFAULT_SETTINGS.hapticsEnabled),
+    mobileControlMode,
+    mobileAccessibilityPreset,
+    mobileSkillPreset,
   };
 }
 

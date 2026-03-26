@@ -38,6 +38,9 @@ test('loadSettings sanitizes malformed values', () => {
   expect(settings.masterVolume).toBe(0);
   expect(settings.musicVolume).toBe(1);
   expect(settings.sfxVolume).toBe(0.33);
+  expect(settings.mobileControlMode).toBe('dual_stick');
+  expect(settings.mobileAccessibilityPreset).toBe('standard');
+  expect(settings.mobileSkillPreset).toBe('standard');
 });
 
 test('saveSettings persists normalized payload', () => {
@@ -50,6 +53,9 @@ test('saveSettings persists normalized payload', () => {
     textScale: 1.2,
     muteAll: true,
     masterVolume: 0.65,
+    mobileControlMode: 'one_thumb',
+    mobileAccessibilityPreset: 'assisted',
+    mobileSkillPreset: 'precision',
   });
 
   const reloaded = loadSettings();
@@ -58,6 +64,9 @@ test('saveSettings persists normalized payload', () => {
   expect(reloaded.graphicsQuality).toBe('medium');
   expect(reloaded.textScale).toBe(1.2);
   expect(reloaded.muteAll).toBe(true);
+  expect(reloaded.mobileControlMode).toBe('one_thumb');
+  expect(reloaded.mobileAccessibilityPreset).toBe('assisted');
+  expect(reloaded.mobileSkillPreset).toBe('precision');
 
   const raw = storage.getItem(SETTINGS_KEY);
   expect(raw).toBeTruthy();

@@ -50,6 +50,7 @@ export function getTutorialLevel(): LevelDef {
     platforms,
     envObjects,
     enemies,
+    hazards: [],
     playerStart: { x: 50, y: 480 },
     gemsRequired: 5,
     totalGems: 5,
